@@ -57,6 +57,17 @@ export { listTree, renderTree } from "./node/tree.ts";
 export type { TreeNode } from "./node/tree.ts";
 export { resolveNodeRelPath } from "./node/paths.ts";
 
+export { openPglite, ensureSchema } from "./index/engine.ts";
+export type { IndexConnection } from "./index/engine.ts";
+export { syncPage, syncEntity, syncAll, chunkText } from "./index/sync.ts";
+export { rebuildIndex } from "./index/rebuild.ts";
+export { pgliteIndexHooks } from "./index/hooks.ts";
+export { readIndexMeta, writeIndexMeta, metaPath } from "./index/meta.ts";
+export type { IndexMeta } from "./index/meta.ts";
+export { bm25Query, makeSnippet } from "./retrieve/query.ts";
+export type { QueryOptions, QueryHit } from "./retrieve/query.ts";
+export { bigrams } from "./retrieve/ngrams.ts";
+
 export { parseFrontmatter, serializeFrontmatter, hasValidFrontmatter } from "./frontmatter.ts";
 export type { ParsedMd } from "./frontmatter.ts";
 export { sha256Hex } from "./util/hash.ts";

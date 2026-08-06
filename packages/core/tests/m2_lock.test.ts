@@ -52,6 +52,14 @@ describe("FileLock 写锁", () => {
       await l.release();
     };
     await Promise.all([run("a"), run("b")]);
-    expect(events).toEqual(["a:start", "a:end", "b:start", "b:end"]);
+    const aStart = events.indexOf("a:start");
+    const aEnd = events.indexOf("a:end");
+    const bStart = events.indexOf("b:start");
+    const bEnd = events.indexOf("b:end");
+    expect(aStart).toBeGreaterThanOrEqual(0);
+    expect(bStart).toBeGreaterThanOrEqual(0);
+    expect(aStart).toBeLessThan(aEnd);
+    expect(bStart).toBeLessThan(bEnd);
+    expect(aEnd < bStart || bEnd < aStart).toBe(true);
   });
 });

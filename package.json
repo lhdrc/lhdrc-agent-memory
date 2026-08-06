@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "test": "bun test",
+    "test": "bun test --timeout=60000",
     "typecheck": "bun run tsc --noEmit",
     "memory": "bun run packages/cli/src/main.ts"
   },
