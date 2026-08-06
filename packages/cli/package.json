@@ -1,0 +1,11 @@
+{
+  "name": "@df-memory/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "memory": "./src/main.ts"
+  },
+  "dependencies": {
+    "@df-memory/core": "workspace:*"
+  }
+}
