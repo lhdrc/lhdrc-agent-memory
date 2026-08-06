@@ -1,6 +1,7 @@
 import { MemoryError, ErrorCodes, createEntityRegistry } from "@df-memory/core";
 import { parseArgs, type ParsedArgs } from "../args.ts";
 import { loadContext } from "../context.ts";
+import { createQueue } from "../services.ts";
 
 function usage(sub?: string): void {
   const help: Record<string, string> = {
@@ -15,7 +16,8 @@ function usage(sub?: string): void {
 export async function entityCommand(argv: string[]): Promise<number> {
   const [sub, ...rest] = argv;
   const ctx = await loadContext(argv.includes("--json"));
-  const registry = createEntityRegistry(ctx.repoRoot, ctx.brainId);
+  const queue = await createQueue(ctx.repoRoot);
+  const registry = createEntityRegistry(ctx.repoRoot, ctx.brainId, queue);
 
   switch (sub) {
     case "create": {

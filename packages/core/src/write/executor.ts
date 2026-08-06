@@ -8,13 +8,13 @@ export interface FileMutationExecutor {
   execute(mutation: () => Promise<string[]>, message: string): Promise<string[]>;
 }
 
-export function directGitExecutor(repoRoot: string): FileMutationExecutor {
+export function directGitExecutor(repoRoot: string, commitPrefix = "memory:"): FileMutationExecutor {
   return {
     async execute(mutation, message) {
       const paths = await mutation();
       if (paths.length === 0) return paths;
       await gitAdd(repoRoot, paths);
-      await gitCommit(repoRoot, message);
+      await gitCommit(repoRoot, `${commitPrefix} ${message}`.trim());
       return paths;
     },
   };

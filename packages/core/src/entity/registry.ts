@@ -94,7 +94,7 @@ export class EntityRegistryImpl implements EntityRegistry {
       createdAt: now,
       updatedAt: now,
     };
-    await this.executor.execute(async () => [await this.writeEntityFile(entity)], `memory: entity create ${input.slug}`);
+    await this.executor.execute(async () => [await this.writeEntityFile(entity)], `entity create ${input.slug}`);
     return entity;
   }
 
@@ -199,7 +199,7 @@ export class EntityRegistryImpl implements EntityRegistry {
       await appendFile(ledgerAbs, line + "\n");
       changed.push(ledgerRel);
       return changed;
-    }, `memory: entity merge ${losers.map((l) => l.slug).join(" ")} -> ${canonicalSlug}`);
+    }, `entity merge ${losers.map((l) => l.slug).join(" ")} -> ${canonicalSlug}`);
 
     return updated;
   }
