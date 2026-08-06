@@ -44,7 +44,7 @@ memory sync --commit
 ## 设计要点
 
 - **文件是真相（D1）**：内容存为 md + frontmatter；索引 `.dfmemory/pglite/` 可随时删除，`rebuild-index` 全量恢复。
-- **git 批量账本（D18）**：默认不每写 commit；N/T/退出/`sync --commit` flush；entity merge 等强制即时 commit。
+- **git 批量账本（D18）**：默认不每写 commit；N/T/`sync --commit` flush；entity merge 等强制即时 commit。CLI 每次成功退出还会 best-effort flush（单次 `capture` 命令结束时通常仍会落账本）。`git.mode: off` 时仅显式 `sync --commit` 可提交。
 - **ADD-only（D17）**：L0 capture 只新建节点，不覆盖；重复 path → `E_CONFLICT`。
 - **实体合并 = 文件事务（D13）**：merge 只改文件（canonical + redirect stub + `events/YYYY-MM/ledger.jsonl`），不先改索引。
 - **写入管线（D14）**：所有写入经 `WRITE_FORMAT` 校验 + 单写者队列 + 跨进程文件锁。

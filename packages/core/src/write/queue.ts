@@ -58,11 +58,9 @@ export class WriteQueue implements FileMutationExecutor {
       const lock = new FileLock(this.lockPath, this.cfg.writer.lock_timeout_ms, this.warn);
       await lock.acquire("cli");
       let changed: string[] = [];
-      let written = false;
       try {
         changed = await mutation();
         if (changed.length === 0) return changed;
-        written = true;
 
         try {
           await invokeIndexHooks(this.hooks, this.repoRoot, changed);
@@ -75,25 +73,33 @@ export class WriteQueue implements FileMutationExecutor {
         const commitMsg = `${this.cfg.git.commit_prefix} ${message}`.trim();
 
         if (force) {
-          // 关键路径单独 commit：先刷掉既有 dirty，再只提交本 job
+          // 先 best-effort 刷掉旧 dirty；失败也不并入 force commit
           const prior = await readDirtyState(this.repoRoot);
           if (prior.paths.length > 0) {
-            await this.flushLocked("batch", undefined, false);
+            const priorFlush = await this.flushLocked("batch", undefined, false);
+            if (!priorFlush.committed) {
+              this.warn(
+                `[E_GIT] 先验 dirty flush 失败，将单独提交本 job（旧 dirty 仍保留）`,
+              );
+            }
           }
           await addDirtyPaths(this.repoRoot, changed);
-          await this.flushLocked("force", commitMsg, true);
+          // 只提交本 job 路径，避免与未刷干净的 dirty 混 commit
+          await flushDirtyLedger(this.repoRoot, this.cfg, "force", {
+            paths: changed,
+            message: commitMsg,
+            throwOnError: true,
+            warn: this.warn,
+          });
         } else {
           const state = await addDirtyPaths(this.repoRoot, changed);
-          if (shouldBatchFlush(this.cfg, state.writeCount, state.firstDirtyAt)) {
+          if (shouldBatchFlush(this.cfg, state.writeCount, state.lastFlushAt, state.firstDirtyAt)) {
             await this.flushLocked("batch", undefined, false);
           }
         }
 
         return changed;
       } catch (e) {
-        if (changed.length > 0 && !written) {
-          await rollbackUntracked(this.repoRoot, changed).catch(() => {});
-        }
         if (e instanceof MemoryError) throw e;
         throw new MemoryError(ErrorCodes.INTERNAL, `写队列执行失败: ${e instanceof Error ? e.message : String(e)}`);
       } finally {
@@ -131,16 +137,6 @@ export class WriteQueue implements FileMutationExecutor {
   async close(): Promise<void> {}
 }
 
-/** mutation 失败时尽量删掉本次新建文件（未跟踪路径）。 */
-async function rollbackUntracked(repoRoot: string, paths: string[]): Promise<void> {
-  for (const p of paths) {
-    const abs = join(repoRoot, p);
-    if (existsSync(abs)) {
-      await unlink(abs).catch(() => {});
-    }
-  }
-}
-
 /** 供 sync CLI / 进程退出：持锁 flush dirty。 */
 export async function flushRepoLedger(
   repoRoot: string,
@@ -159,5 +155,15 @@ export async function flushRepoLedger(
     });
   } finally {
     await lock.release();
+  }
+}
+
+/** @deprecated 半写回滚已不再使用；保留避免外部误引用炸掉 */
+export async function rollbackUntracked(repoRoot: string, paths: string[]): Promise<void> {
+  for (const p of paths) {
+    const abs = join(repoRoot, p);
+    if (existsSync(abs)) {
+      await unlink(abs).catch(() => {});
+    }
   }
 }

@@ -159,7 +159,7 @@ created_at: "2026-08-06T00:00:00Z"
 | `git.mode` | 含义 |
 |---|---|
 | `batch` | **默认**：热路径只写文件 + 索引 + 标记 dirty；按触发 flush |
-| `off` | 永不自动 commit；仅显式 `memory sync --commit` |
+| `off` | 永不自动/强制 commit；**仅**显式 `memory sync --commit`（merge/schema 也不即时提交） |
 | `per_write` | 兼容旧行为：每次成功写入都 commit（调试/迁移） |
 
 ### 8.2 Flush 触发（`mode: batch` 且 `auto_commit: true`）

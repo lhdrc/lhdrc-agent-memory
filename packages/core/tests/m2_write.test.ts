@@ -22,6 +22,9 @@ import {
   serializeFrontmatter,
   hasValidFrontmatter,
   flushRepoLedger,
+  readDirtyState,
+  writeDirtyState,
+  shouldForceCommit,
 } from "../src/index.ts";
 import type { CreateNodeRequest } from "../src/write/types.ts";
 
@@ -253,4 +256,48 @@ describe("M2 写入管线与 CLI", () => {
     },
     { timeout: 60_000 },
   );
+
+  test("mode=off 时 shouldForceCommit 为 false，merge 不产生新 commit", async () => {
+    const ymlPath = join(repoRoot, "memory.yml");
+    let yml = await readFile(ymlPath, "utf8");
+    yml = yml.replace(/mode: batch/, "mode: off");
+    await writeFile(ymlPath, yml, "utf8");
+    const cfg = await loadRepoConfig(repoRoot);
+    expect(cfg.git.mode).toBe("off");
+    expect(shouldForceCommit(cfg, { forceCommit: true, kind: "entity_merge" })).toBe(false);
+
+    const before = await gitLog(repoRoot, 5);
+    const q = new WriteQueue(repoRoot, cfg);
+    const reg = createEntityRegistry(repoRoot, "default", q);
+    await reg.create({ slug: "alice", title: "Alice", createdBy: "cli:test" });
+    await reg.create({ slug: "bob", title: "Bob", createdBy: "cli:test" });
+    await reg.merge({ entityIds: ["alice", "bob"], canonical: "alice", confirm: true, mergedBy: "cli:test" });
+    const after = await gitLog(repoRoot, 5);
+    expect(after).toEqual(before);
+    // dirty 仍可显式 flush
+    const flush = await flushRepoLedger(repoRoot, cfg, "explicit", { throwOnError: true });
+    expect(flush.committed).toBe(true);
+  });
+
+  test("force commit 只提交本 job，不吞并未刷干净的先验 dirty", async () => {
+    const cfg = await loadRepoConfig(repoRoot);
+    // 先留下一条无法被 git add 的脏路径（模拟先验 flush 失败后 dirty 残留）
+    await writeDirtyState(repoRoot, {
+      paths: ["does-not-exist-prior.md"],
+      writeCount: 1,
+      lastFlushAt: null,
+      firstDirtyAt: new Date().toISOString(),
+    });
+    const q = new WriteQueue(repoRoot, cfg, undefined, () => {});
+    const reg = createEntityRegistry(repoRoot, "default", q);
+    await reg.create({ slug: "alice", title: "Alice", createdBy: "cli:test" });
+    await reg.create({ slug: "bob", title: "Bob", createdBy: "cli:test" });
+    await reg.merge({ entityIds: ["alice", "bob"], canonical: "alice", confirm: true, mergedBy: "cli:test" });
+    const logs = await gitLog(repoRoot, 3);
+    expect(logs.some((l) => l.includes("entity merge") && l.includes("bob"))).toBe(true);
+    // merge commit 消息不应是混杂的 flush 吞并（本 job 单独 message）
+    expect(logs[0]).toContain("entity merge");
+    const dirty = await readDirtyState(repoRoot);
+    expect(dirty.paths).toContain("does-not-exist-prior.md");
+  });
 });
