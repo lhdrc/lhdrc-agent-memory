@@ -21,6 +21,7 @@ import {
   ErrorCodes,
   serializeFrontmatter,
   hasValidFrontmatter,
+  flushRepoLedger,
 } from "../src/index.ts";
 import type { CreateNodeRequest } from "../src/write/types.ts";
 
@@ -54,7 +55,8 @@ function captureOpts(overrides: Partial<Parameters<typeof captureNode>[3]> = {})
 }
 
 describe("M2 写入管线与 CLI", () => {
-  test("M2-01 capture 生成文件且 git log 有 commit", async () => {
+  test("M2-01 capture 生成文件（batch 下不立即 commit）", async () => {
+    const before = await gitLog(repoRoot, 5);
     const rel = await captureNode(repoRoot, pack, queue, captureOpts());
     expect(rel).toContain("issues/general/decisions/");
     const abs = join(repoRoot, rel);
@@ -62,8 +64,47 @@ describe("M2 写入管线与 CLI", () => {
     const { data } = parseFrontmatter(raw);
     expect(data.status).toBe("active");
     expect(data.title).toBe("重试策略");
+    const after = await gitLog(repoRoot, 5);
+    expect(after).toEqual(before);
+  });
+
+  test("M2-11 sync flush → git log 有账本 commit", async () => {
+    await captureNode(repoRoot, pack, queue, captureOpts());
+    const cfg = await loadRepoConfig(repoRoot);
+    const result = await flushRepoLedger(repoRoot, cfg, "explicit", { throwOnError: true });
+    expect(result.committed).toBe(true);
+    expect(result.fileCount).toBeGreaterThan(0);
     const logs = await gitLog(repoRoot, 1);
-    expect(logs[0]).toContain("memory: capture decision issues/general/decisions/1-重试策略.md");
+    expect(logs[0]).toMatch(/memory: flush /);
+  });
+
+  test("M2-12 entity merge 强制即时 commit", async () => {
+    const registry = createEntityRegistry(repoRoot, "default", queue);
+    await registry.create({ slug: "alice", title: "Alice", createdBy: "cli:test" });
+    await registry.create({ slug: "bob", title: "Bob", createdBy: "cli:test" });
+    await registry.merge({ entityIds: ["alice", "bob"], canonical: "alice", confirm: true, mergedBy: "cli:test" });
+    const logs = await gitLog(repoRoot, 3);
+    expect(logs.some((l) => l.includes("entity merge") && l.includes("bob") && l.includes("alice"))).toBe(true);
+  });
+
+  test("M2-13 索引 hook 抛错不删已写文件", async () => {
+    const cfg = await loadRepoConfig(repoRoot);
+    const warned: string[] = [];
+    const q = new WriteQueue(
+      repoRoot,
+      cfg,
+      {
+        onFilesWritten: async () => {
+          throw new Error("boom");
+        },
+      },
+      (m) => warned.push(m),
+    );
+    const rel = await captureNode(repoRoot, pack, q, captureOpts({ title: "hook-fail-m2" }));
+    expect(rel).toContain("hook-fail");
+    expect(warned.some((w) => w.includes("[E_INDEX]"))).toBe(true);
+    const exists = await stat(join(repoRoot, rel)).then(() => true).catch(() => false);
+    expect(exists).toBe(true);
   });
 
   test("M2-02 缺 title → E_VALIDATION field=title，无新文件", async () => {
@@ -164,48 +205,52 @@ describe("M2 写入管线与 CLI", () => {
     expect(hasValidFrontmatter(raw)).toBe(true);
   });
 
-  test("M2-05 并行两个 capture 进程：均成功或一个 E_LOCK，文件树一致无半写", async () => {
-    const jobs = [0, 1].map((i) =>
-      Bun.spawn({
-        cmd: [
-          "bun",
-          "run",
-          "memory",
-          "--",
-          "capture",
-          "--title",
-          `并行决策${i}`,
-          "--type",
-          "decision",
-          "--body",
-          `第 ${i} 个并行写入`,
-        ],
-        cwd: process.cwd(),
-        env: { ...process.env, DF_MEMORY_ROOT: repoRoot },
-        stdout: "pipe",
-        stderr: "pipe",
-      }),
-    );
-    const results = await Promise.all(
-      jobs.map(async (p) => {
-        const [out, err] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text()]);
-        return { exit: await p.exited, out: out.trim(), err: err.trim() };
-      }),
-    );
-    for (const r of results) {
-      if (r.exit !== 0) {
-        expect(r.exit).toBe(2);
-        expect(r.err).toContain("E_LOCK");
+  test(
+    "M2-05 并行两个 capture 进程：均成功或一个 E_LOCK，文件树一致无半写",
+    async () => {
+      const bunBin = process.execPath;
+      const cliMain = join(import.meta.dir, "../../cli/src/main.ts");
+      const jobs = [0, 1].map((i) =>
+        Bun.spawn({
+          cmd: [
+            bunBin,
+            cliMain,
+            "capture",
+            "--title",
+            `并行决策${i}`,
+            "--type",
+            "decision",
+            "--body",
+            `第 ${i} 个并行写入`,
+          ],
+          cwd: repoRoot,
+          env: { ...process.env, DF_MEMORY_ROOT: repoRoot },
+          stdout: "pipe",
+          stderr: "pipe",
+        }),
+      );
+      const results = await Promise.all(
+        jobs.map(async (p) => {
+          const [out, err] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text()]);
+          return { exit: await p.exited, out: out.trim(), err: err.trim() };
+        }),
+      );
+      for (const r of results) {
+        if (r.exit !== 0) {
+          expect(r.exit).toBe(2);
+          expect(r.err).toContain("E_LOCK");
+        }
       }
-    }
-    const dirAbs = join(repoRoot, "brains/default/sources/default/issues/general/decisions");
-    const files = (await readdir(dirAbs)).filter((f) => f.endsWith(".md")).sort();
-    expect(files).toHaveLength(2);
-    for (const f of files) {
-      const raw = await readFile(join(dirAbs, f), "utf8");
-      const { data } = parseFrontmatter(raw);
-      expect(data.status).toBe("active");
-      expect(String(data.title)).toMatch(/^并行决策[01]$/);
-    }
-  });
+      const dirAbs = join(repoRoot, "brains/default/sources/default/issues/general/decisions");
+      const files = (await readdir(dirAbs)).filter((f) => f.endsWith(".md")).sort();
+      expect(files).toHaveLength(2);
+      for (const f of files) {
+        const raw = await readFile(join(dirAbs, f), "utf8");
+        const { data } = parseFrontmatter(raw);
+        expect(data.status).toBe("active");
+        expect(String(data.title)).toMatch(/^并行决策[01]$/);
+      }
+    },
+    { timeout: 60_000 },
+  );
 });

@@ -1,11 +1,14 @@
 #!/usr/bin/env bun
 import { MemoryError, isUserError } from "@df-memory/core";
-import { run } from "./run.ts";
+import { run, bestEffortExitFlush } from "./run.ts";
 
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   try {
     const code = await run(argv);
+    if (code === 0) {
+      await bestEffortExitFlush();
+    }
     process.exit(code ?? 0);
   } catch (e) {
     const wantJson = argv.includes("--json");

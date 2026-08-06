@@ -22,5 +22,5 @@ export async function setSchemaPack(
       writeFile(brainFile, replaceSchemaPackLine(brainRaw, packId), "utf8"),
     ]);
     return ["memory.yml", `brains/${brainId}/brain.yml`];
-  }, `schema use ${packId}`);
+  }, `schema use ${packId}`, { forceCommit: true, kind: "schema_use" });
 }

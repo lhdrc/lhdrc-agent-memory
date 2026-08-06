@@ -1,11 +1,15 @@
 import { join } from "node:path";
+import { unlink } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { MemoryError, ErrorCodes } from "../errors.ts";
 import type { RepoConfig } from "../repo/config.ts";
-import { gitAdd, gitCommit, gitCheckoutRollback } from "../repo/git.ts";
 import type { FileMutationExecutor } from "./executor.ts";
 import { FileLock } from "./lock.ts";
 import type { IndexSyncHooks } from "./hooks.ts";
-import { noopIndexHooks } from "./hooks.ts";
+import { noopIndexHooks, invokeIndexHooks } from "./hooks.ts";
+import { addDirtyPaths, readDirtyState } from "./dirty.ts";
+import { flushDirtyLedger } from "./flush.ts";
+import { shouldBatchFlush, shouldForceCommit, type ExecuteOptions, type FlushReason } from "./flush-policy.ts";
 
 export type WriteJob =
   | { type: "create_node"; payload: unknown }
@@ -14,15 +18,14 @@ export type WriteJob =
   | { type: "entity_merge"; payload: unknown };
 
 /**
- * 单写者串行写队列：进程内 mutex + 跨进程文件锁。
- * 每个 job：持锁 → mutation（含 TOCTOU 复查）→ git commit → 索引 hook → 放锁。
- * 若 commit 失败，回滚本次变更的文件并抛 E_GIT。
+ * 单写者串行写队列（D18）：
+ * 持锁 → 写 md → 索引 hook → 标记 dirty → 条件/强制 flush → 放锁。
+ * 文件落盘后失败不回滚权威文件。
  */
 export class WriteQueue implements FileMutationExecutor {
   private chain: Promise<unknown> = Promise.resolve();
   private readonly lockPath: string;
-  private readonly commitPrefix: string;
-  private readonly lockTimeoutMs: number;
+  private readonly cfg: RepoConfig;
 
   constructor(
     private readonly repoRoot: string,
@@ -30,9 +33,8 @@ export class WriteQueue implements FileMutationExecutor {
     private readonly hooks: IndexSyncHooks = noopIndexHooks,
     onLockWarn?: (msg: string) => void,
   ) {
+    this.cfg = cfg;
     this.lockPath = join(repoRoot, cfg.writer.lock_file);
-    this.commitPrefix = cfg.git.commit_prefix;
-    this.lockTimeoutMs = cfg.writer.lock_timeout_ms;
     this.warn = onLockWarn ?? ((m) => console.error(m));
   }
 
@@ -47,31 +49,115 @@ export class WriteQueue implements FileMutationExecutor {
     return next;
   }
 
-  /** 串行执行一次文件变更并提交。 */
-  execute(mutation: () => Promise<string[]>, message: string): Promise<string[]> {
+  /**
+   * 串行执行一次文件变更。
+   * @param message 强制 commit / per_write 时的 commit 说明
+   */
+  execute(mutation: () => Promise<string[]>, message: string, opts?: ExecuteOptions): Promise<string[]> {
     return this.enqueue(async () => {
-      const lock = new FileLock(this.lockPath, this.lockTimeoutMs, this.warn);
+      const lock = new FileLock(this.lockPath, this.cfg.writer.lock_timeout_ms, this.warn);
       await lock.acquire("cli");
       let changed: string[] = [];
+      let written = false;
       try {
         changed = await mutation();
-        if (changed.length > 0) {
-          await gitAdd(this.repoRoot, changed);
-          await gitCommit(this.repoRoot, `${this.commitPrefix} ${message}`.trim());
-          await this.hooks.onFilesCommitted(this.repoRoot, changed);
+        if (changed.length === 0) return changed;
+        written = true;
+
+        try {
+          await invokeIndexHooks(this.hooks, this.repoRoot, changed);
+        } catch (hookErr) {
+          const msg = hookErr instanceof Error ? hookErr.message : String(hookErr);
+          this.warn(`[E_INDEX] 索引同步失败（文件已写入，可执行 rebuild-index）: ${msg}`);
         }
+
+        const force = shouldForceCommit(this.cfg, opts);
+        const commitMsg = `${this.cfg.git.commit_prefix} ${message}`.trim();
+
+        if (force) {
+          // 关键路径单独 commit：先刷掉既有 dirty，再只提交本 job
+          const prior = await readDirtyState(this.repoRoot);
+          if (prior.paths.length > 0) {
+            await this.flushLocked("batch", undefined, false);
+          }
+          await addDirtyPaths(this.repoRoot, changed);
+          await this.flushLocked("force", commitMsg, true);
+        } else {
+          const state = await addDirtyPaths(this.repoRoot, changed);
+          if (shouldBatchFlush(this.cfg, state.writeCount, state.firstDirtyAt)) {
+            await this.flushLocked("batch", undefined, false);
+          }
+        }
+
         return changed;
       } catch (e) {
-        if (changed.length > 0) {
-          await gitCheckoutRollback(this.repoRoot, changed).catch(() => {});
+        if (changed.length > 0 && !written) {
+          await rollbackUntracked(this.repoRoot, changed).catch(() => {});
         }
         if (e instanceof MemoryError) throw e;
-        throw new MemoryError(ErrorCodes.GIT, `写队列执行失败: ${e instanceof Error ? e.message : String(e)}`);
+        throw new MemoryError(ErrorCodes.INTERNAL, `写队列执行失败: ${e instanceof Error ? e.message : String(e)}`);
       } finally {
         await lock.release();
       }
     });
   }
 
+  /** 显式 / 退出 flush（自行持锁）。 */
+  async flush(reason: FlushReason, message?: string): Promise<{ committed: boolean; fileCount: number }> {
+    return this.enqueue(async () => {
+      const lock = new FileLock(this.lockPath, this.cfg.writer.lock_timeout_ms, this.warn);
+      await lock.acquire("cli");
+      try {
+        return await this.flushLocked(reason, message, reason === "explicit" || reason === "force");
+      } finally {
+        await lock.release();
+      }
+    });
+  }
+
+  private async flushLocked(
+    reason: FlushReason,
+    message: string | undefined,
+    throwOnError: boolean,
+  ): Promise<{ committed: boolean; fileCount: number }> {
+    const result = await flushDirtyLedger(this.repoRoot, this.cfg, reason, {
+      message,
+      throwOnError,
+      warn: this.warn,
+    });
+    return { committed: result.committed, fileCount: result.fileCount };
+  }
+
   async close(): Promise<void> {}
+}
+
+/** mutation 失败时尽量删掉本次新建文件（未跟踪路径）。 */
+async function rollbackUntracked(repoRoot: string, paths: string[]): Promise<void> {
+  for (const p of paths) {
+    const abs = join(repoRoot, p);
+    if (existsSync(abs)) {
+      await unlink(abs).catch(() => {});
+    }
+  }
+}
+
+/** 供 sync CLI / 进程退出：持锁 flush dirty。 */
+export async function flushRepoLedger(
+  repoRoot: string,
+  cfg: RepoConfig,
+  reason: FlushReason,
+  opts?: { message?: string; throwOnError?: boolean; warn?: (m: string) => void },
+): Promise<{ committed: boolean; fileCount: number }> {
+  const warn = opts?.warn ?? ((m: string) => console.error(m));
+  const lock = new FileLock(join(repoRoot, cfg.writer.lock_file), cfg.writer.lock_timeout_ms, warn);
+  await lock.acquire("flush");
+  try {
+    return await flushDirtyLedger(repoRoot, cfg, reason, {
+      message: opts?.message,
+      throwOnError: opts?.throwOnError ?? (reason === "explicit" || reason === "force"),
+      warn,
+    });
+  } finally {
+    await lock.release();
+  }
 }

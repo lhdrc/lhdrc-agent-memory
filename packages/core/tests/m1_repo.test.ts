@@ -43,6 +43,10 @@ describe("M1 仓库与文件权威", () => {
     }
     const logs = await gitLog(root, 1);
     expect(logs[0]).toBe("memory: init brain default");
+    const yml = await readFile(join(root, "memory.yml"), "utf8");
+    expect(yml).toContain("mode: batch");
+    const gi = await readFile(join(root, ".gitignore"), "utf8");
+    expect(gi).toContain("git-dirty.json");
   });
 
   test("M1-02 已 init 再 init 无 force → E_USAGE", async () => {
@@ -92,6 +96,8 @@ describe("M1 仓库与文件权威", () => {
     expect(line.type).toBe("entity_merged");
     expect(line.from).toContain("bob");
     expect(line.to).toBe("alice");
+    const logs = await gitLog(root, 3);
+    expect(logs.some((l) => l.includes("entity merge") && l.includes("bob"))).toBe(true);
   });
 
   test("M1-06 merge 后 resolve loser → canonical", async () => {

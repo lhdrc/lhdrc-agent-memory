@@ -8,10 +8,19 @@ export interface RepoConfig {
   version: number;
   brain_id: string;
   schema_pack: string;
-  git: { auto_commit: boolean; commit_prefix: string };
+  git: {
+    mode: "off" | "batch" | "per_write";
+    auto_commit: boolean;
+    commit_prefix: string;
+    batch_size: number;
+    batch_interval_ms: number;
+    force_commit_on: string[];
+  };
   index: { engine: string; path: string };
   writer: { lock_file: string; lock_timeout_ms: number };
 }
+
+const DEFAULT_FORCE_COMMIT_ON = ["entity_merge", "schema_use", "purge"];
 
 export async function loadRepoConfig(repoRoot: string): Promise<RepoConfig> {
   let raw: string;
@@ -21,13 +30,21 @@ export async function loadRepoConfig(repoRoot: string): Promise<RepoConfig> {
     throw new MemoryError(ErrorCodes.NOT_FOUND, `memory.yml 不存在于 ${repoRoot}（不是记忆仓）`);
   }
   const data = (parseYaml(raw) ?? {}) as Record<string, any>;
+  const modeRaw = String(data.git?.mode ?? "batch");
+  const mode = modeRaw === "off" || modeRaw === "per_write" || modeRaw === "batch" ? modeRaw : "batch";
   return {
     version: data.version ?? 1,
     brain_id: data.brain_id ?? "default",
     schema_pack: data.schema_pack ?? "problem-tree",
     git: {
+      mode,
       auto_commit: data.git?.auto_commit ?? true,
       commit_prefix: data.git?.commit_prefix ?? "memory:",
+      batch_size: Number(data.git?.batch_size ?? 20) || 20,
+      batch_interval_ms: Number(data.git?.batch_interval_ms ?? 300_000) || 300_000,
+      force_commit_on: Array.isArray(data.git?.force_commit_on)
+        ? data.git.force_commit_on.map(String)
+        : [...DEFAULT_FORCE_COMMIT_ON],
     },
     index: {
       engine: data.index?.engine ?? "pglite",

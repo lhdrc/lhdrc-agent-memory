@@ -2,7 +2,8 @@
 
 > **一句话**：人/脚本用 CLI 往一个 brain 里 ADD-only 写入 md，能查回来，索引丢了能 rebuild。  
 > **状态**：ready  
-> **技术栈**：Bun + TypeScript；PGLite；git；零 LLM 默认可跑。
+> **技术栈**：Bun + TypeScript；PGLite；**文件权威** + git 可选批量账本（D18）；零 LLM 默认可跑。  
+> **架构对齐**：08 **D1 / D18**——热路径不借 git；见 [`00-conventions.md`](00-conventions.md) §8。
 
 ## 实现顺序
 
@@ -16,7 +17,7 @@
 
 | 文件 | 用途 |
 |---|---|
-| [`00-conventions.md`](00-conventions.md) | 仓库布局、命名、错误码、配置 |
+| [`00-conventions.md`](00-conventions.md) | 仓库布局、命名、错误码、配置、**D18 flush** |
 | [`WRITE_FORMAT.md`](WRITE_FORMAT.md) | 写入校验规格（D14） |
 | [`schema-packs/problem-tree.yml`](schema-packs/problem-tree.yml) | 默认 schema pack |
 
@@ -33,6 +34,7 @@ memory forget
 memory entity list|resolve|merge|create
 memory rebuild-index
 memory schema use
+memory sync --commit
 ```
 
 ## MVP 总验收口令
@@ -43,6 +45,7 @@ cd demo && bun run memory -- capture --title "重试策略" --type decision --bo
 bun run memory -- query "重试"
 bun run memory -- rebuild-index
 bun run memory -- query "重试"   # 结果语义一致
+bun run memory -- sync --commit  # 可选：把 dirty 刷进 git 账本
 bun run memory -- entity create --slug alice --title "Alice"
 bun run memory -- entity create --slug a-smith --title "A Smith" --alias alice
 # 上面若 alias 冲突则改用 merge：
@@ -53,4 +56,4 @@ bun run memory -- entity resolve a-smith   # → alice
 
 ## 明确不做（二期）
 
-MCP、REST、LLM 提取/蒸馏/结晶、向量检索、RRF、图谱、dream、多租户、硬删产品化。
+MCP、REST、LLM 提取/蒸馏/结晶、向量检索、RRF、图谱、dream、多租户、硬删产品化、完整外部仓 git pull/diff sync。

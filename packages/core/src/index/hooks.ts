@@ -3,9 +3,9 @@ import { openPglite, ensureSchema } from "./engine.ts";
 import { syncPage, syncEntity } from "./sync.ts";
 import { readIndexMeta, writeIndexMeta } from "./meta.ts";
 
-/** M3 实现 M2 的 onFilesCommitted hook：增量同步 + 刷新 index-meta。 */
+/** M3：文件落盘后增量同步 + 刷新 index-meta（D18：不依赖 git commit）。 */
 export const pgliteIndexHooks: IndexSyncHooks = {
-  async onFilesCommitted(repoRoot, paths) {
+  async onFilesWritten(repoRoot, paths) {
     const conn = await openPglite(repoRoot);
     try {
       await ensureSchema(conn.db);

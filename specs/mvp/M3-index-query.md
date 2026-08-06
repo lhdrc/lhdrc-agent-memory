@@ -5,7 +5,7 @@
 | ID | M3 |
 | 状态 | ready |
 | 依赖 | M2 |
-| 对应架构 | 08 §5.2（子集）、§5.3、§18.2 检索面 |
+| 对应架构 | 08 §5.2（子集）、§5.3、§5.4、§18.2 检索面；**D1/D18**（索引派生，写路径不依赖 git commit） |
 
 ## 1. 目标
 
@@ -28,7 +28,7 @@ packages/core/src/index/
   schema.sql         # DDL
   sync.ts            # upsertFromFile / softDelete
   rebuild.ts
-  hooks.ts           # 实现 M2 onFilesCommitted
+  hooks.ts           # 实现 M2 onFilesWritten（可别名 onFilesCommitted）
 packages/core/src/retrieve/
   query.ts           # bm25Query
   rank.ts            # title/path boost
@@ -115,7 +115,7 @@ archived：`status='archived'` 仍保留行，query 默认 `WHERE status='active
 
 ### 5.3 softDelete
 
-文件从 git/工作区删除时（MVP forget 不删文件）：若将来物理删，则 `DELETE FROM pages WHERE path=?`（CASCADE chunks）。
+文件从工作区物理删除时（MVP forget 不删文件）：若将来物理删，则 `DELETE FROM pages WHERE path=?`（CASCADE chunks）。与是否已 git commit 无关。
 
 ### 5.4 entity_registry 同步
 
@@ -129,8 +129,11 @@ archived：`status='archived'` 仍保留行，query 默认 `WHERE status='active
 
 ### 5.5 Hook
 
+> 在文件**已落盘**后调用（D18：可能尚未 `git commit`）。语义是「工作区已变」，不是「账本已提交」。  
+> 实现可保留别名 `onFilesCommitted`，但文档与测试按「写后同步」理解。
+
 ```ts
-async function onFilesCommitted(repoRoot: string, paths: string[]): Promise<void> {
+async function onFilesWritten(repoRoot: string, paths: string[]): Promise<void> {
   for (const p of paths) {
     if (p.includes("/entities/")) await syncEntity(p);
     else if (p.endsWith(".md") && p.includes("/sources/")) await syncPage(p);
@@ -138,6 +141,8 @@ async function onFilesCommitted(repoRoot: string, paths: string[]): Promise<void
   update index-meta.json
 }
 ```
+
+失败时：抛错由 WriteQueue 捕获为 warn，**禁止**回滚已写 md（D1）。
 
 ## 6. 中文与 BM25
 
@@ -233,7 +238,7 @@ resolve loser → canonical   # 必须仍成立
 | M3-04 | 未改文件再 sync | | content_hash 跳过，无错误 |
 | M3-05 | entity merge + rebuild | resolve | canonical 正确 |
 | M3-06 | 中文标题「支付网关超时」 | query「网关」 | 能命中（ngram） |
-| M3-07 | capture 后未手工 rebuild | query | 因 hook 已增量同步，可命中 |
+| M3-07 | capture 后未手工 rebuild | query | 因 hook 已增量同步，可命中（**不依赖** git commit / `sync --commit`） |
 
 ## 11. DoD
 

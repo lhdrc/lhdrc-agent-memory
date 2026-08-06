@@ -8,7 +8,7 @@ export async function rebuildIndexCommand(argv: string[]): Promise<number> {
     { name: "json", type: "boolean" },
   ]);
   const ctx = await loadContext(Boolean(o.json));
-  const { fileCount } = await rebuildIndex(ctx.repoRoot);
+  const { fileCount } = await rebuildIndex(ctx.repoRoot, ctx.brainId);
   if (o.json) console.log(JSON.stringify({ rebuilt: true, fileCount }));
   else console.log(`index rebuilt: ${fileCount} pages`);
   return 0;

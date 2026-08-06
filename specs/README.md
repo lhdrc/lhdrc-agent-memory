@@ -2,11 +2,11 @@
 
 > **权威架构**：[`../reports/08-开源记忆模块设计方案.md`](../reports/08-开源记忆模块设计方案.md)  
 > **本目录定位**：给软件工程师直接开工的实现规格。架构语义以 08 为准；本目录裁实现切片并补齐接口/数据/验收细节。  
-> **技术栈（交付锁定）**：TypeScript + Bun；索引 PGLite；权威存储 md+git。Java 不实现。
+> **技术栈（交付锁定）**：TypeScript + Bun；索引 PGLite；权威存储 **md + frontmatter（D1）**；git 为可选批量账本（**D18**）。Java 不实现。
 
 ## 阅读顺序
 
-1. 读 08 §0 ADR（尤其 D1/D2/D13/D17）与 §18 分期  
+1. 读 08 §0 ADR（尤其 **D1/D2/D13/D17/D18**）与 §18 分期  
 2. 读 [`mvp/README.md`](mvp/README.md)，按 **M1 → M2 → M3** 实现  
 3. MVP 验收通过后再读 [`二期/README.md`](二期/README.md)，按 **P2.1a → P2.1b → P2.2 → P2.3 → P2.4 → P2.5**
 

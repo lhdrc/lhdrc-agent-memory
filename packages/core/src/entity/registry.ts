@@ -99,11 +99,59 @@ export class EntityRegistryImpl implements EntityRegistry {
   }
 
   async resolve(aliasOrSlug: string): Promise<Entity> {
+    // M3 §5.4：先查 entity_registry，miss / 索引不可用再扫文件
+    const fromIndex = await this.lookupCanonicalInIndex(aliasOrSlug);
+    if (fromIndex) {
+      const e = await this.readEntityFile(fromIndex);
+      if (e) {
+        if (e.status === "merged") {
+          if (!e.redirect) {
+            throw new MemoryError(ErrorCodes.INTERNAL, `实体 ${fromIndex} 为 merged 但缺少 redirect`);
+          }
+          return this.resolve(e.redirect);
+        }
+        return e;
+      }
+    }
     const e = await this.resolveInternal(aliasOrSlug, 0);
     if (!e) {
       throw new MemoryError(ErrorCodes.NOT_FOUND, `实体不存在: ${aliasOrSlug}`);
     }
     return e;
+  }
+
+  /** 索引命中则返回 canonical_slug；无索引目录 / 失败返回 null（fallback 文件，M1 兼容）。 */
+  private async lookupCanonicalInIndex(name: string): Promise<string | null> {
+    try {
+      const { loadRepoConfig } = await import("../repo/config.ts");
+      const cfg = await loadRepoConfig(this.repoRoot);
+      const dataDir = join(this.repoRoot, cfg.index.path);
+      // 未建过索引时不主动 openPglite（避免 M1 纯文件路径被拖慢）
+      if (!existsSync(dataDir)) return null;
+
+      const { openPglite, ensureSchema } = await import("../index/engine.ts");
+      const conn = await openPglite(this.repoRoot);
+      try {
+        await ensureSchema(conn.db);
+        const bySlug = await conn.db.query<{ canonical_slug: string }>(
+          `SELECT canonical_slug FROM entity_registry WHERE slug = $1 LIMIT 1`,
+          [name],
+        );
+        if (bySlug.rows[0]?.canonical_slug) return bySlug.rows[0].canonical_slug;
+
+        // aliases_json 为 JSON 字符串数组；jsonb ? 检查顶层数组元素
+        const byAlias = await conn.db.query<{ canonical_slug: string }>(
+          `SELECT canonical_slug FROM entity_registry WHERE aliases_json::jsonb ? $1 LIMIT 1`,
+          [name],
+        );
+        if (byAlias.rows[0]?.canonical_slug) return byAlias.rows[0].canonical_slug;
+        return null;
+      } finally {
+        await conn.close();
+      }
+    } catch {
+      return null;
+    }
   }
 
   private async resolveInternal(name: string, depth: number): Promise<Entity | null> {
@@ -199,7 +247,10 @@ export class EntityRegistryImpl implements EntityRegistry {
       await appendFile(ledgerAbs, line + "\n");
       changed.push(ledgerRel);
       return changed;
-    }, `entity merge ${losers.map((l) => l.slug).join(" ")} -> ${canonicalSlug}`);
+    }, `entity merge ${losers.map((l) => l.slug).join(" ")} -> ${canonicalSlug}`, {
+      forceCommit: true,
+      kind: "entity_merge",
+    });
 
     return updated;
   }
