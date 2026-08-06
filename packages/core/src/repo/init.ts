@@ -63,7 +63,10 @@ export async function initMemoryRepo(dir: string, opts: InitOptions): Promise<st
 
   try {
     await writeFile(join(abs, "memory.yml"), memoryYml(opts.brain, pack.id));
-    await writeFile(join(abs, ".gitignore"), ".dfmemory/pglite/\n.dfmemory/write.lock\n");
+    await writeFile(
+      join(abs, ".gitignore"),
+      ".dfmemory/pglite/\n.dfmemory/write.lock\n.dfmemory/index-meta.json\n",
+    );
 
     await mkdir(join(abs, ".dfmemory", "logs"), { recursive: true });
     await writeFile(
