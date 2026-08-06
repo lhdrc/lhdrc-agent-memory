@@ -1,0 +1,54 @@
+# schema pack: problem-tree
+
+> 默认包。核心只读本 YAML，不硬编码 issue 语义。
+
+```yaml
+id: problem-tree
+version: 1
+description: Issue-driven task memory (requirement / decisions / lessons)
+
+schema_types:
+  - requirement
+  - decision
+  - lesson
+  - note
+
+merge_op:
+  requirement: immutable
+  decision: append
+  lesson: append
+  note: patch
+
+# 相对 sources/{sourceId}/
+filename_templates:
+  requirement: "issues/{issue}/requirement.md"
+  decision: "issues/{issue}/decisions/{n}-{slug}.md"
+  lesson: "issues/{issue}/lessons.md"
+  note: "notes/{date}-{slug}.md"
+
+# 同目录多文件时 {n} 起始
+n_start: 1
+
+intent_lexicon:
+  task:
+    - issue
+    - 工单
+    - 需求
+    - bug
+    - 任务
+  experience:
+    - 经验
+    - lesson
+    - 踩坑
+  person:
+    - 谁
+    - @ 
+
+directories_on_init:
+  - "sources/default"
+  - "sources/default/issues"
+  - "entities"
+  - "events"
+  - "experiences"
+  - "skills"
+```
