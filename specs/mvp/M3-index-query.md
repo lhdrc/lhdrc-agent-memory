@@ -249,4 +249,4 @@ resolve loser → canonical   # 必须仍成立
 
 ## 12. MVP 完成标志
 
-M1+M2+M3 DoD 全部勾选后，**MVP 可发布 pre-alpha CLI**。此后进入 `specs/二期/`。
+M1+M2+M3 DoD 全部勾选后，**MVP 可发布 pre-alpha CLI**。此后进入 `specs/二期/`（P2.1a → P2.2）；图谱/结晶/多租户见 `specs/三期/`；MCP/REST 见 `specs/四期/`（最后）。

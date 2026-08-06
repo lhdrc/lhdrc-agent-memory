@@ -1,6 +1,6 @@
 # WRITE_FORMAT.md — 写入格式规格（D14）
 
-> 所有 L0 写入入口（`capture` / `import` / 二期 MCP·REST）必须通过本规格校验。  
+> 所有 L0 写入入口（`capture` / `import` / 四期 MCP·REST）必须通过本规格校验。  
 > 实现：`WriteValidator.validate(req) → ValidationResult`。  
 > 版本：与包版本同步；破坏性变更升 major。
 

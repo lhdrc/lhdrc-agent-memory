@@ -1,0 +1,23 @@
+# 四期 Specs
+
+> **前提**：建议三期（P3.1–P3.3）完成后再做；至少二期（P2.1a + P2.2）已完成。  
+> **原则**：agent 访问面最后落地，绑定已稳定的检索/蒸馏（及可选多租户鉴权）契约。  
+> **本期产品承诺**：MCP + REST 子集 + 至少一个 agent 适配器；agent **不**把直接读仓文件当主 API。
+
+## 实现顺序
+
+| 顺序 | Spec | 文件 | 原 ID | 依赖 |
+|---|---|---|---|---|
+| 1 | P4.1 MCP/REST/适配器 | [`P4.1-mcp-rest-adapters.md`](P4.1-mcp-rest-adapters.md) | P2.3 | M2, P2.1a；建议 P2.2、P3.3 |
+
+## 新增包（建议）
+
+```
+packages/mcp/
+packages/adapters/claude-code/
+packages/server/          # REST 可选与 cli 同进程
+```
+
+## 四期完成标志
+
+P4.1 DoD 勾选后，访问面交付完成；可开正式版版本号规划。

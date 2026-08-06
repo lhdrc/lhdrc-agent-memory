@@ -3,3 +3,4 @@ dist/
 *.log
 .dfmemory/pglite/
 .dfmemory/write.lock
+gbrain-文件管理设计.md
