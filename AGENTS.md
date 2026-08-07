@@ -5,7 +5,7 @@
 ## 项目是什么
 
 **df-memory**：开源、单机、本地部署的记忆模块——「agent 的 git + 知识库」。  
-当前交付焦点：**CLI MVP**（可写可查的本地记忆仓），不是完整的蒸馏飞轮。
+当前交付焦点：MVP + **二期已落地**（混合检索 + L1 蒸馏）；三期/四期未获明确要求前不做。
 
 > 口号里的「git」指版本化知识仓体验；**实现上热路径以 md 文件为权威**，git 为可选批量账本（08 **D1/D18**）。
 
@@ -14,7 +14,7 @@
 | 优先级 | 路径 | 用途 |
 |---|---|---|
 | 1 | [`specs/mvp/`](specs/mvp/) | **实现规格**——按此编码与验收 |
-| 2 | [`specs/二期/`](specs/二期/) · [`三期/`](specs/三期/) · [`四期/`](specs/四期/) | MVP 后再做（检索蒸馏 → 飞轮/多租户 → **最后** MCP/REST） |
+| 2 | [`specs/二期/`](specs/二期/) · [`三期/`](specs/三期/) · [`四期/`](specs/四期/) | 二期已做；三期飞轮/多租户；**四期最后** MCP/REST |
 | 3 | [`reports/08-开源记忆模块设计方案.md`](reports/08-开源记忆模块设计方案.md) | 架构与 ADR；与 Spec 冲突时 **先改 Spec/ADR 再改代码** |
 | 4 | [`reports/01`](reports/01-gbrain-调研报告.md)–[`05`](reports/05-四项目对比总结.md) | 调研背景，不直接当接口规格 |
 
@@ -22,14 +22,15 @@
 
 ## 当前状态与接下来做什么
 
-**MVP（M1–M3 + D18）已落地**：`packages/core` + `packages/cli`，`bun test packages/core/tests/` 为回归基线。
+**MVP（M1–M3 + D18）已落地**；**二期（P2.1a + P2.2）已落地**：混合检索（embedding 可关、RRF、中文门禁）+ L1 蒸馏（`refine` / experiences / memory_diff）。  
+回归：`bun test packages/core/tests/`。
 
-1. 改行为前先读 / 更新对应 Spec（[`00-conventions.md`](specs/mvp/00-conventions.md) §8、M1/M2/M3）  
-2. 写入校验以 [`WRITE_FORMAT.md`](specs/mvp/WRITE_FORMAT.md) 为准  
-3. **不要**开始二期及以后（向量 / 蒸馏 / 图谱 / 结晶 / 多租户 / **MCP·REST** / 外部仓 git sync），除非用户明确要求  
+1. 改行为前先读 / 更新对应 Spec（[`00-conventions.md`](specs/mvp/00-conventions.md) §8、M1/M2/M3、[`二期/`](specs/二期/)）  
+2. 写入校验以 [`WRITE_FORMAT.md`](specs/mvp/WRITE_FORMAT.md) 为准（含 experience §9）  
+3. **不要**开始三期/四期（图谱 / 结晶 / dream / 多租户 / **MCP·REST** / 外部仓 git sync），除非用户明确要求  
 4. 与 Spec 冲突时：**先改 Spec/08 ADR，再改代码**  
 
-分期速查：二期 = P2.1a+P2.2；三期 = P3.1–P3.3；四期 = P4.1（MCP/REST 最后）。
+分期速查：二期 = P2.1a+P2.2（**done**）；三期 = P3.1–P3.3；四期 = P4.1（MCP/REST 最后）。
 
 ## 技术栈（已锁定）
 
@@ -38,7 +39,7 @@
 - 版本账本：git **可选批量 flush**（默认 `git.mode: batch`）  
 - 索引：**PGLite**（`.dfmemory/pglite/`，可丢可 `rebuild-index`）  
 - 包：`packages/core`、`packages/cli`（bin: `memory`）  
-- **不实现 Java**；MVP **不调用 LLM**、不强制联网  
+- **不实现 Java**；默认 **不强制联网**（`embedding.provider` / `llm.provider` 默认 `off`）  
 
 ### 热路径写事务（D18）
 
@@ -74,9 +75,9 @@
 - 先改 Spec / 测试意图，再写代码；Given/When/Then 要有对应 `bun:test`  
 - 错误码与路径规则跟 `00-conventions.md`  
 - Schema 形状来自 pack YAML（默认 `problem-tree`），核心不硬编码 issue 路径语义  
-- **本仓库**开发提交：用户未要求则不要主动 `git commit` / `git push`  
 - 不要把调研报告或 08 全文复制进代码注释；引用 Spec ID（如 `M2-11`）即可  
 - 验收口令与 CLI 面见 [`specs/mvp/README.md`](specs/mvp/README.md)  
+- 每次完成阶段建设后更新AGENTS.md文档，同步进度和完成背景。
 
 常用命令：
 
@@ -86,16 +87,31 @@ bun run typecheck
 bun run memory -- <cmd>
 ```
 
+### 本仓库 git 提交约束（硬）
+
+**用户未明确要求时，禁止** `git commit` / `git push` / 改 git config / 跳过 hooks / force push / 危险 reset。
+
+用户**明确要求提交**时，按下列顺序执行：
+
+1. **并行**采集：`git status`（含未跟踪）、`git diff`（含 staged）、`git log`（近期风格）  
+2. 起草简短 commit message（1–2 句，偏 why）；**不**把疑似密钥（`.env`、credentials 等）纳入提交  
+3. **顺序**执行：`git add` 相关文件 → `git commit`（message 用 HEREDOC / 等价安全传参）→ `git status` 确认成功  
+4. commit 被 hook 拒绝时：修好后打 **新** commit；**禁止**在失败后 `amend`  
+5. **仅当**用户明确要求且同时满足时才 `amend`：本次会话自己造的 HEAD、未推远程、或 hook 自动改文件需补进同一提交  
+6. **禁止** interactive rebase（`-i`）、`--no-verify` 等，除非用户明文要求  
+7. **不** push，除非用户明文要求  
+
 ## 明确不要做
 
-- 在 MVP 引入云向量库、默认云 API、MCP/REST 服务（MCP/REST 属**四期**）  
+- 在 MVP/默认路径引入云向量库、默认云 API；MCP/REST 服务属**四期**  
 - Entity merge 只 UPDATE PGLite  
 - 用覆盖写破坏 ADD-only  
 - 把 `experiences/`、`skills/` 建在 `brains/{id}/` 之外  
-- 未获要求实现二期/三期/四期能力或并行 Java 栈  
+- 未获要求实现三期/四期能力或并行 Java 栈  
 - 修改本文件或 Spec 以「绕过」验收，除非用户要求修订规格  
 - 在「索引 / flush 失败」时用 `git checkout` 抹掉已成功的权威 md  
 - 把先验 dirty 与 force commit（如 merge）打进同一条 commit  
+- 用户未要求时主动 `git commit` / `git push`  
 
 ## 常用验收口令（MVP）
 
