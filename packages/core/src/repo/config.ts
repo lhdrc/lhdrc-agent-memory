@@ -3,6 +3,8 @@ import { existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { MemoryError, ErrorCodes } from "../errors.ts";
+import type { EmbeddingConfig, EmbeddingProviderId, SearchConfig } from "../embed/types.ts";
+import type { LLMConfig, LLMProviderId } from "../llm/types.ts";
 
 export interface RepoConfig {
   version: number;
@@ -18,9 +20,42 @@ export interface RepoConfig {
   };
   index: { engine: string; path: string };
   writer: { lock_file: string; lock_timeout_ms: number };
+  embedding: EmbeddingConfig;
+  search: SearchConfig;
+  llm: LLMConfig;
 }
 
 const DEFAULT_FORCE_COMMIT_ON = ["entity_merge", "schema_use", "purge"];
+
+function parseEmbeddingProvider(raw: unknown): EmbeddingProviderId {
+  const v = String(raw ?? "off");
+  if (v === "off" || v === "local" || v === "openai") return v;
+  return "off";
+}
+
+function parseSearchMode(raw: unknown): SearchConfig["mode"] {
+  const v = String(raw ?? "balanced");
+  if (v === "conservative" || v === "balanced" || v === "tokenmax") return v;
+  return "balanced";
+}
+
+function parseLLMProvider(raw: unknown): LLMProviderId {
+  const v = String(raw ?? "off");
+  if (v === "off" || v === "openai") return v;
+  return "off";
+}
+
+function parseLLMConfig(data: Record<string, any>): LLMConfig {
+  const llm = data.llm ?? {};
+  return {
+    provider: parseLLMProvider(llm.provider),
+    distill: llm.distill !== false,
+    kill_switch: {
+      distill: llm.kill_switch?.distill === true,
+      abstract: llm.kill_switch?.abstract === true,
+    },
+  };
+}
 
 export async function loadRepoConfig(repoRoot: string): Promise<RepoConfig> {
   let raw: string;
@@ -54,6 +89,16 @@ export async function loadRepoConfig(repoRoot: string): Promise<RepoConfig> {
       lock_file: data.writer?.lock_file ?? ".dfmemory/write.lock",
       lock_timeout_ms: data.writer?.lock_timeout_ms ?? 30000,
     },
+    embedding: {
+      provider: parseEmbeddingProvider(data.embedding?.provider),
+      model: String(data.embedding?.model ?? "text-embedding-3-small"),
+      dims: data.embedding?.dims != null ? Number(data.embedding.dims) || undefined : undefined,
+      openai_api_key_env: String(data.embedding?.openai_api_key_env ?? "OPENAI_API_KEY"),
+    },
+    search: {
+      mode: parseSearchMode(data.search?.mode),
+    },
+    llm: parseLLMConfig(data),
   };
 }
 

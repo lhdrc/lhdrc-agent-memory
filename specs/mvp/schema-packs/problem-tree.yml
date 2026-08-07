@@ -12,6 +12,7 @@ schema_types:
   - decision
   - lesson
   - note
+  - experience
 
 merge_op:
   requirement: immutable
@@ -25,6 +26,7 @@ filename_templates:
   decision: "issues/{issue}/decisions/{n}-{slug}.md"
   lesson: "issues/{issue}/lessons.md"
   note: "notes/{date}-{slug}.md"
+  experience: "../experiences/{id}.md"
 
 # 同目录多文件时 {n} 起始
 n_start: 1

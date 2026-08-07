@@ -1,19 +1,29 @@
 import type { IndexSyncHooks } from "../write/hooks.ts";
+import { createEmbeddingProvider } from "../embed/factory.ts";
+import { loadRepoConfig } from "../repo/config.ts";
 import { openPglite, ensureSchema } from "./engine.ts";
 import { syncPage, syncEntity } from "./sync.ts";
 import { readIndexMeta, writeIndexMeta } from "./meta.ts";
 
-/** M3：文件落盘后增量同步 + 刷新 index-meta（D18：不依赖 git commit）。 */
+async function resolveSyncOptions(repoRoot: string) {
+  const cfg = await loadRepoConfig(repoRoot);
+  if (cfg.embedding.provider === "off") return undefined;
+  const embedder = createEmbeddingProvider(cfg.embedding);
+  return { embedder, embeddingModel: cfg.embedding.model };
+}
+
+/** M3 + P2.1a：文件落盘后增量同步 + 刷新 index-meta（D18：不依赖 git commit）。 */
 export const pgliteIndexHooks: IndexSyncHooks = {
   async onFilesWritten(repoRoot, paths) {
+    const syncOpts = await resolveSyncOptions(repoRoot);
     const conn = await openPglite(repoRoot);
     try {
       await ensureSchema(conn.db);
       for (const p of paths) {
         if (p.includes("/entities/")) {
           await syncEntity(conn.db, repoRoot, p);
-        } else if (p.endsWith(".md") && p.includes("/sources/")) {
-          await syncPage(conn.db, repoRoot, p);
+        } else if (p.endsWith(".md") && (p.includes("/sources/") || p.includes("/experiences/"))) {
+          await syncPage(conn.db, repoRoot, p, syncOpts);
         }
       }
       const meta = await readIndexMeta(repoRoot);

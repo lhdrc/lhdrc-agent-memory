@@ -1,0 +1,158 @@
+[
+  {
+    "id": "zh01",
+    "captures": [
+      {
+        "title": "支付网关超时处理",
+        "body": "支付链路中网关返回504超时，需调整超时阈值并重试。",
+        "type": "decision"
+      }
+    ],
+    "query": "网关超时",
+    "expect_path_substr": "支付",
+    "top_k": 5
+  },
+  {
+    "id": "zh02",
+    "captures": [
+      {
+        "title": "订单重试策略",
+        "body": "下游失败后采用固定间隔重试三次，避免无限重试。",
+        "type": "decision"
+      }
+    ],
+    "query": "重试策略",
+    "expect_path_substr": "重试",
+    "top_k": 5
+  },
+  {
+    "id": "zh03",
+    "captures": [
+      {
+        "title": "支付渠道对账",
+        "body": "每日核对支付流水与渠道账单，支付差异需人工复核。",
+        "type": "decision"
+      }
+    ],
+    "query": "支付对账",
+    "expect_path_substr": "支付",
+    "top_k": 5
+  },
+  {
+    "id": "zh04",
+    "captures": [
+      {
+        "title": "数据库索引优化",
+        "body": "慢查询通过 B-tree 索引重建与复合索引优化解决。",
+        "type": "decision"
+      }
+    ],
+    "query": "索引优化",
+    "expect_path_substr": "索引",
+    "top_k": 5
+  },
+  {
+    "id": "zh05",
+    "captures": [
+      {
+        "title": "Redis缓存穿透",
+        "body": "缓存雪崩与缓存穿透防护，空值缓存与布隆过滤器。",
+        "type": "decision"
+      }
+    ],
+    "query": "缓存穿透",
+    "expect_path_substr": "缓存",
+    "top_k": 5
+  },
+  {
+    "id": "zh06",
+    "captures": [
+      {
+        "title": "RBAC权限模型",
+        "body": "接口权限校验失败时返回403，权限粒度到资源级。",
+        "type": "decision"
+      }
+    ],
+    "query": "权限校验",
+    "expect_path_substr": "权限",
+    "top_k": 5
+  },
+  {
+    "id": "zh07",
+    "captures": [
+      {
+        "title": "Kubernetes部署流水线",
+        "body": "生产环境部署回滚步骤：先切流量再回滚镜像版本。",
+        "type": "decision"
+      }
+    ],
+    "query": "部署回滚",
+    "expect_path_substr": "部署",
+    "top_k": 5
+  },
+  {
+    "id": "zh08",
+    "captures": [
+      {
+        "title": "ELK日志追踪",
+        "body": "分布式日志采集规范，traceId 贯穿全链路日志。",
+        "type": "decision"
+      }
+    ],
+    "query": "日志采集",
+    "expect_path_substr": "日志",
+    "top_k": 5
+  },
+  {
+    "id": "zh09",
+    "captures": [
+      {
+        "title": "API限流规则",
+        "body": "令牌桶限流阈值按租户配置，超限返回429。",
+        "type": "decision"
+      }
+    ],
+    "query": "限流阈值",
+    "expect_path_substr": "限流",
+    "top_k": 5
+  },
+  {
+    "id": "zh10",
+    "captures": [
+      {
+        "title": "Hystrix熔断降级",
+        "body": "熔断器半开状态恢复后逐步放量，避免再次熔断。",
+        "type": "decision"
+      }
+    ],
+    "query": "熔断恢复",
+    "expect_path_substr": "熔断",
+    "top_k": 5
+  },
+  {
+    "id": "zh11",
+    "captures": [
+      {
+        "title": "连接池并发上限",
+        "body": "数据库并发控制参数调优，避免连接池耗尽。",
+        "type": "decision"
+      }
+    ],
+    "query": "并发控制",
+    "expect_path_substr": "并发",
+    "top_k": 5
+  },
+  {
+    "id": "zh12",
+    "captures": [
+      {
+        "title": "HTTP超时参数",
+        "body": "连接超时与读超时配置分离，网关超时单独设置。",
+        "type": "decision"
+      }
+    ],
+    "query": "超时配置",
+    "expect_path_substr": "超时",
+    "top_k": 5
+  }
+]

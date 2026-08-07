@@ -31,6 +31,18 @@ index:
 writer:
   lock_file: .dfmemory/write.lock
   lock_timeout_ms: 30000
+embedding:
+  provider: off
+  model: text-embedding-3-small
+  openai_api_key_env: OPENAI_API_KEY
+search:
+  mode: balanced
+llm:
+  provider: off
+  distill: true
+  kill_switch:
+    distill: false
+    abstract: false
 `;
 }
 
@@ -72,7 +84,7 @@ export async function initMemoryRepo(dir: string, opts: InitOptions): Promise<st
     await writeFile(join(abs, "memory.yml"), memoryYml(opts.brain, pack.id));
     await writeFile(
       join(abs, ".gitignore"),
-      ".dfmemory/pglite/\n.dfmemory/write.lock\n.dfmemory/index-meta.json\n.dfmemory/git-dirty.json\n",
+      ".dfmemory/pglite/\n.dfmemory/write.lock\n.dfmemory/index-meta.json\n.dfmemory/embedding-meta.json\n.dfmemory/git-dirty.json\n",
     );
 
     await mkdir(join(abs, ".dfmemory", "logs"), { recursive: true });

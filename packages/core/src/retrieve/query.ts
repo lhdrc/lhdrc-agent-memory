@@ -7,6 +7,8 @@ export interface QueryOptions {
   query: string;
   limit?: number;
   sourceId?: string;
+  /** P2.2：按 schema_type 过滤 */
+  schemaType?: string;
 }
 
 export interface QueryHit {
@@ -59,6 +61,7 @@ SELECT * FROM (
   FROM pages
   WHERE status = 'active' AND brain_id = $4
     ${opts.sourceId ? `AND source_id = $5` : ""}
+    ${opts.schemaType ? `AND schema_type = $${opts.sourceId ? 6 : 5}` : ""}
 ) ranked
 WHERE score > 0
 ORDER BY score DESC
@@ -66,6 +69,7 @@ LIMIT ${Math.max(1, Math.floor(limit))}`;
 
   const params: unknown[] = [q, qng, q, opts.brainId];
   if (opts.sourceId) params.push(opts.sourceId);
+  if (opts.schemaType) params.push(opts.schemaType);
 
   let rows: Array<{ path: string; title: string; score: number; body_text: string }>;
   try {

@@ -8,6 +8,7 @@ export const ErrorCodes = {
   GIT: "E_GIT",
   INDEX: "E_INDEX",
   INTERNAL: "E_INTERNAL",
+  DISABLED: "E_DISABLED",
 } as const;
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];

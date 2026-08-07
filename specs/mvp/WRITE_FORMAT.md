@@ -133,3 +133,18 @@ CLI：校验失败时 stderr 打印 errors，exit 2。
 - path 含 `../` → `E_PATH_ESCAPE`
 - 同 path 二次 capture → `E_CONFLICT`
 - 合法 capture → 文件存在且 frontmatter 可被 gray-matter 解析
+
+## 9. Experience 写入（P2.2 / D14）
+
+L1 经验层走 `validateExperienceWrite` → `writeExperience`（WriteQueue），**不**使用 L0 `CreateNodeRequest` 路径模板。
+
+| 字段 | 规则 |
+|---|---|
+| `title` / `trigger` / `procedure` / `boundary` | 必填 |
+| `source_paths` | 非空数组（只读引用，不改 sources） |
+| `schema_type` | 固定 `experience`；pack 须声明 |
+| `status` | `active` \| `superseded` \| `archived` |
+| `eta_score` / `support` / `counter_examples` | 默认 `0.5` / `0` / `[]` |
+| `path` | `brains/{brainId}/experiences/{id}.md` |
+
+失败码同 §7；禁止旁路写盘。

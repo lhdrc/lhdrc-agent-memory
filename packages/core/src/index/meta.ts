@@ -31,3 +31,26 @@ export async function readIndexMeta(repoRoot: string): Promise<IndexMeta> {
 export async function writeIndexMeta(repoRoot: string, meta: IndexMeta): Promise<void> {
   await writeFile(metaPath(repoRoot), JSON.stringify(meta, null, 2), "utf8");
 }
+
+export interface EmbeddingMeta {
+  provider: string;
+  dims: number;
+  model: string;
+}
+
+export function embeddingMetaPath(repoRoot: string): string {
+  return join(repoRoot, ".dfmemory", "embedding-meta.json");
+}
+
+export async function readEmbeddingMeta(repoRoot: string): Promise<EmbeddingMeta | null> {
+  try {
+    const raw = await readFile(embeddingMetaPath(repoRoot), "utf8");
+    return JSON.parse(raw) as EmbeddingMeta;
+  } catch {
+    return null;
+  }
+}
+
+export async function writeEmbeddingMeta(repoRoot: string, meta: EmbeddingMeta): Promise<void> {
+  await writeFile(embeddingMetaPath(repoRoot), JSON.stringify(meta, null, 2), "utf8");
+}

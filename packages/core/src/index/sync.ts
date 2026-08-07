@@ -8,7 +8,14 @@ import { fileToEntity } from "../entity/files.ts";
 import { sha256Hex } from "../util/hash.ts";
 import { bigrams } from "../retrieve/ngrams.ts";
 import { resolveBrainRoot } from "../repo/layout.ts";
-import { writeIndexMeta } from "./meta.ts";
+import type { EmbeddingProvider } from "../embed/types.ts";
+import { float32ToBytes } from "../embed/cosine.ts";
+import { writeIndexMeta, writeEmbeddingMeta } from "./meta.ts";
+
+export interface SyncOptions {
+  embedder?: EmbeddingProvider;
+  embeddingModel?: string;
+}
 
 export const PAGE_COLS = [
   "path",
@@ -60,7 +67,12 @@ export function chunkText(text: string, maxLen = 800): string[] {
 }
 
 /** 增量同步单个 page 文件；文件被物理删除时软删除索引行。 */
-export async function syncPage(db: PGlite, repoRoot: string, relPath: string): Promise<void> {
+export async function syncPage(
+  db: PGlite,
+  repoRoot: string,
+  relPath: string,
+  opts?: SyncOptions,
+): Promise<void> {
   const abs = join(repoRoot, relPath);
   let raw: string;
   try {
@@ -117,6 +129,18 @@ export async function syncPage(db: PGlite, repoRoot: string, relPath: string): P
         chunks[i]!,
       ]);
     }
+    if (opts?.embedder && opts.embedder.id !== "off" && chunks.length > 0) {
+      const vectors = await opts.embedder.embed(chunks);
+      for (let i = 0; i < chunks.length; i++) {
+        const bytes = float32ToBytes(vectors[i]!);
+        await db.query(`UPDATE chunks SET embedding = $1 WHERE id = $2`, [bytes, `${relPath}#${i}`]);
+      }
+      await writeEmbeddingMeta(repoRoot, {
+        provider: opts.embedder.id,
+        dims: opts.embedder.dims,
+        model: opts.embeddingModel ?? opts.embedder.id,
+      });
+    }
     await db.exec("COMMIT");
   } catch (e) {
     await db.exec("ROLLBACK");
@@ -160,6 +184,7 @@ function brainIdFromPath(relPath: string): string {
 
 function sourceIdFromPath(relPath: string): string {
   const parts = relPath.split("/");
+  if (parts.includes("experiences")) return "_experience";
   const idx = parts.indexOf("sources");
   return idx >= 0 && parts[idx + 1] ? (parts[idx + 1] ?? "default") : "default";
 }
@@ -169,7 +194,12 @@ function entitySlugFromPath(relPath: string): string {
 }
 
 /** 全量扫描 brain：sources/**\/*.md + entities/*.md。 */
-export async function syncAll(db: PGlite, repoRoot: string, brainId: string): Promise<{ fileCount: number }> {
+export async function syncAll(
+  db: PGlite,
+  repoRoot: string,
+  brainId: string,
+  opts?: SyncOptions,
+): Promise<{ fileCount: number }> {
   await ensureSchemaForSync(db);
   const brainRoot = resolveBrainRoot(repoRoot, brainId);
   const sourceRoot = join(brainRoot, "sources");
@@ -179,7 +209,16 @@ export async function syncAll(db: PGlite, repoRoot: string, brainId: string): Pr
     await walkMd(sourceRoot, sourceRel, pageFiles);
   }
   for (const rel of pageFiles) {
-    await syncPage(db, repoRoot, rel);
+    await syncPage(db, repoRoot, rel, opts);
+  }
+  const expRoot = join(brainRoot, "experiences");
+  const expRel = `brains/${brainId}/experiences`;
+  const expFiles: string[] = [];
+  if (existsSync(expRoot)) {
+    await walkMd(expRoot, expRel, expFiles);
+  }
+  for (const rel of expFiles) {
+    await syncPage(db, repoRoot, rel, opts);
   }
   const entityDir = join(brainRoot, "entities");
   if (existsSync(entityDir)) {

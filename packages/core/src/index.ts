@@ -55,7 +55,34 @@ export type {
   NodeStatus,
   Link,
   Fact,
+  NormalizedExperienceWrite,
+  ExperienceValidationResult,
 } from "./write/types.ts";
+
+export {
+  validateExperienceWrite,
+  generateExperienceId,
+  type ExperienceWriteInput,
+} from "./write/experience-validator.ts";
+export { writeExperience, patchExperienceStatus } from "./write/experience.ts";
+
+export { createLLMProvider, isDistillEnabled, NoopLLMProvider } from "./llm/index.ts";
+export type {
+  LLMProvider,
+  LLMConfig,
+  LLMProviderId,
+  DistillDecision,
+  ExperienceContext,
+  ExperienceResult,
+} from "./llm/index.ts";
+
+export { refineSource, mapDistillDecision, heuristicAbstract } from "./distill/refine.ts";
+export type { RefineSourceOptions, RefineResult } from "./distill/refine.ts";
+export { mergeExperienceFields } from "./write/experience.ts";
+export { appendMemoryDiff, listMemoryDiffs, findMemoryDiff, memoryDiffRel } from "./distill/memory-diff.ts";
+export type { MemoryDiffEntry, MemoryDiffOp } from "./distill/memory-diff.ts";
+export { revertMemoryDiff } from "./distill/revert.ts";
+export type { RevertResult } from "./distill/revert.ts";
 
 export { readNode } from "./node/read.ts";
 export type { ReadResult } from "./node/read.ts";
@@ -66,13 +93,37 @@ export { resolveNodeRelPath } from "./node/paths.ts";
 export { openPglite, ensureSchema } from "./index/engine.ts";
 export type { IndexConnection } from "./index/engine.ts";
 export { syncPage, syncEntity, syncAll, chunkText } from "./index/sync.ts";
+export type { SyncOptions } from "./index/sync.ts";
 export { rebuildIndex } from "./index/rebuild.ts";
+export type { RebuildIndexOptions } from "./index/rebuild.ts";
 export { pgliteIndexHooks } from "./index/hooks.ts";
-export { readIndexMeta, writeIndexMeta, metaPath } from "./index/meta.ts";
-export type { IndexMeta } from "./index/meta.ts";
+export { readIndexMeta, writeIndexMeta, metaPath, readEmbeddingMeta, writeEmbeddingMeta, embeddingMetaPath } from "./index/meta.ts";
+export type { IndexMeta, EmbeddingMeta } from "./index/meta.ts";
 export { bm25Query, makeSnippet } from "./retrieve/query.ts";
 export type { QueryOptions, QueryHit } from "./retrieve/query.ts";
+export { semanticArm } from "./retrieve/semantic.ts";
+export type { SemanticArmOptions } from "./retrieve/semantic.ts";
+export { hybridQuery } from "./retrieve/hybrid.ts";
+export type { HybridQueryOptions } from "./retrieve/hybrid.ts";
 export { bigrams } from "./retrieve/ngrams.ts";
+export {
+  fuseHybridArms,
+  armRrfScores,
+  titlePathBoostNorm,
+  RRF_K,
+} from "./retrieve/rrf.ts";
+export type { RankedHit, FusedHit, SearchMode, FuseOptions } from "./retrieve/rrf.ts";
+
+export {
+  createEmbeddingProvider,
+  cosineSimilarity,
+  float32ToBytes,
+  bytesToFloat32,
+  NoopEmbedding,
+  OnnxLocalEmbedding,
+  OpenAIEmbedding,
+} from "./embed/index.ts";
+export type { EmbeddingProvider, EmbeddingConfig, EmbeddingProviderId, SearchConfig } from "./embed/index.ts";
 
 export { parseFrontmatter, serializeFrontmatter, hasValidFrontmatter } from "./frontmatter.ts";
 export type { ParsedMd } from "./frontmatter.ts";

@@ -59,3 +59,22 @@ export type ValidationResult =
       code: "E_VALIDATION" | "E_PATH_ESCAPE" | "E_CONFLICT";
       errors: ValidationError[];
     };
+
+export interface ExperienceValidationResult {
+  ok: boolean;
+  code?: "E_VALIDATION" | "E_PATH_ESCAPE" | "E_CONFLICT";
+  errors?: ValidationError[];
+  normalized?: NormalizedExperienceWrite;
+}
+
+export interface NormalizedExperienceWrite {
+  brainId: string;
+  id: string;
+  path: string;
+  pathFromBrain: string;
+  title: string;
+  body: string;
+  frontmatter: Record<string, unknown>;
+  createdAt: string;
+  status: "active" | "superseded" | "archived";
+}

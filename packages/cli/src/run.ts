@@ -10,6 +10,9 @@ import { schemaCommand } from "./commands/schema.ts";
 import { queryCommand } from "./commands/query.ts";
 import { rebuildIndexCommand } from "./commands/rebuild-index.ts";
 import { syncCommand } from "./commands/sync.ts";
+import { refineCommand } from "./commands/refine.ts";
+import { changesCommand } from "./commands/changes.ts";
+import { revertCommand } from "./commands/revert.ts";
 
 const HELP = `df-memory CLI MVP
 
@@ -17,7 +20,7 @@ const HELP = `df-memory CLI MVP
   memory init [dir] [--brain <id>] [--source <id>] [--force]
   memory capture --title <t> --type <schema_type> --body <b> [options]
   memory import <file|dir> [--source <id>]
-  memory query <text> [--limit N] [--source <id>] [--json]
+  memory query <text> [--limit N] [--source <id>] [--type <schema_type>] [--json]
   memory read <path>
   memory tree [path] [--depth N]
   memory forget <path> [--by <id>]
@@ -25,6 +28,9 @@ const HELP = `df-memory CLI MVP
   memory rebuild-index
   memory schema use <packId>
   memory sync --commit
+  memory refine [--path <rel>] [--json]
+  memory changes [--limit N]
+  memory revert <diffId>
 `;
 
 type Command = (argv: string[]) => Promise<number>;
@@ -41,6 +47,9 @@ const COMMANDS: Record<string, Command> = {
   query: queryCommand,
   "rebuild-index": rebuildIndexCommand,
   sync: syncCommand,
+  refine: refineCommand,
+  changes: changesCommand,
+  revert: revertCommand,
 };
 
 export async function run(argv: string[]): Promise<number> {
