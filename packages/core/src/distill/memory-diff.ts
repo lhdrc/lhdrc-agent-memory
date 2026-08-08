@@ -9,6 +9,10 @@ export type MemoryDiffOp =
   | "experience_merge"
   | "experience_supersede"
   | "abstract_update"
+  | "skill_create"
+  | "skill_activate"
+  | "skill_outcome"
+  | "skill_archive"
   | "noop";
 
 export interface MemoryDiffEntry {

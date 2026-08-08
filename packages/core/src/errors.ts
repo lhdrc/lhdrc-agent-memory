@@ -9,6 +9,8 @@ export const ErrorCodes = {
   INDEX: "E_INDEX",
   INTERNAL: "E_INTERNAL",
   DISABLED: "E_DISABLED",
+  AUTH: "E_AUTH",
+  FORBIDDEN: "E_FORBIDDEN",
 } as const;
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
@@ -31,6 +33,8 @@ export function isUserError(code: ErrorCode): boolean {
     code === ErrorCodes.VALIDATION ||
     code === ErrorCodes.CONFLICT ||
     code === ErrorCodes.PATH_ESCAPE ||
-    code === ErrorCodes.NOT_FOUND
+    code === ErrorCodes.NOT_FOUND ||
+    code === ErrorCodes.AUTH ||
+    code === ErrorCodes.FORBIDDEN
   );
 }

@@ -13,6 +13,7 @@ schema_types:
   - lesson
   - note
   - experience
+  - skill
 
 merge_op:
   requirement: immutable
@@ -27,6 +28,7 @@ filename_templates:
   lesson: "issues/{issue}/lessons.md"
   note: "notes/{date}-{slug}.md"
   experience: "../experiences/{id}.md"
+  skill: "../skills/{name}/SKILL.md"
 
 # 同目录多文件时 {n} 起始
 n_start: 1

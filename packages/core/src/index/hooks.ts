@@ -4,6 +4,7 @@ import { loadRepoConfig } from "../repo/config.ts";
 import { openPglite, ensureSchema } from "./engine.ts";
 import { syncPage, syncEntity } from "./sync.ts";
 import { readIndexMeta, writeIndexMeta } from "./meta.ts";
+import { invalidateSearchCache } from "../retrieve/cache.ts";
 
 async function resolveSyncOptions(repoRoot: string) {
   const cfg = await loadRepoConfig(repoRoot);
@@ -22,10 +23,14 @@ export const pgliteIndexHooks: IndexSyncHooks = {
       for (const p of paths) {
         if (p.includes("/entities/")) {
           await syncEntity(conn.db, repoRoot, p);
-        } else if (p.endsWith(".md") && (p.includes("/sources/") || p.includes("/experiences/"))) {
+        } else if (
+          p.endsWith(".md") &&
+          (p.includes("/sources/") || p.includes("/experiences/") || p.includes("/skills/"))
+        ) {
           await syncPage(conn.db, repoRoot, p, syncOpts);
         }
       }
+      await invalidateSearchCache(conn.db);
       const meta = await readIndexMeta(repoRoot);
       const count = await conn.db.query<{ n: string }>(`SELECT COUNT(*) AS n FROM pages`);
       await writeIndexMeta(repoRoot, {

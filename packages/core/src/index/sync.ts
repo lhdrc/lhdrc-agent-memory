@@ -1,4 +1,4 @@
-import { join, basename, relative } from "node:path";
+import { join, basename } from "node:path";
 import { readFile, readdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import type { PGlite } from "@electric-sql/pglite";
@@ -11,6 +11,7 @@ import { resolveBrainRoot } from "../repo/layout.ts";
 import type { EmbeddingProvider } from "../embed/types.ts";
 import { float32ToBytes } from "../embed/cosine.ts";
 import { writeIndexMeta, writeEmbeddingMeta } from "./meta.ts";
+import { deleteLinksForPath, syncLinksForPage } from "./sync-links.ts";
 
 export interface SyncOptions {
   embedder?: EmbeddingProvider;
@@ -79,18 +80,23 @@ export async function syncPage(
     raw = await readFile(abs, "utf8");
   } catch {
     await db.query(`DELETE FROM pages WHERE path = $1`, [relPath]);
+    await deleteLinksForPath(db, relPath);
     return;
   }
   const hash = sha256Hex(raw);
-  const existing = await db.query<{ content_hash: string }>(`SELECT content_hash FROM pages WHERE path = $1`, [relPath]);
-  if (existing.rows.length > 0 && existing.rows[0]!.content_hash === hash) return;
-
   const { data, body } = parseFrontmatter(raw);
+  const brainId = brainIdFromPath(relPath);
+  const existing = await db.query<{ content_hash: string }>(`SELECT content_hash FROM pages WHERE path = $1`, [relPath]);
+  if (existing.rows.length > 0 && existing.rows[0]!.content_hash === hash) {
+    // 内容未变仍刷新 links（P3.1 DDL 增量后可自愈）
+    await syncLinksForPage(db, relPath, body, data, brainId);
+    return;
+  }
+
   const title = String(data.title ?? basename(relPath, ".md"));
   const status = String(data.status ?? "active");
   const sourceId = (data.source as string) ?? sourceIdFromPath(relPath);
   const schemaType = data.schema_type as string | undefined;
-  const brainId = brainIdFromPath(relPath);
   const updatedAt = new Date().toISOString();
   const aliasesJson = JSON.stringify(Array.isArray(data.aliases) ? data.aliases : []);
   const frontmatterJson = JSON.stringify(data);
@@ -141,6 +147,7 @@ export async function syncPage(
         model: opts.embeddingModel ?? opts.embedder.id,
       });
     }
+    await syncLinksForPage(db, relPath, body, data, brainId);
     await db.exec("COMMIT");
   } catch (e) {
     await db.exec("ROLLBACK");
@@ -151,11 +158,13 @@ export async function syncPage(
 /** 增量同步单个 entity 文件。 */
 export async function syncEntity(db: PGlite, repoRoot: string, relPath: string): Promise<void> {
   const abs = join(repoRoot, relPath);
+  const brainId = brainIdFromPath(relPath);
+  const slug = entitySlugFromPath(relPath);
   let raw: string;
   try {
     raw = await readFile(abs, "utf8");
   } catch {
-    await db.query(`DELETE FROM entity_registry WHERE slug = $1`, [entitySlugFromPath(relPath)]);
+    await db.query(`DELETE FROM entity_registry WHERE brain_id = $1 AND slug = $2`, [brainId, slug]);
     return;
   }
   const entity = fileToEntity(raw);
@@ -164,16 +173,16 @@ export async function syncEntity(db: PGlite, repoRoot: string, relPath: string):
   const aliasesJson = JSON.stringify([...new Set([entity.slug, ...entity.aliases])]);
   const updatedAt = new Date().toISOString();
   await db.query(
-    `INSERT INTO entity_registry (slug, canonical_slug, status, title, aliases_json, content_hash, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
-     ON CONFLICT (slug) DO UPDATE SET
+    `INSERT INTO entity_registry (brain_id, slug, canonical_slug, status, title, aliases_json, content_hash, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     ON CONFLICT (brain_id, slug) DO UPDATE SET
        canonical_slug = EXCLUDED.canonical_slug,
        status = EXCLUDED.status,
        title = EXCLUDED.title,
        aliases_json = EXCLUDED.aliases_json,
        content_hash = EXCLUDED.content_hash,
        updated_at = EXCLUDED.updated_at`,
-    [entity.slug, canonical, entity.status, entity.title, aliasesJson, hash, updatedAt],
+    [brainId, entity.slug, canonical, entity.status, entity.title, aliasesJson, hash, updatedAt],
   );
 }
 
@@ -185,6 +194,7 @@ function brainIdFromPath(relPath: string): string {
 function sourceIdFromPath(relPath: string): string {
   const parts = relPath.split("/");
   if (parts.includes("experiences")) return "_experience";
+  if (parts.includes("skills")) return "_skill";
   const idx = parts.indexOf("sources");
   return idx >= 0 && parts[idx + 1] ? (parts[idx + 1] ?? "default") : "default";
 }
@@ -220,6 +230,15 @@ export async function syncAll(
   for (const rel of expFiles) {
     await syncPage(db, repoRoot, rel, opts);
   }
+  const skillsRoot = join(brainRoot, "skills");
+  const skillsRel = `brains/${brainId}/skills`;
+  const skillFiles: string[] = [];
+  if (existsSync(skillsRoot)) {
+    await walkSkillMd(skillsRoot, skillsRel, skillFiles);
+  }
+  for (const rel of skillFiles) {
+    await syncPage(db, repoRoot, rel, opts);
+  }
   const entityDir = join(brainRoot, "entities");
   if (existsSync(entityDir)) {
     const entries = (await readdir(entityDir)).filter((f) => f.endsWith(".md"));
@@ -229,7 +248,7 @@ export async function syncAll(
   }
   const count = await db.query<{ n: string }>(`SELECT COUNT(*) AS n FROM pages`);
   const fileCount = Number(count.rows[0]?.n ?? 0);
-  await writeIndexMeta(repoRoot, { schemaVersion: 1, lastSyncAt: new Date().toISOString(), fileCount, engine: "pglite" });
+  await writeIndexMeta(repoRoot, { schemaVersion: 2, lastSyncAt: new Date().toISOString(), fileCount, engine: "pglite" });
   return { fileCount };
 }
 
@@ -248,6 +267,21 @@ async function walkMd(dirAbs: string, baseRel: string, out: string[]): Promise<v
       await walkMd(childAbs, childRel, out);
     } else if (e.isFile() && e.name.endsWith(".md")) {
       out.push(childRel);
+    }
+  }
+}
+
+/** skills/{name}/SKILL.md */
+async function walkSkillMd(dirAbs: string, baseRel: string, out: string[]): Promise<void> {
+  const entries = await readdir(dirAbs, { withFileTypes: true });
+  for (const e of entries) {
+    if (e.name.startsWith(".")) continue;
+    const childAbs = join(dirAbs, e.name);
+    if (e.isDirectory()) {
+      const skillFile = join(childAbs, "SKILL.md");
+      if (existsSync(skillFile)) {
+        out.push(`${baseRel}/${e.name}/SKILL.md`);
+      }
     }
   }
 }

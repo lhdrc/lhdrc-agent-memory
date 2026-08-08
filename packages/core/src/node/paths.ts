@@ -13,7 +13,7 @@ export function resolveNodeRelPath(repoRoot: string, brainId: string, input: str
     if (parts.length < 2) throw new MemoryError(ErrorCodes.PATH_ESCAPE, `路径无效: ${input}`);
     const inputBrain = parts[1]!;
     if (inputBrain !== brainId) {
-      throw new MemoryError(ErrorCodes.USAGE, `路径指向其他 brain: ${inputBrain}`);
+      throw new MemoryError(ErrorCodes.FORBIDDEN, `路径指向其他 brain: ${inputBrain}`);
     }
     const rest = parts.slice(2).join("/");
     const n = normalizeRepoPath(repoRoot, brainId, rest);

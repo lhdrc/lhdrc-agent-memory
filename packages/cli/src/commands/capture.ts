@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { readFile } from "node:fs/promises";
-import { MemoryError, ErrorCodes, loadPack, captureNode, todayUtc } from "@df-memory/core";
+import { MemoryError, ErrorCodes, loadPack, captureNode, todayUtc, assertSourceScope } from "@df-memory/core";
 import { parseArgs } from "../args.ts";
 import { loadContext } from "../context.ts";
 import { createQueue } from "../services.ts";
@@ -29,6 +29,8 @@ export async function captureCommand(argv: string[]): Promise<number> {
   const ctx = await loadContext(Boolean(o.json));
   const createdBy = (o["created-by"] as string) ?? defaultCreatedBy();
   const type = o.type as string;
+  const sourceId = (o.source as string) ?? ctx.sourceId;
+  assertSourceScope(ctx.auth, sourceId);
 
   let body: string;
   if (o.body !== undefined) body = String(o.body);
@@ -47,7 +49,7 @@ export async function captureCommand(argv: string[]): Promise<number> {
   const queue = await createQueue(ctx.repoRoot);
   const path = await captureNode(ctx.repoRoot, pack, queue, {
     brainId: ctx.brainId,
-    sourceId: (o.source as string) ?? ctx.sourceId,
+    sourceId,
     schemaType: type,
     title: String(o.title),
     body,

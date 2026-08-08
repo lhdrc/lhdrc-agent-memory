@@ -134,15 +134,16 @@ export class EntityRegistryImpl implements EntityRegistry {
       try {
         await ensureSchema(conn.db);
         const bySlug = await conn.db.query<{ canonical_slug: string }>(
-          `SELECT canonical_slug FROM entity_registry WHERE slug = $1 LIMIT 1`,
-          [name],
+          `SELECT canonical_slug FROM entity_registry WHERE brain_id = $1 AND slug = $2 LIMIT 1`,
+          [this.brainId, name],
         );
         if (bySlug.rows[0]?.canonical_slug) return bySlug.rows[0].canonical_slug;
 
         // aliases_json 为 JSON 字符串数组；jsonb ? 检查顶层数组元素
         const byAlias = await conn.db.query<{ canonical_slug: string }>(
-          `SELECT canonical_slug FROM entity_registry WHERE aliases_json::jsonb ? $1 LIMIT 1`,
-          [name],
+          `SELECT canonical_slug FROM entity_registry
+           WHERE brain_id = $1 AND aliases_json::jsonb ? $2 LIMIT 1`,
+          [this.brainId, name],
         );
         if (byAlias.rows[0]?.canonical_slug) return byAlias.rows[0].canonical_slug;
         return null;

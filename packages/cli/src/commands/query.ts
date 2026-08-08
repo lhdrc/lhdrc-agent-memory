@@ -2,9 +2,11 @@ import {
   MemoryError,
   ErrorCodes,
   openPglite,
-  hybridQuery,
+  hybridQueryDetailed,
   createEmbeddingProvider,
   loadRepoConfig,
+  loadPack,
+  recordQueryStat,
   type SearchMode,
 } from "@df-memory/core";
 import { parseArgs } from "../args.ts";
@@ -19,12 +21,13 @@ export async function queryCommand(argv: string[]): Promise<number> {
     { name: "type", type: "string" },
     { name: "mode", type: "string" },
     { name: "json", type: "boolean" },
+    { name: "explain", type: "boolean" },
   ]);
   const text = o._.join(" ").trim();
   if (!text) {
     throw new MemoryError(ErrorCodes.USAGE, "query 需要一个查询文本");
   }
-  const ctx = await loadContext(Boolean(o.json));
+  const ctx = await loadContext(Boolean(o.json) || Boolean(o.explain));
   const cfg = await loadRepoConfig(ctx.repoRoot);
   const modeRaw = o.mode != null ? String(o.mode) : cfg.search.mode;
   if (!VALID_MODES.has(modeRaw)) {
@@ -33,9 +36,16 @@ export async function queryCommand(argv: string[]): Promise<number> {
   const mode = modeRaw as SearchMode;
   const embedder =
     cfg.embedding.provider !== "off" ? createEmbeddingProvider(cfg.embedding) : null;
+  let intentLexicon: Record<string, string[]> | null = null;
+  try {
+    const pack = await loadPack(cfg.schema_pack);
+    intentLexicon = pack.intent_lexicon ?? null;
+  } catch {
+    /* pack 缺失时用内置词表 */
+  }
   const conn = await openPglite(ctx.repoRoot);
   try {
-    const hits = await hybridQuery(conn.db, {
+    const { hits, explain } = await hybridQueryDetailed(conn.db, {
       brainId: ctx.brainId,
       query: text,
       limit: o.limit !== undefined ? parseInt(String(o.limit), 10) || 10 : 10,
@@ -44,9 +54,19 @@ export async function queryCommand(argv: string[]): Promise<number> {
       mode,
       embedder,
       repoRoot: ctx.repoRoot,
+      intentLexicon,
+      explain: Boolean(o.explain),
     });
-    if (o.json) {
-      console.log(JSON.stringify({ query: text, mode, results: hits }));
+    const avgScore = hits.length ? hits.reduce((s, h) => s + h.score, 0) / hits.length : 0;
+    await recordQueryStat(ctx.repoRoot, {
+      query: text,
+      hitCount: hits.length,
+      avgScore,
+    }).catch(() => {});
+    if (o.explain || o.json) {
+      const payload: Record<string, unknown> = { query: text, mode, results: hits };
+      if (explain) payload.explain = explain;
+      console.log(JSON.stringify(payload));
     } else {
       hits.forEach((h, i) => {
         const display = h.path.replace(new RegExp(`^brains/${ctx.brainId}/`), "");

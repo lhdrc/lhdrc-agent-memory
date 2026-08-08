@@ -5,6 +5,9 @@ import { parse as parseYaml } from "yaml";
 import { MemoryError, ErrorCodes } from "../errors.ts";
 import type { EmbeddingConfig, EmbeddingProviderId, SearchConfig } from "../embed/types.ts";
 import type { LLMConfig, LLMProviderId } from "../llm/types.ts";
+import type { CostConfig } from "../cost/logger.ts";
+import type { AuthConfig } from "../auth/types.ts";
+import { parseAuthConfig } from "../auth/access-control.ts";
 
 export interface RepoConfig {
   version: number;
@@ -23,6 +26,8 @@ export interface RepoConfig {
   embedding: EmbeddingConfig;
   search: SearchConfig;
   llm: LLMConfig;
+  cost: CostConfig;
+  auth: AuthConfig;
 }
 
 const DEFAULT_FORCE_COMMIT_ON = ["entity_merge", "schema_use", "purge"];
@@ -99,6 +104,11 @@ export async function loadRepoConfig(repoRoot: string): Promise<RepoConfig> {
       mode: parseSearchMode(data.search?.mode),
     },
     llm: parseLLMConfig(data),
+    cost: {
+      daily_token_cap: Number(data.cost?.daily_token_cap ?? 0) || 0,
+      log: String(data.cost?.log ?? ".dfmemory/costs.jsonl"),
+    },
+    auth: parseAuthConfig(data.auth),
   };
 }
 

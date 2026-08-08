@@ -5,8 +5,8 @@ export { initMemoryRepo, memoryYml, brainYml, sourceMarker } from "./repo/init.t
 export type { InitOptions } from "./repo/init.ts";
 export { findRepoRoot, loadRepoConfig, resolveEnvDefaults } from "./repo/config.ts";
 export type { RepoConfig } from "./repo/config.ts";
-export { loadBrainConfig, resolveSourceId } from "./repo/brain.ts";
-export type { BrainConfig } from "./repo/brain.ts";
+export { loadBrainConfig, resolveSourceId, createBrain, listBrains, hasSharedSkillsMount } from "./repo/brain.ts";
+export type { BrainConfig, BrainMount, CreateBrainOptions } from "./repo/brain.ts";
 export {
   resolveBrainRoot,
   resolveSourceRoot,
@@ -90,7 +90,7 @@ export { listTree, renderTree } from "./node/tree.ts";
 export type { TreeNode } from "./node/tree.ts";
 export { resolveNodeRelPath } from "./node/paths.ts";
 
-export { openPglite, ensureSchema } from "./index/engine.ts";
+export { openPglite, ensureSchema, clearBrainIndex } from "./index/engine.ts";
 export type { IndexConnection } from "./index/engine.ts";
 export { syncPage, syncEntity, syncAll, chunkText } from "./index/sync.ts";
 export type { SyncOptions } from "./index/sync.ts";
@@ -103,16 +103,105 @@ export { bm25Query, makeSnippet } from "./retrieve/query.ts";
 export type { QueryOptions, QueryHit } from "./retrieve/query.ts";
 export { semanticArm } from "./retrieve/semantic.ts";
 export type { SemanticArmOptions } from "./retrieve/semantic.ts";
-export { hybridQuery } from "./retrieve/hybrid.ts";
-export type { HybridQueryOptions } from "./retrieve/hybrid.ts";
+export { hybridQuery, hybridQueryDetailed } from "./retrieve/hybrid.ts";
+export type { HybridQueryOptions, HybridQueryResult, QueryExplain } from "./retrieve/hybrid.ts";
 export { bigrams } from "./retrieve/ngrams.ts";
 export {
   fuseHybridArms,
   armRrfScores,
   titlePathBoostNorm,
+  resolveFusionWeights,
+  weightsKey,
   RRF_K,
+  WEIGHTS_BALANCED_GRAPH,
+  WEIGHTS_RELATION,
+  WEIGHTS_PERSON,
+  WEIGHTS_EXPERIENCE,
+  WEIGHTS_NO_SEMANTIC,
 } from "./retrieve/rrf.ts";
-export type { RankedHit, FusedHit, SearchMode, FuseOptions } from "./retrieve/rrf.ts";
+export type {
+  RankedHit,
+  FusedHit,
+  SearchMode,
+  FuseOptions,
+  FusionWeights,
+  IntentForWeights,
+} from "./retrieve/rrf.ts";
+export { classifyIntent } from "./retrieve/intent.ts";
+export type { QueryIntent } from "./retrieve/intent.ts";
+export { graphArm, parseRelationalQuery } from "./retrieve/graph.ts";
+export type { RelationalParse, GraphArmOptions } from "./retrieve/graph.ts";
+export {
+  applyGraphSignals,
+  applyGraphSignalsPure,
+  SIGNAL_HUB,
+  SIGNAL_CROSS_SOURCE,
+  SIGNAL_DIVERSIFY,
+} from "./retrieve/signals.ts";
+export type { SignalExplain, ApplySignalsResult } from "./retrieve/signals.ts";
+export { knobsHash, cacheKey, getSearchCache, setSearchCache, invalidateSearchCache } from "./retrieve/cache.ts";
+export type { SearchKnobs } from "./retrieve/cache.ts";
+export { extractEntityRefs, stripCodeBlocks, inferLinkType } from "./graph/link-extraction.ts";
+export type { ExtractedLink, LinkSource } from "./graph/link-extraction.ts";
+export { syncLinksForPage, deleteLinksForPath, linkRowId } from "./index/sync-links.ts";
+
+export {
+  writeSkill,
+  patchSkill,
+  activateSkill,
+  applySkillOutcome,
+  applyExperienceOutcome,
+  listSkills,
+  skillRelPath,
+  validateSkillWrite,
+  isMatureExperience,
+  MATURITY_ETA_MIN,
+  MATURITY_SUPPORT_MIN,
+  SKILL_NAME_RE,
+} from "./write/skill.ts";
+export type { SkillWriteInput, SkillStatus } from "./write/skill.ts";
+export { crystallizeExperiences } from "./crystallize/crystallize.ts";
+export type { CrystallizeOptions, CrystallizeResult } from "./crystallize/crystallize.ts";
+export { runDream } from "./dream/runner.ts";
+export type { DreamOptions, DreamResult, DreamPhase, DreamPhaseResult } from "./dream/runner.ts";
+export {
+  appendCostEntry,
+  readCostConfig,
+  readCostLog,
+  withCostAccounting,
+  sumTokensToday,
+} from "./cost/logger.ts";
+export type { CostConfig, CostEntry } from "./cost/logger.ts";
+export { collectObserverStats, recordQueryStat } from "./observer/stats.ts";
+export type { ObserverStats } from "./observer/stats.ts";
+
+export {
+  authorize,
+  assertBrainScope,
+  assertSourceScope,
+  assertPathScope,
+  issueToken,
+  sha256Token,
+  parseAuthConfig,
+  responseContainsSecret,
+} from "./auth/access-control.ts";
+export type {
+  AuthConfig,
+  AuthContext,
+  AuthRole,
+  AuthChannel,
+  AuthUser,
+  AuthToken,
+  AuthedRequest,
+  BrainGrant,
+} from "./auth/types.ts";
+export { EMPTY_AUTH_CONFIG } from "./auth/types.ts";
+export {
+  filterSharedSkillsHits,
+  listVisibleSharedSkills,
+  isSharedSkillsPath,
+  listSharedSkillNames,
+} from "./auth/shared-skills.ts";
 
 export {
   createEmbeddingProvider,

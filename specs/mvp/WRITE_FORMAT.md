@@ -148,3 +148,24 @@ L1 经验层走 `validateExperienceWrite` → `writeExperience`（WriteQueue）�
 | `path` | `brains/{brainId}/experiences/{id}.md` |
 
 失败码同 §7；禁止旁路写盘。
+
+## 10. Skill 写入（P3.2 / D14）
+
+L2 技能层走 `validateSkillWrite` → `writeSkill`（WriteQueue），目录 `brains/{brainId}/skills/{name}/SKILL.md`。
+
+| 字段 | 规则 |
+|---|---|
+| `name` | `[a-z0-9-]{1,64}`；目录名与 frontmatter 一致 |
+| `title` / `trigger` / `procedure` / `boundary` / `verification` | 必填 |
+| `schema_type` | 固定 `skill`；pack 须声明 |
+| `status` | `candidate` \| `active` \| `archived` |
+| `eta_score` | 与经验一致（08 示例字段 `eta` 作别名写入时归一为 `eta_score`） |
+| `support` / `counter_examples` | 默认 `0` / `[]` |
+| `source_experience_ids` | 结晶来源经验 id 列表 |
+| `path` | `brains/{brainId}/skills/{name}/SKILL.md` |
+
+正文建议含 `## Procedure` / `## Boundary` / `## Verification` 三段。失败码同 §7。
+
+成熟判定常量（可配置覆盖，默认冻结）：`eta_score >= 0.7 && support >= 2 && counter_examples.length == 0`。
+
+outcome：成功 `eta_score += 0.1`、`support += 1`；失败 `eta_score -= 0.2` 并 append `counter_examples`。

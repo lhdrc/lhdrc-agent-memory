@@ -1,7 +1,7 @@
 export interface Link {
   to: string;
   type: string;
-  source: "wikilink" | "markdown" | "mention" | "verb" | "path";
+  source: "wikilink" | "markdown" | "mention" | "verb" | "path" | "frontmatter";
 }
 
 export interface Fact {

@@ -8,8 +8,10 @@
   ],
   "scripts": {
     "test": "bun test --timeout=60000",
+    "test:isolation": "bun test packages/core/tests/isolation_fuzz.test.ts --timeout=120000",
     "typecheck": "bun run tsc --noEmit",
-    "memory": "bun run packages/cli/src/main.ts"
+    "memory": "bun run packages/cli/src/main.ts",
+    "eval:mini": "bun run evals/run.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",

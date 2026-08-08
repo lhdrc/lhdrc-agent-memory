@@ -5,7 +5,7 @@
 ## 项目是什么
 
 **df-memory**：开源、单机、本地部署的记忆模块——「agent 的 git + 知识库」。  
-当前交付焦点：MVP + **二期已落地**（混合检索 + L1 蒸馏）；三期/四期未获明确要求前不做。
+当前交付焦点：MVP + 二期 + **三期已落地**（图谱/signals、结晶/dream、多租户）；四期未获明确要求前不做。
 
 > 口号里的「git」指版本化知识仓体验；**实现上热路径以 md 文件为权威**，git 为可选批量账本（08 **D1/D18**）。
 
@@ -14,7 +14,7 @@
 | 优先级 | 路径 | 用途 |
 |---|---|---|
 | 1 | [`specs/mvp/`](specs/mvp/) | **实现规格**——按此编码与验收 |
-| 2 | [`specs/二期/`](specs/二期/) · [`三期/`](specs/三期/) · [`四期/`](specs/四期/) | 二期已做；三期飞轮/多租户；**四期最后** MCP/REST |
+| 2 | [`specs/二期/`](specs/二期/) · [`三期/`](specs/三期/) · [`四期/`](specs/四期/) | 二期/三期已做；**四期最后** MCP/REST |
 | 3 | [`reports/08-开源记忆模块设计方案.md`](reports/08-开源记忆模块设计方案.md) | 架构与 ADR；与 Spec 冲突时 **先改 Spec/ADR 再改代码** |
 | 4 | [`reports/01`](reports/01-gbrain-调研报告.md)–[`05`](reports/05-四项目对比总结.md) | 调研背景，不直接当接口规格 |
 
@@ -22,15 +22,22 @@
 
 ## 当前状态与接下来做什么
 
-**MVP（M1–M3 + D18）已落地**；**二期（P2.1a + P2.2）已落地**：混合检索（embedding 可关、RRF、中文门禁）+ L1 蒸馏（`refine` / experiences / memory_diff）。  
-回归：`bun test packages/core/tests/`。
+**MVP（M1–M3 + D18）已落地**；**二期（P2.1a + P2.2）已落地**；**三期（P3.1–P3.3）已落地**：
 
-1. 改行为前先读 / 更新对应 Spec（[`00-conventions.md`](specs/mvp/00-conventions.md) §8、M1/M2/M3、[`二期/`](specs/二期/)）  
-2. 写入校验以 [`WRITE_FORMAT.md`](specs/mvp/WRITE_FORMAT.md) 为准（含 experience §9）  
-3. **不要**开始三期/四期（图谱 / 结晶 / dream / 多租户 / **MCP·REST** / 外部仓 git sync），除非用户明确要求  
+| Spec | 能力摘要 |
+|---|---|
+| P3.1 | 零 LLM 抽链 → `links`；关系臂 + `graph-query`；graph signals；意图；`search_cache`；`query --explain` |
+| P3.2 | Skill 结晶 / outcome / 状态机；dream v1 五段；cost / observer；skills 索引 |
+| P3.3 | `AccessControl`；`brain create/list` + `--brain`；隔离 fuzz；`evals/` 脚手架 |
+
+回归：`bun test packages/core/tests/`；隔离：`bun run test:isolation`；迷你评测：`bun run eval:mini`。
+
+1. 改行为前先读 / 更新对应 Spec（[`00-conventions.md`](specs/mvp/00-conventions.md) §8、M1/M2/M3、[`二期/`](specs/二期/)、[`三期/`](specs/三期/)）  
+2. 写入校验以 [`WRITE_FORMAT.md`](specs/mvp/WRITE_FORMAT.md) 为准（含 experience §9、skill §10）  
+3. **不要**开始四期（**MCP·REST** / harness 适配器 / 外部仓 git sync），除非用户明确要求  
 4. 与 Spec 冲突时：**先改 Spec/08 ADR，再改代码**  
 
-分期速查：二期 = P2.1a+P2.2（**done**）；三期 = P3.1–P3.3；四期 = P4.1（MCP/REST 最后）。
+分期速查：二期 = P2.1a+P2.2（**done**）；三期 = P3.1–P3.3（**done**）；四期 = P4.1（MCP/REST 最后）。
 
 ## 技术栈（已锁定）
 
@@ -77,14 +84,17 @@
 - Schema 形状来自 pack YAML（默认 `problem-tree`），核心不硬编码 issue 路径语义  
 - 不要把调研报告或 08 全文复制进代码注释；引用 Spec ID（如 `M2-11`）即可  
 - 验收口令与 CLI 面见 [`specs/mvp/README.md`](specs/mvp/README.md)  
-- 每次完成阶段建设后更新AGENTS.md文档，同步进度和完成背景。
+- 每次完成阶段建设后更新AGENTS.md文档，同步进度和完成背景。  
+- 对于简单的任务可以交给subagent做，subagent使用composer2.5 模型。  
 
 常用命令：
 
 ```bash
 bun run test
+bun run test:isolation
 bun run typecheck
 bun run memory -- <cmd>
+bun run eval:mini
 ```
 
 ### 本仓库 git 提交约束（硬）
@@ -107,25 +117,34 @@ bun run memory -- <cmd>
 - Entity merge 只 UPDATE PGLite  
 - 用覆盖写破坏 ADD-only  
 - 把 `experiences/`、`skills/` 建在 `brains/{id}/` 之外  
-- 未获要求实现三期/四期能力或并行 Java 栈  
+- 未获要求实现四期能力或并行 Java 栈  
 - 修改本文件或 Spec 以「绕过」验收，除非用户要求修订规格  
 - 在「索引 / flush 失败」时用 `git checkout` 抹掉已成功的权威 md  
 - 把先验 dirty 与 force commit（如 merge）打进同一条 commit  
 - 用户未要求时主动 `git commit` / `git push`  
 
-## 常用验收口令（MVP）
+## 常用验收口令（MVP + 三期摘录）
 
 ```bash
 bun run memory -- init ./demo
 cd demo
 bun run memory -- capture --title "重试策略" --type decision --body "改为固定3次"
 bun run memory -- query "重试"
+bun run memory -- query "重试" --explain
+bun run memory -- graph-query "谁提到了支付"
 bun run memory -- rebuild-index
 bun run memory -- sync --commit
 bun run memory -- entity create --slug alice --title "Alice"
 bun run memory -- entity create --slug bob --title "Bob"
 bun run memory -- entity merge alice bob --canonical alice --confirm
 bun run memory -- entity resolve bob   # → alice
+bun run memory -- brain create team-b
+bun run memory -- brain list
+bun run memory -- --brain team-b capture --title "B仓笔记" --type note --body "仅B可见"
+bun run memory -- dream --phases 1,2
+bun run memory -- observer --json
 ```
 
-细节见各 Spec 验收节与 [`specs/mvp/README.md`](specs/mvp/README.md)。
+细节见各 Spec 验收节与 [`specs/mvp/README.md`](specs/mvp/README.md)、[`specs/三期/README.md`](specs/三期/README.md)。
+
+> **多租户提示**：单仓多 brain 时 git 历史对同仓可见，非密码学隔离；鉴权由 `AccessControl` + `brain_id` 过滤保证。
