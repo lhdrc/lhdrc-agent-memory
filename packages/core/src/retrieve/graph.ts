@@ -12,8 +12,8 @@ export interface RelationalParse {
 }
 
 const TEMPLATES: Array<{ re: RegExp; seedGroup: number; verb?: string }> = [
-  { re: /^谁\s*(?:负责|提到|提及)\s*(.+)$/u, seedGroup: 1, verb: "works_on" },
   { re: /^谁提到了\s*(.+)$/u, seedGroup: 1, verb: "mentions" },
+  { re: /^谁\s*(?:负责|提到|提及)\s*(.+)$/u, seedGroup: 1, verb: "works_on" },
   { re: /^(.+?)\s*的\s*(负责人|依赖|引用)$/u, seedGroup: 1 },
   { re: /^(.+?)\s+references$/iu, seedGroup: 1, verb: "references" },
   { re: /^(.+?)\s*提到了?\s*(.+)$/u, seedGroup: 2, verb: "mentions" },

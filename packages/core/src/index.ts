@@ -170,6 +170,7 @@ export {
   readCostLog,
   withCostAccounting,
   sumTokensToday,
+  wouldExceedCap,
 } from "./cost/logger.ts";
 export type { CostConfig, CostEntry } from "./cost/logger.ts";
 export { collectObserverStats, recordQueryStat } from "./observer/stats.ts";

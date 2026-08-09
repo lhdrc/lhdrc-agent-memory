@@ -73,6 +73,10 @@ describe("P3.1 links sync + graph + cache + signals", () => {
     T,
   );
 
+  test("P31-03b parseRelationalQuery 谁提到了 X 优先于泛化模板", () => {
+    expect(parseRelationalQuery("谁提到了支付")).toEqual({ seed: "支付", verb: "mentions" });
+  });
+
   test(
     "P31-03 graph-query 解析失败不导致 query 崩溃",
     async () => {

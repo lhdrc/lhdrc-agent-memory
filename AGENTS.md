@@ -5,7 +5,7 @@
 ## 项目是什么
 
 **df-memory**：开源、单机、本地部署的记忆模块——「agent 的 git + 知识库」。  
-当前交付焦点：MVP + 二期 + **三期已落地**（图谱/signals、结晶/dream、多租户）；四期未获明确要求前不做。
+当前交付焦点：MVP + 二期 + **三期已落地**；四期（MCP/REST）与五期（架构补齐 Spec 已起草）均需明确要求后再实现。
 
 > 口号里的「git」指版本化知识仓体验；**实现上热路径以 md 文件为权威**，git 为可选批量账本（08 **D1/D18**）。
 
@@ -14,7 +14,7 @@
 | 优先级 | 路径 | 用途 |
 |---|---|---|
 | 1 | [`specs/mvp/`](specs/mvp/) | **实现规格**——按此编码与验收 |
-| 2 | [`specs/二期/`](specs/二期/) · [`三期/`](specs/三期/) · [`四期/`](specs/四期/) | 二期/三期已做；**四期最后** MCP/REST |
+| 2 | [`specs/二期/`](specs/二期/) · [`三期/`](specs/三期/) · [`四期/`](specs/四期/) · [`五期/`](specs/五期/) | 二/三期已做；四期 MCP/REST；五期架构补齐（draft） |
 | 3 | [`reports/08-开源记忆模块设计方案.md`](reports/08-开源记忆模块设计方案.md) | 架构与 ADR；与 Spec 冲突时 **先改 Spec/ADR 再改代码** |
 | 4 | [`reports/01`](reports/01-gbrain-调研报告.md)–[`05`](reports/05-四项目对比总结.md) | 调研背景，不直接当接口规格 |
 
@@ -34,10 +34,11 @@
 
 1. 改行为前先读 / 更新对应 Spec（[`00-conventions.md`](specs/mvp/00-conventions.md) §8、M1/M2/M3、[`二期/`](specs/二期/)、[`三期/`](specs/三期/)）  
 2. 写入校验以 [`WRITE_FORMAT.md`](specs/mvp/WRITE_FORMAT.md) 为准（含 experience §9、skill §10）  
-3. **不要**开始四期（**MCP·REST** / harness 适配器 / 外部仓 git sync），除非用户明确要求  
+3. **不要**开始四期（**MCP·REST** / harness）或五期实现，除非用户明确要求；五期 Spec 见 [`specs/五期/`](specs/五期/)  
 4. 与 Spec 冲突时：**先改 Spec/08 ADR，再改代码**  
+5. **不**扩 dream 夜间维护全集（v1 五段维持；五期非目标）  
 
-分期速查：二期 = P2.1a+P2.2（**done**）；三期 = P3.1–P3.3（**done**）；四期 = P4.1（MCP/REST 最后）。
+分期速查：二期 = P2.1a+P2.2（**done**）；三期 = P3.1–P3.3（**done**）；四期 = P4.1（MCP/REST）；五期 = P5.1–P5.8（draft，架构补齐）。
 
 ## 技术栈（已锁定）
 

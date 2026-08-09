@@ -14,6 +14,7 @@ import { refineSource } from "../distill/refine.ts";
 import { WriteValidator } from "../write/validator.ts";
 import type { WriteQueue } from "../write/queue.ts";
 import { resolveBrainRoot } from "../repo/layout.ts";
+import type { LLMProvider } from "../llm/types.ts";
 
 export type DreamPhase = 1 | 2 | 3 | 4 | 5;
 
@@ -22,6 +23,8 @@ export interface DreamOptions {
   queue: WriteQueue;
   fix?: boolean;
   phases?: DreamPhase[];
+  /** 测试注入 FakeLLM；提供时跳过 kill_switch 门禁 */
+  llm?: LLMProvider;
 }
 
 export interface DreamPhaseResult {
@@ -119,9 +122,10 @@ async function phaseDistill(
   repoRoot: string,
   brainId: string,
   queue: WriteQueue,
+  llm?: LLMProvider,
 ): Promise<DreamPhaseResult> {
   const cfg = await loadRepoConfig(repoRoot);
-  if (!isDistillEnabled(cfg.llm)) {
+  if (!llm && !isDistillEnabled(cfg.llm)) {
     return {
       phase: 3,
       name: "distill_pending",
@@ -130,7 +134,7 @@ async function phaseDistill(
       reason: "kill_switch_or_llm_off",
     };
   }
-  const result = await refineSource(repoRoot, { brainId, queue });
+  const result = await refineSource(repoRoot, { brainId, queue, llm });
   return {
     phase: 3,
     name: "distill_pending",
@@ -259,7 +263,7 @@ export async function runDream(repoRoot: string, opts: DreamOptions): Promise<Dr
         r = await phaseSync(repoRoot, opts.brainId);
         break;
       case 3:
-        r = await phaseDistill(repoRoot, opts.brainId, opts.queue);
+        r = await phaseDistill(repoRoot, opts.brainId, opts.queue, opts.llm);
         break;
       case 4:
         r = await phaseContradictions(repoRoot, opts.brainId);

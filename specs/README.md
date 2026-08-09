@@ -10,7 +10,8 @@
 2. 读 [`mvp/README.md`](mvp/README.md)，按 **M1 → M2 → M3** 实现  
 3. MVP 验收通过后再读 [`二期/README.md`](二期/README.md)，按 **P2.1a → P2.2**  
 4. 二期完成后读 [`三期/README.md`](三期/README.md)，按 **P3.1 → P3.2 → P3.3**  
-5. **最后**读 [`四期/README.md`](四期/README.md)，按 **P4.1**（MCP/REST）
+5. **最后**读 [`四期/README.md`](四期/README.md)，按 **P4.1**（MCP/REST）  
+6. 访问面之后（或并行规划）读 [`五期/README.md`](五期/README.md)，按 **P5.1→P5.5** 主线，**P5.6–P5.8** 增强轨  
 
 ## 目录
 
@@ -19,7 +20,8 @@
 | [`mvp/`](mvp/) | CLI 可写可查本地记忆仓 |
 | [`二期/`](二期/) | 混合检索、L1 蒸馏 |
 | [`三期/`](三期/) | 图谱/signals、结晶/dream、多租户 |
-| [`四期/`](四期/) | MCP、REST、agent 适配器（最后做） |
+| [`四期/`](四期/) | MCP、REST、agent 适配器 |
+| [`五期/`](五期/) | 架构补齐：提取/分层/检索增强/账本/评测/大库/摄取（不含扩 dream） |
 
 ## Spec 文档约定
 

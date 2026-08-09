@@ -22,7 +22,8 @@ let dir: string;
 let repoRoot: string;
 let pack: Awaited<ReturnType<typeof loadPack>>;
 
-const T = { timeout: 30_000 };
+/** rebuild + capture 在慢机器上可 >30s，与 p22_distill 对齐 */
+const T = { timeout: 120_000 };
 
 async function makeQueue(): Promise<WriteQueue> {
   const cfg = await loadRepoConfig(repoRoot);
