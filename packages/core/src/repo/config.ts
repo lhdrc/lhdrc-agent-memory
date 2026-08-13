@@ -4,6 +4,7 @@ import { join, dirname, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { MemoryError, ErrorCodes } from "../errors.ts";
 import type { EmbeddingConfig, EmbeddingProviderId, SearchConfig } from "../embed/types.ts";
+import { DEFAULT_SEARCH_CONFIG } from "../embed/types.ts";
 import type { LLMConfig, LLMProviderId } from "../llm/types.ts";
 import type { CostConfig } from "../cost/logger.ts";
 import type { AuthConfig } from "../auth/types.ts";
@@ -55,6 +56,30 @@ function parseSearchMode(raw: unknown): SearchConfig["mode"] {
   const v = String(raw ?? "balanced");
   if (v === "conservative" || v === "balanced" || v === "tokenmax") return v;
   return "balanced";
+}
+
+function parseSearchConfig(data: Record<string, any>): SearchConfig {
+  const search = data.search ?? {};
+  const tm = search.tokenmax ?? {};
+  const hot = search.hotness ?? {};
+  const rerankRaw = String(tm.rerank ?? DEFAULT_SEARCH_CONFIG.tokenmax.rerank);
+  const rerank = rerankRaw === "local" ? "local" : "off";
+  return {
+    mode: parseSearchMode(search.mode),
+    tokenmax: {
+      expand: tm.expand !== false,
+      expand_n: Number(tm.expand_n ?? DEFAULT_SEARCH_CONFIG.tokenmax.expand_n) || 2,
+      rerank,
+      rerank_top_n: Number(tm.rerank_top_n ?? DEFAULT_SEARCH_CONFIG.tokenmax.rerank_top_n) || 20,
+    },
+    hotness: {
+      enabled: hot.enabled !== false,
+      half_life_days: Number(hot.half_life_days ?? DEFAULT_SEARCH_CONFIG.hotness.half_life_days) || 30,
+    },
+    directory_prefilter: search.directory_prefilter === true,
+    entity_boost: search.entity_boost !== false,
+    alias_hop: search.alias_hop !== false,
+  };
 }
 
 function parseLLMProvider(raw: unknown): LLMProviderId {
@@ -134,9 +159,7 @@ export async function loadRepoConfig(repoRoot: string): Promise<RepoConfig> {
       dims: data.embedding?.dims != null ? Number(data.embedding.dims) || undefined : undefined,
       openai_api_key_env: String(data.embedding?.openai_api_key_env ?? "OPENAI_API_KEY"),
     },
-    search: {
-      mode: parseSearchMode(data.search?.mode),
-    },
+    search: parseSearchConfig(data),
     llm: parseLLMConfig(data),
     cost: {
       daily_token_cap: Number(data.cost?.daily_token_cap ?? 0) || 0,

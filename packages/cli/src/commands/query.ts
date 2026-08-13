@@ -56,6 +56,8 @@ export async function queryCommand(argv: string[]): Promise<number> {
       repoRoot: ctx.repoRoot,
       intentLexicon,
       explain: Boolean(o.explain),
+      search: cfg.search,
+      skipCache: Boolean(o.explain),
     });
     const avgScore = hits.length ? hits.reduce((s, h) => s + h.score, 0) / hits.length : 0;
     await recordQueryStat(ctx.repoRoot, {

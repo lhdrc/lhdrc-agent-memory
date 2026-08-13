@@ -29,7 +29,7 @@
 | P3.1–P3.3 | 图谱 / skill·dream / AccessControl | **done** |
 | **P5.1** | L0 提取快路径：余弦去重 + 启发式/LLM facts | **done** |
 | **P5.2** | 分层读写 abstract/overview | **done** |
-| P5.3 | 检索增强 tokenmax / 实体层 / hotness | draft |
+| **P5.3** | 检索增强 tokenmax / 实体层 / hotness | **done** |
 | P5.4 | EventLedger / linkFacts / `--purge` | draft |
 | P5.5 | `think`/`find`/`eval`；`agent_id` | draft |
 | P5.6–P5.8 | 评测 / Postgres / ingest（增强轨） | draft |
@@ -38,7 +38,7 @@
 
 1. 改行为前先读 / 更新对应 Spec（[`00-conventions.md`](specs/mvp/00-conventions.md) §8、M1/M2/M3、[`二期/`](specs/二期/)、[`三期/`](specs/三期/)、[`五期/`](specs/五期/)）  
 2. 写入校验以 [`WRITE_FORMAT.md`](specs/mvp/WRITE_FORMAT.md) 为准（含 experience §9、skill §10）  
-3. **当前实现五期**（P5.1–P5.2 已完成，下一步 **P5.3**）；**不要**开始四期（**MCP·REST** / harness），除非用户明确要求；四期见 [`specs/四期/`](specs/四期/)（补充期）  
+3. **当前实现五期**（P5.1–P5.3 已完成，下一步 **P5.4**）；**不要**开始四期（**MCP·REST** / harness），除非用户明确要求；四期见 [`specs/四期/`](specs/四期/)（补充期）  
 4. 与 Spec 冲突时：**先改 Spec/08 ADR，再改代码**  
 5. **不**扩 dream 夜间维护全集（v1 五段维持；五期非目标）  
 
@@ -150,9 +150,10 @@ bun run memory -- dream --phases 1,2
 bun run memory -- observer --json
 bun run memory -- layers refresh --dirs --json
 bun run memory -- read <path> --layer l0 --json
+bun run memory -- query "重试" --mode tokenmax --explain --json
 ```
 
-五期口令见 [`specs/五期/P5.1-l0-extract.md`](specs/五期/P5.1-l0-extract.md)、[`P5.2-layers.md`](specs/五期/P5.2-layers.md) 等各 Spec 验收节。
+五期口令见 [`specs/五期/P5.1-l0-extract.md`](specs/五期/P5.1-l0-extract.md)、[`P5.2-layers.md`](specs/五期/P5.2-layers.md)、[`P5.3-retrieval-advanced.md`](specs/五期/P5.3-retrieval-advanced.md) 等各 Spec 验收节。
 
 细节见各 Spec 验收节与 [`specs/mvp/README.md`](specs/mvp/README.md)、[`specs/三期/README.md`](specs/三期/README.md)、[`specs/五期/README.md`](specs/五期/README.md)。
 

@@ -1,4 +1,13 @@
-export type { EmbeddingProvider, EmbeddingConfig, EmbeddingProviderId, SearchConfig } from "./types.ts";
+export type {
+  EmbeddingProvider,
+  EmbeddingConfig,
+  EmbeddingProviderId,
+  SearchConfig,
+  TokenmaxConfig,
+  HotnessConfig,
+  TokenmaxRerank,
+} from "./types.ts";
+export { DEFAULT_SEARCH_CONFIG } from "./types.ts";
 export { cosineSimilarity, float32ToBytes, bytesToFloat32 } from "./cosine.ts";
 export { NoopEmbedding } from "./noop.ts";
 export { OnnxLocalEmbedding } from "./local.ts";

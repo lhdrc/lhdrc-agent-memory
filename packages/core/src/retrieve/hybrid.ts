@@ -1,6 +1,8 @@
 import type { PGlite } from "@electric-sql/pglite";
-import type { EmbeddingProvider } from "../embed/types.ts";
+import type { EmbeddingProvider, SearchConfig } from "../embed/types.ts";
+import { DEFAULT_SEARCH_CONFIG } from "../embed/types.ts";
 import { readEmbeddingMeta } from "../index/meta.ts";
+import { loadRepoConfig } from "../repo/config.ts";
 import { bm25Query, type QueryHit, type QueryOptions } from "./query.ts";
 import {
   fuseHybridArms,
@@ -15,19 +17,22 @@ import { classifyIntent, type QueryIntent } from "./intent.ts";
 import { graphArm } from "./graph.ts";
 import { applyGraphSignals, type SignalExplain } from "./signals.ts";
 import { getSearchCache, setSearchCache, knobsHash, type SearchKnobs } from "./cache.ts";
+import { heuristicExpand } from "./expand.ts";
+import { localRerank, localRerankScore, type RerankStatus } from "./rerank.ts";
+import { applyHotness } from "./hotness.ts";
+import { applyDirectoryPrefilter, type DirectoryPrefilterExplain } from "./prefilter.ts";
 
 export interface HybridQueryOptions extends QueryOptions {
   mode?: SearchMode;
   embedder?: EmbeddingProvider | null;
-  /** P2.2 / P3.1 */
   schemaType?: string;
   repoRoot?: string;
-  /** schema pack intent_lexicon */
   intentLexicon?: Record<string, string[]> | null;
-  /** 跳过 search_cache */
   skipCache?: boolean;
-  /** 返回 explain 细节 */
   explain?: boolean;
+  search?: SearchConfig;
+  /** 测试注入；throw 时 rerank=skipped */
+  rerankFn?: (query: string, hits: QueryHit[]) => QueryHit[] | Promise<QueryHit[]>;
 }
 
 export interface QueryExplain {
@@ -42,6 +47,15 @@ export interface QueryExplain {
   };
   signals: SignalExplain;
   weightsKey: string;
+  /** P5.3 */
+  queries?: string[];
+  rerank?: RerankStatus;
+  entity_boosts?: Array<{ path: string; slug: string }>;
+  alias_hits?: string[];
+  title_phrase?: boolean;
+  hotness?: boolean;
+  directory_prefilter?: DirectoryPrefilterExplain | null;
+  rerank_scores?: Array<{ path: string; score: number }>;
 }
 
 export interface HybridQueryResult {
@@ -61,12 +75,17 @@ function armRanks(hits: RankedHit[]): Array<{ path: string; rank: number }> {
   return hits.map((h, i) => ({ path: h.path, rank: i + 1 }));
 }
 
+function advKey(s: SearchConfig): string {
+  return `e${s.tokenmax.expand ? 1 : 0}_r${s.tokenmax.rerank}_h${s.hotness.enabled ? 1 : 0}_d${s.directory_prefilter ? 1 : 0}`;
+}
+
 function buildKnobs(
   opts: HybridQueryOptions,
   intent: QueryIntent,
   mode: SearchMode,
   limit: number,
   semanticAvailable: boolean,
+  search: SearchConfig,
 ): SearchKnobs {
   const semOn = semanticAvailable && mode !== "conservative";
   return {
@@ -78,19 +97,54 @@ function buildKnobs(
     weightsKey: weightsKey(resolveFusionWeights(intent, semOn)),
     limit,
     semanticAvailable: semOn,
+    advKey: advKey(search),
   };
 }
 
-/** 实体 boost：query 命中 entity slug/title → 抬升链入该实体的 pages（按 brain 隔离） */
+function mergeBm25Groups(groups: QueryHit[][]): QueryHit[] {
+  if (groups.length <= 1) return groups[0] ?? [];
+  const best = new Map<string, QueryHit>();
+  const rrf = new Map<string, number>();
+  for (const g of groups) {
+    g.forEach((h, i) => {
+      const contrib = 1 / (60 + i + 1);
+      rrf.set(h.path, (rrf.get(h.path) ?? 0) + contrib);
+      const prev = best.get(h.path);
+      if (!prev || h.score > prev.score) best.set(h.path, h);
+    });
+  }
+  return [...best.values()]
+    .map((h) => ({ ...h, score: rrf.get(h.path) ?? h.score }))
+    .sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));
+}
+
+function titlePhraseHit(query: string, title: string): boolean {
+  const q = query.trim();
+  return q.length >= 2 && title.includes(q);
+}
+
+interface EntityBoostPack {
+  boosts: Map<string, number>;
+  details: Array<{ path: string; slug: string }>;
+}
+
 async function computeEntityBoosts(
   db: PGlite,
   brainId: string,
   query: string,
-): Promise<Map<string, number>> {
+): Promise<EntityBoostPack> {
   const boosts = new Map<string, number>();
+  const details: Array<{ path: string; slug: string }> = [];
+  const add = (path: string, slug: string, delta: number) => {
+    const prev = boosts.get(path) ?? 0;
+    boosts.set(path, Math.min(1, prev + delta));
+    if (!details.some((d) => d.path === path && d.slug === slug)) {
+      details.push({ path, slug });
+    }
+  };
   try {
     const q = query.trim().toLowerCase();
-    if (!q) return boosts;
+    if (!q) return { boosts, details };
     const ents = await db.query<{ slug: string; canonical_slug: string; title: string }>(
       `SELECT slug, canonical_slug, title FROM entity_registry
        WHERE brain_id = $2 AND status != 'merged'
@@ -99,31 +153,45 @@ async function computeEntityBoosts(
        LIMIT 20`,
       [q, brainId],
     );
-    if (ents.rows.length === 0) return boosts;
+    if (ents.rows.length === 0) return { boosts, details };
     for (const e of ents.rows) {
       const slug = e.canonical_slug || e.slug;
       const links = await db.query<{ from_path: string }>(
         `SELECT DISTINCT from_path FROM links WHERE brain_id = $1 AND lower(to_ref) = $2`,
         [brainId, slug.toLowerCase()],
       );
-      for (const row of links.rows) {
-        const prev = boosts.get(row.from_path) ?? 0;
-        boosts.set(row.from_path, Math.min(1, prev + 0.5));
-      }
+      for (const row of links.rows) add(row.from_path, slug, 0.5);
       const entPath = `brains/${brainId}/entities/${slug}.md`;
-      boosts.set(entPath, Math.min(1, (boosts.get(entPath) ?? 0) + 0.8));
+      add(entPath, slug, 0.8);
+      const needle = slug.toLowerCase();
+      const titleNeedle = e.title.toLowerCase();
+      const mentioned = await db.query<{ path: string }>(
+        `SELECT path FROM pages WHERE brain_id = $1 AND status = 'active'
+           AND (position($2 in lower(title)) > 0 OR position($2 in lower(body_text)) > 0
+                OR position($3 in lower(title)) > 0 OR position($3 in lower(body_text)) > 0)
+         LIMIT 50`,
+        [brainId, needle, titleNeedle],
+      );
+      for (const row of mentioned.rows) add(row.path, slug, 0.45);
     }
   } catch {
     /* fail-open */
   }
-  return boosts;
+  return { boosts, details };
 }
 
-/**
- * P2.1a + P3.1 混合检索：BM25 + 语义 + graph → RRF → signals。
- * provider=off 或 mode=conservative 时语义臂为空；graph 解析失败 fail-open。
- * search_cache knobs 使用实际 semanticAvailable（非仅 semanticWanted）。
- */
+async function resolveSearch(opts: HybridQueryOptions): Promise<SearchConfig> {
+  if (opts.search) return opts.search;
+  if (opts.repoRoot) {
+    try {
+      return (await loadRepoConfig(opts.repoRoot)).search;
+    } catch {
+      /* fall through */
+    }
+  }
+  return DEFAULT_SEARCH_CONFIG;
+}
+
 export async function hybridQuery(db: PGlite, opts: HybridQueryOptions): Promise<QueryHit[]> {
   const result = await hybridQueryDetailed(db, opts);
   return result.hits;
@@ -140,11 +208,19 @@ export async function hybridQueryDetailed(
   const armLimit = limit * 3;
   const mode: SearchMode = opts.mode ?? "balanced";
   const intent = classifyIntent(q, opts.intentLexicon);
+  const search = await resolveSearch(opts);
+
+  const expandOn = mode === "tokenmax" && search.tokenmax.expand;
+  const queries = expandOn ? heuristicExpand(q, search.tokenmax.expand_n) : [q];
 
   const embedder = opts.embedder ?? null;
   const semanticWanted = embedder != null && embedder.id !== "off" && mode !== "conservative";
 
-  const bm25Hits = await bm25Query(db, { ...opts, limit: armLimit, schemaType: opts.schemaType });
+  const bm25Groups: QueryHit[][] = [];
+  for (const qi of queries) {
+    bm25Groups.push(await bm25Query(db, { ...opts, query: qi, limit: armLimit, schemaType: opts.schemaType }));
+  }
+  const bm25Hits = mergeBm25Groups(bm25Groups);
   const bm25Ranked: RankedHit[] = bm25Hits.map((h) => ({
     path: h.path,
     score: h.score,
@@ -155,9 +231,18 @@ export async function hybridQueryDetailed(
 
   const titles = new Map<string, string>();
   const meta = new Map<string, { snippet?: string; title?: string; evidence?: string[] }>();
+  const updatedAt = new Map<string, string>();
   for (const h of bm25Hits) {
     titles.set(h.path, h.title);
     meta.set(h.path, { snippet: h.snippet, title: h.title, evidence: h.evidence });
+    if (h.updatedAt) updatedAt.set(h.path, h.updatedAt);
+  }
+
+  const aliasHits: string[] = [];
+  if (search.alias_hop) {
+    for (const h of bm25Hits) {
+      if (h.evidence.includes("alias")) aliasHits.push(h.title || h.path);
+    }
   }
 
   let semanticHits: RankedHit[] = [];
@@ -212,10 +297,10 @@ export async function hybridQueryDetailed(
     graphHits = [];
   }
 
-  // knobs 在得知实际 semanticAvailable 之后再算，保证 cache 与融合权重一致
-  const knobs = buildKnobs(opts, intent, mode, limit, semanticAvailable);
+  const knobs = buildKnobs(opts, intent, mode, limit, semanticAvailable, search);
+  const useCache = !opts.skipCache && !opts.explain;
 
-  if (!opts.skipCache) {
+  if (useCache) {
     const cached = await getSearchCache(db, q, knobs);
     if (cached) {
       const explain: QueryExplain | undefined = opts.explain
@@ -231,15 +316,21 @@ export async function hybridQueryDetailed(
             },
             signals: { hub: [], crossSource: [], diversified: [] },
             weightsKey: knobs.weightsKey,
+            queries,
+            rerank: search.tokenmax.rerank,
+            hotness: search.hotness.enabled,
+            directory_prefilter: search.directory_prefilter ? null : null,
           }
         : undefined;
       return { hits: cached.hits, explain };
     }
   }
 
-  const entityBoosts = await computeEntityBoosts(db, opts.brainId, q);
+  const entityPack = search.entity_boost
+    ? await computeEntityBoosts(db, opts.brainId, q)
+    : { boosts: new Map<string, number>(), details: [] as Array<{ path: string; slug: string }> };
 
-  const fused: FusedHit[] = fuseHybridArms(bm25Ranked, semanticHits, {
+  let fused: FusedHit[] = fuseHybridArms(bm25Ranked, semanticHits, {
     mode,
     query: q,
     titles,
@@ -247,22 +338,33 @@ export async function hybridQueryDetailed(
     limit: armLimit,
     semanticAvailable,
     graphHits,
-    entityBoosts,
+    entityBoosts: entityPack.boosts,
     intent,
   });
 
   let signalExplain: SignalExplain = { hub: [], crossSource: [], diversified: [] };
-  let afterSignals = fused;
   try {
     const applied = await applyGraphSignals(db, fused, { brainId: opts.brainId, topK: Math.min(20, fused.length) });
-    afterSignals = applied.hits;
+    fused = applied.hits;
     signalExplain = applied.signals;
   } catch {
     /* fail-open */
   }
 
-  const top = afterSignals.slice(0, limit);
-  const hits: QueryHit[] = top.map((f) => {
+  if (search.hotness.enabled) {
+    fused = applyHotness(fused, updatedAt, search.hotness.half_life_days);
+  }
+
+  let dirExplain: DirectoryPrefilterExplain | null = null;
+  if (search.directory_prefilter) {
+    const pf = applyDirectoryPrefilter(fused);
+    fused = pf.hits;
+    dirExplain = pf.explain;
+  }
+
+  const titlePhrase = fused.some((f) => titlePhraseHit(q, f.title ?? titles.get(f.path) ?? ""));
+
+  let hits: QueryHit[] = fused.slice(0, Math.max(limit, search.tokenmax.rerank_top_n)).map((f) => {
     const bm = bm25Hits.find((h) => h.path === f.path);
     const abstract = bm?.abstract;
     return {
@@ -272,10 +374,33 @@ export async function hybridQueryDetailed(
       snippet: f.snippet ?? meta.get(f.path)?.snippet ?? "",
       evidence: f.evidence,
       ...(abstract ? { abstract } : {}),
+      updatedAt: bm?.updatedAt ?? updatedAt.get(f.path),
     };
   });
 
-  if (!opts.skipCache) {
+  let rerankStatus: RerankStatus = search.tokenmax.rerank;
+  let rerankScores: Array<{ path: string; score: number }> | undefined;
+  if (search.tokenmax.rerank === "local" || opts.rerankFn) {
+    try {
+      if (opts.rerankFn) {
+        hits = await opts.rerankFn(q, hits);
+        rerankStatus = "local";
+      } else {
+        rerankScores = hits.slice(0, search.tokenmax.rerank_top_n).map((h) => ({
+          path: h.path,
+          score: localRerankScore(q, h.title, h.snippet),
+        }));
+        hits = localRerank(q, hits, search.tokenmax.rerank_top_n);
+        rerankStatus = "local";
+      }
+    } catch {
+      rerankStatus = "skipped";
+    }
+  }
+
+  hits = hits.slice(0, limit);
+
+  if (useCache) {
     await setSearchCache(db, q, knobs, hits);
   }
 
@@ -292,6 +417,14 @@ export async function hybridQueryDetailed(
         },
         signals: signalExplain,
         weightsKey: knobs.weightsKey,
+        queries,
+        rerank: rerankStatus,
+        entity_boosts: entityPack.details,
+        alias_hits: aliasHits,
+        title_phrase: titlePhrase,
+        hotness: search.hotness.enabled,
+        directory_prefilter: dirExplain,
+        ...(rerankScores ? { rerank_scores: rerankScores } : {}),
       }
     : undefined;
 

@@ -28,7 +28,7 @@ const HELP = `df-memory CLI
   memory brain <create|list>
   memory capture --title <t> --type <schema_type> --body <b> [--extract] [--no-dedupe] [options]
   memory import <file|dir> [--source <id>]
-  memory query <text> [--limit N] [--source <id>] [--type <schema_type>] [--mode <m>] [--explain] [--json]
+  memory query <text> [--limit N] [--source <id>] [--type <schema_type>] [--mode conservative|balanced|tokenmax] [--explain] [--json]
   memory graph-query <text> [--limit N] [--source <id>] [--json]
   memory read <path> [--layer l0|l1|l2] [--json]
   memory layers refresh [--path <rel>] [--dirs] [--json]
@@ -48,6 +48,7 @@ const HELP = `df-memory CLI
 说明:
   单仓多 brain 时 git 历史对同仓可见，非密码学隔离。
   本地 CLI 无 token 视为 trusted local（owner）；远程面无 token → E_AUTH。
+  query --mode tokenmax：启发式扩写（llm=off 可演示）；--explain 含 queries/rerank/hotness/entity_boosts。
 `;
 
 type Command = (argv: string[]) => Promise<number>;

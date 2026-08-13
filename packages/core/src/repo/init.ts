@@ -37,6 +37,17 @@ embedding:
   openai_api_key_env: OPENAI_API_KEY
 search:
   mode: balanced
+  tokenmax:
+    expand: true
+    expand_n: 2
+    rerank: off
+    rerank_top_n: 20
+  hotness:
+    enabled: true
+    half_life_days: 30
+  directory_prefilter: false
+  entity_boost: true
+  alias_hop: true
 llm:
   provider: off
   distill: true

@@ -19,6 +19,8 @@ export interface QueryHit {
   evidence: string[];
   /** P5.2：frontmatter abstract；snippet 优先用它 */
   abstract?: string;
+  /** P5.3 内部：用于 hotness */
+  updatedAt?: string;
 }
 
 export function makeSnippet(text: string, query: string): string {
@@ -58,9 +60,12 @@ SELECT * FROM (
     + 0.8 * ts_rank(to_tsvector('simple', coalesce(body_ngrams,'')), plainto_tsquery('simple', $2))
     + CASE WHEN position(lower($3) in lower(coalesce(title,''))) > 0 THEN 2.5 ELSE 0 END
     + CASE WHEN position(lower($3) in lower(path)) > 0 THEN 1.5 ELSE 0 END
+    + CASE WHEN position(lower($3) in lower(coalesce(aliases_json,''))) > 0 THEN 3.0 ELSE 0 END
     ) AS score,
     body_text,
-    frontmatter_json
+    frontmatter_json,
+    aliases_json,
+    updated_at
   FROM pages
   WHERE status = 'active' AND brain_id = $4
     ${opts.sourceId ? `AND source_id = $5` : ""}
@@ -80,6 +85,8 @@ LIMIT ${Math.max(1, Math.floor(limit))}`;
     score: number;
     body_text: string;
     frontmatter_json: string;
+    aliases_json: string;
+    updated_at: string;
   }>;
   try {
     const result = await db.query<{
@@ -88,6 +95,8 @@ LIMIT ${Math.max(1, Math.floor(limit))}`;
       score: number;
       body_text: string;
       frontmatter_json: string;
+      aliases_json: string;
+      updated_at: string;
     }>(sql, params);
     rows = result.rows;
   } catch (e) {
@@ -100,6 +109,7 @@ LIMIT ${Math.max(1, Math.floor(limit))}`;
     const title = String(r.title);
     if (containsFold(title, q)) evidence.push("title");
     if (r.path.toLowerCase().includes(q.toLowerCase())) evidence.push("path");
+    if (containsFold(String(r.aliases_json ?? ""), q)) evidence.push("alias");
     const abstract = abstractFromFrontmatter(r.frontmatter_json);
     const snippetSrc = abstract || String(r.body_text);
     out.push({
@@ -109,6 +119,7 @@ LIMIT ${Math.max(1, Math.floor(limit))}`;
       snippet: makeSnippet(snippetSrc, q),
       evidence,
       ...(abstract ? { abstract } : {}),
+      updatedAt: r.updated_at ? String(r.updated_at) : undefined,
     });
   }
   return out;

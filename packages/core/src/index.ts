@@ -230,7 +230,18 @@ export {
   OnnxLocalEmbedding,
   OpenAIEmbedding,
 } from "./embed/index.ts";
-export type { EmbeddingProvider, EmbeddingConfig, EmbeddingProviderId, SearchConfig } from "./embed/index.ts";
+export { DEFAULT_SEARCH_CONFIG } from "./embed/index.ts";
+export type {
+  EmbeddingProvider,
+  EmbeddingConfig,
+  EmbeddingProviderId,
+  SearchConfig,
+  TokenmaxConfig,
+  HotnessConfig,
+} from "./embed/index.ts";
+export { heuristicExpand } from "./retrieve/expand.ts";
+export { localRerank, localRerankScore } from "./retrieve/rerank.ts";
+export { hotnessBoost } from "./retrieve/hotness.ts";
 
 export { parseFrontmatter, serializeFrontmatter, hasValidFrontmatter } from "./frontmatter.ts";
 export type { ParsedMd } from "./frontmatter.ts";
