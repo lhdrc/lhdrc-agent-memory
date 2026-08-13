@@ -1,0 +1,53 @@
+{
+  "notes": [
+    {
+      "title": "值班手记-网关",
+      "body": "昨晚网关偶发超时，值班同学刷新了几次页面，后来自己好了。没有留下标准步骤。"
+    },
+    {
+      "title": "值班手记-支付",
+      "body": "有用户说扣了两次款，财务对了一下账，好像是网络抖动。未形成规范。"
+    },
+    {
+      "title": "值班手记-索引",
+      "body": "有人抱怨搜索不到刚写的笔记，重启了电脑。未记录根因。"
+    }
+  ],
+  "experiences": [
+    {
+      "title": "gateway timeout retry policy",
+      "trigger": "when gateway timeout happens in production",
+      "procedure": "retry 3 times with fixed backoff of 200ms",
+      "boundary": "only for idempotent requests"
+    },
+    {
+      "title": "duplicate charge guard",
+      "trigger": "when duplicate charge is reported",
+      "procedure": "attach an idempotent key per request id before charging",
+      "boundary": "do not refund automatically"
+    },
+    {
+      "title": "broken index recovery",
+      "trigger": "when search misses freshly written notes",
+      "procedure": "run rebuild-index after verifying markdown files still exist",
+      "boundary": "never git checkout to undo a successful md write"
+    }
+  ],
+  "questions": [
+    {
+      "id": "d1",
+      "query": "gateway timeout",
+      "gold": ["retry 3 times", "fixed backoff"]
+    },
+    {
+      "id": "d2",
+      "query": "duplicate charge",
+      "gold": ["idempotent key"]
+    },
+    {
+      "id": "d3",
+      "query": "search misses notes",
+      "gold": ["rebuild-index"]
+    }
+  ]
+}

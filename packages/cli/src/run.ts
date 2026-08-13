@@ -35,7 +35,8 @@ const HELP = `df-memory CLI
   memory query <text> [--limit N] [--source <id>] [--type <schema_type>] [--mode conservative|balanced|tokenmax] [--explain] [--json]
   memory find <text> [--limit N] [--source <id>] [--type <schema_type>] [--mode conservative|balanced|tokenmax] [--explain] [--json]
   memory think <text> [--json]
-  memory eval --mini [--json]
+  memory eval --mini|--distill|--report|--adapter <id> [--fixture] [--json]
+  memory eval fetch --adapter <id> --allow-net
   memory graph-query <text> [--limit N] [--source <id>] [--json]
   memory read <path> [--layer l0|l1|l2] [--json]
   memory layers refresh [--path <rel>] [--dirs] [--json]

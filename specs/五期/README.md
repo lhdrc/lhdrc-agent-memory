@@ -15,7 +15,7 @@
 | 3 | P5.3 检索增强 | [`P5.3-retrieval-advanced.md`](P5.3-retrieval-advanced.md) | P2.1a, P3.1 | tokenmax 真能力 + 实体层 + hotness |
 | 4 | P5.4 账本与硬删 | [`P5.4-ledger-purge.md`](P5.4-ledger-purge.md) | M1, M2, P3.3 | EventLedger / linkFacts / `--purge` |
 | 5 | P5.5 CLI 与 agent 范围 | [`P5.5-cli-agent-scope.md`](P5.5-cli-agent-scope.md) | P3.3；建议 P5.3 | `think`/`find`/`eval`；`agent_id` source 归属 |
-| 6 | P5.6 评测体系 | [`P5.6-evals.md`](P5.6-evals.md) | P2.1a；建议 P5.3 | 公开基准适配 + hermetic 门禁 |
+| 6 | P5.6 评测体系 | [`P5.6-evals.md`](P5.6-evals.md) | P2.1a；建议 P5.3 | 公开基准适配 + hermetic 门禁（**done**） |
 | 7 | P5.7 索引扩展 | [`P5.7-postgres-engine.md`](P5.7-postgres-engine.md) | M3, P2.1a | PostgresEngine / pgvector 可选后端 |
 | 8 | P5.8 摄取适配器 | [`P5.8-ingest-adapters.md`](P5.8-ingest-adapters.md) | M2, P5.1（建议） | generic-jsonl + df-app fixture 可跑 |
 
@@ -56,7 +56,7 @@ P5.1 提取       P5.2 分层          P5.4 ledger/purge  P5.8 ingest
 
 ## 五期完成标志
 
-P5.1–P5.5 全部验收口令绿 + DoD 勾选 → **功能补齐主线完成**；P5.6–P5.8 为增强轨，各自口令绿后独立发布。
+P5.1–P5.5 全部验收口令绿 + DoD 勾选 → **功能补齐主线完成**；**P5.6 评测体系已落地**；P5.7–P5.8 为增强轨，各自口令绿后独立发布。
 
 ## 分期速查
 

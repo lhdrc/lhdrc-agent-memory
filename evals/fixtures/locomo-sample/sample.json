@@ -1,0 +1,29 @@
+[
+  {
+    "sample_id": "fixture-0",
+    "conversation": {
+      "speaker_a": "Alice",
+      "speaker_b": "Bob",
+      "session_1_date_time": "1:00 pm on 13 August 2026",
+      "session_1": [
+        { "speaker": "Alice", "text": "I adopted a dog, a corgi named Mochi last Tuesday." },
+        { "speaker": "Bob", "text": "Nice! I started working at Rivermark Labs." },
+        { "speaker": "Alice", "text": "Mochi already stole my slippers twice." }
+      ]
+    },
+    "qa": [
+      {
+        "question": "What is the name of Alice's dog?",
+        "answer": "Mochi",
+        "evidence": ["I adopted a dog, a corgi named Mochi last Tuesday."],
+        "category": 1
+      },
+      {
+        "question": "Where did Bob start working?",
+        "answer": "Rivermark Labs",
+        "evidence": ["I started working at Rivermark Labs."],
+        "category": 1
+      }
+    ]
+  }
+]

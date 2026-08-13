@@ -1,0 +1,30 @@
+{
+  "notes": [
+    { "brain": "brain-a", "title": "RetryPolicy", "body": "Timeouts use RETRY3FIXED backoff, never unbounded retry." },
+    { "brain": "brain-a", "title": "PaymentWire", "body": "Checkout posts through PAYWIRE42 and records a ledger line." },
+    { "brain": "brain-a", "title": "SchemaPack", "body": "Default pack id is SCHEMA_PACK_PT problem-tree." },
+    { "brain": "brain-a", "title": "DreamPhases", "body": "Nightly dream runs DREAMPHASE2 crystallize after observe." },
+    { "brain": "brain-a", "title": "TokenmaxMode", "body": "Query mode TOKENMAXMODE expands recall with heuristic queries." },
+    { "brain": "brain-a", "title": "EventLedger", "body": "Auditable writes append EVENTLEDGER9 jsonl under events/." },
+    { "brain": "brain-a", "title": "HotnessBoost", "body": "Recent pages get HOTNESSBOOST in hybrid ranking." },
+    { "brain": "brain-a", "title": "AbstractLayer", "body": "L1 sidecar ABSTRACTL1 stores a short abstract for tokenmax." },
+    { "brain": "brain-a", "title": "AgentSource", "body": "Registered agents may only write AGENTSRC01 listed sources." },
+    { "brain": "brain-a", "title": "GraphEdge", "body": "Entity mention GRAPHEDGE7 links notes in the graph arm." },
+    { "brain": "brain-a", "title": "FlushBatch", "body": "Git mode batch flushes after FLUSHN20 writes or five minutes." },
+    { "brain": "brain-a", "title": "余弦闸", "body": "L0 提取用 余弦去重闸 跳过近似重复 facts。" }
+  ],
+  "queries": [
+    { "id": "q01", "brain": "brain-a", "query": "RETRY3FIXED", "expect_substr": "RETRY3FIXED" },
+    { "id": "q02", "brain": "brain-a", "query": "PAYWIRE42", "expect_substr": "PAYWIRE42" },
+    { "id": "q03", "brain": "brain-a", "query": "SCHEMA_PACK_PT", "expect_substr": "SCHEMA_PACK_PT" },
+    { "id": "q04", "brain": "brain-a", "query": "DREAMPHASE2", "expect_substr": "DREAMPHASE2" },
+    { "id": "q05", "brain": "brain-a", "query": "TOKENMAXMODE", "expect_substr": "TOKENMAXMODE" },
+    { "id": "q06", "brain": "brain-a", "query": "EVENTLEDGER9", "expect_substr": "EVENTLEDGER9" },
+    { "id": "q07", "brain": "brain-a", "query": "HOTNESSBOOST", "expect_substr": "HOTNESSBOOST" },
+    { "id": "q08", "brain": "brain-a", "query": "ABSTRACTL1", "expect_substr": "ABSTRACTL1" },
+    { "id": "q09", "brain": "brain-a", "query": "AGENTSRC01", "expect_substr": "AGENTSRC01" },
+    { "id": "q10", "brain": "brain-a", "query": "GRAPHEDGE7", "expect_substr": "GRAPHEDGE7" },
+    { "id": "q11", "brain": "brain-a", "query": "FLUSHN20", "expect_substr": "FLUSHN20" },
+    { "id": "q12", "brain": "brain-a", "query": "余弦去重闸", "expect_substr": "余弦去重闸" }
+  ]
+}
