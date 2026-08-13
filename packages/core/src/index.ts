@@ -61,6 +61,15 @@ export type { DirtyState } from "./write/dirty.ts";
 export { WriteValidator, todayUtc } from "./write/validator.ts";
 export { captureNode, buildMarkdownBody } from "./write/capture.ts";
 export type { CaptureOptions } from "./write/capture.ts";
+export { ingestJsonl, ingestRecordToCapture } from "./ingest/run.ts";
+export { parseJsonl } from "./ingest/jsonl.ts";
+export type {
+  IngestAdapter,
+  IngestRecord,
+  IngestResult,
+  IngestLineError,
+  IngestCaptureFn,
+} from "./ingest/types.ts";
 export { enrichAfterWrite } from "./write/enrich.ts";
 export type { EnrichResult, EnrichOptions } from "./write/enrich.ts";
 export { heuristicExtractFacts, validateFactsForAppend } from "./write/extract.ts";

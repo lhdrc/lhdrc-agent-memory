@@ -6,6 +6,8 @@
     "memory": "./src/main.ts"
   },
   "dependencies": {
-    "@df-memory/core": "workspace:*"
+    "@df-memory/core": "workspace:*",
+    "@df-memory/ingest-df-app": "workspace:*",
+    "@df-memory/ingest-generic-jsonl": "workspace:*"
   }
 }

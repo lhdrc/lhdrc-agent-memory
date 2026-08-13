@@ -1,0 +1,11 @@
+{
+  "name": "@df-memory/ingest-generic-jsonl",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@df-memory/core": "workspace:*"
+  }
+}

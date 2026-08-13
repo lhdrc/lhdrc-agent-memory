@@ -17,7 +17,7 @@
 | 5 | P5.5 CLI 与 agent 范围 | [`P5.5-cli-agent-scope.md`](P5.5-cli-agent-scope.md) | P3.3；建议 P5.3 | `think`/`find`/`eval`；`agent_id` source 归属 |
 | 6 | P5.6 评测体系 | [`P5.6-evals.md`](P5.6-evals.md) | P2.1a；建议 P5.3 | 公开基准适配 + hermetic 门禁（**done**） |
 | 7 | P5.7 索引扩展 | [`P5.7-postgres-engine.md`](P5.7-postgres-engine.md) | M3, P2.1a | PostgresEngine / pgvector 可选后端（**done**） |
-| 8 | P5.8 摄取适配器 | [`P5.8-ingest-adapters.md`](P5.8-ingest-adapters.md) | M2, P5.1（建议） | generic-jsonl + df-app fixture 可跑 |
+| 8 | P5.8 摄取适配器 | [`P5.8-ingest-adapters.md`](P5.8-ingest-adapters.md) | M2, P5.1（建议） | generic-jsonl + df-app fixture 可跑（**done**） |
 
 ## 技术方案总览
 
@@ -56,7 +56,7 @@ P5.1 提取       P5.2 分层          P5.4 ledger/purge  P5.8 ingest
 
 ## 五期完成标志
 
-P5.1–P5.5 全部验收口令绿 + DoD 勾选 → **功能补齐主线完成**；**P5.6 评测、P5.7 PostgresEngine 已落地**；P5.8 为增强轨，口令绿后独立发布。
+P5.1–P5.8 全部验收口令绿 + DoD 勾选 → **五期完成**（访问面仍属四期补充期）。
 
 ## 分期速查
 

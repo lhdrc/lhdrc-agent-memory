@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "packages/adapters/*"
   ],
   "scripts": {
     "test": "bun test --timeout=60000",
