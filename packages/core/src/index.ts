@@ -4,7 +4,7 @@ export type { ErrorCode } from "./errors.ts";
 export { initMemoryRepo, memoryYml, brainYml, sourceMarker } from "./repo/init.ts";
 export type { InitOptions } from "./repo/init.ts";
 export { findRepoRoot, loadRepoConfig, resolveEnvDefaults } from "./repo/config.ts";
-export type { RepoConfig } from "./repo/config.ts";
+export type { RepoConfig, WriteConfig, LayersConfig } from "./repo/config.ts";
 export { loadBrainConfig, resolveSourceId, createBrain, listBrains, hasSharedSkillsMount } from "./repo/brain.ts";
 export type { BrainConfig, BrainMount, CreateBrainOptions } from "./repo/brain.ts";
 export {
@@ -44,6 +44,11 @@ export type { DirtyState } from "./write/dirty.ts";
 export { WriteValidator, todayUtc } from "./write/validator.ts";
 export { captureNode, buildMarkdownBody } from "./write/capture.ts";
 export type { CaptureOptions } from "./write/capture.ts";
+export { enrichAfterWrite } from "./write/enrich.ts";
+export type { EnrichResult, EnrichOptions } from "./write/enrich.ts";
+export { heuristicExtractFacts, validateFactsForAppend } from "./write/extract.ts";
+export { checkDedupe } from "./write/dedupe.ts";
+export type { DedupeResult } from "./write/dedupe.ts";
 export { forgetNode } from "./write/forget.ts";
 export { importNode, importPath } from "./write/import.ts";
 export type { ImportOptions, ImportedFile } from "./write/import.ts";
@@ -84,11 +89,23 @@ export type { MemoryDiffEntry, MemoryDiffOp } from "./distill/memory-diff.ts";
 export { revertMemoryDiff } from "./distill/revert.ts";
 export type { RevertResult } from "./distill/revert.ts";
 
-export { readNode } from "./node/read.ts";
-export type { ReadResult } from "./node/read.ts";
+export { readNode, parseMemoryLayer } from "./node/read.ts";
+export type { ReadResult, MemoryLayer } from "./node/read.ts";
 export { listTree, renderTree } from "./node/tree.ts";
 export type { TreeNode } from "./node/tree.ts";
 export { resolveNodeRelPath } from "./node/paths.ts";
+
+export {
+  refreshLayers,
+  maybeAutoAbstract,
+} from "./layers/refresh.ts";
+export type { RefreshLayersOptions, RefreshLayersResult, LayerUpdate } from "./layers/refresh.ts";
+export {
+  heuristicOverview,
+  isDerivedLayerFile,
+  overviewSidecarRel,
+  DIR_OVERVIEW_NAME,
+} from "./layers/generate.ts";
 
 export { openPglite, ensureSchema, clearBrainIndex } from "./index/engine.ts";
 export type { IndexConnection } from "./index/engine.ts";

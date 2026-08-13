@@ -17,6 +17,8 @@ export interface QueryHit {
   score: number;
   snippet: string;
   evidence: string[];
+  /** P5.2：frontmatter abstract；snippet 优先用它 */
+  abstract?: string;
 }
 
 export function makeSnippet(text: string, query: string): string {
@@ -57,7 +59,8 @@ SELECT * FROM (
     + CASE WHEN position(lower($3) in lower(coalesce(title,''))) > 0 THEN 2.5 ELSE 0 END
     + CASE WHEN position(lower($3) in lower(path)) > 0 THEN 1.5 ELSE 0 END
     ) AS score,
-    body_text
+    body_text,
+    frontmatter_json
   FROM pages
   WHERE status = 'active' AND brain_id = $4
     ${opts.sourceId ? `AND source_id = $5` : ""}
@@ -71,9 +74,21 @@ LIMIT ${Math.max(1, Math.floor(limit))}`;
   if (opts.sourceId) params.push(opts.sourceId);
   if (opts.schemaType) params.push(opts.schemaType);
 
-  let rows: Array<{ path: string; title: string; score: number; body_text: string }>;
+  let rows: Array<{
+    path: string;
+    title: string;
+    score: number;
+    body_text: string;
+    frontmatter_json: string;
+  }>;
   try {
-    const result = await db.query<{ path: string; title: string; score: number; body_text: string }>(sql, params);
+    const result = await db.query<{
+      path: string;
+      title: string;
+      score: number;
+      body_text: string;
+      frontmatter_json: string;
+    }>(sql, params);
     rows = result.rows;
   } catch (e) {
     throw new MemoryError(ErrorCodes.INDEX, `查询失败: ${e instanceof Error ? e.message : String(e)}`);
@@ -85,12 +100,15 @@ LIMIT ${Math.max(1, Math.floor(limit))}`;
     const title = String(r.title);
     if (containsFold(title, q)) evidence.push("title");
     if (r.path.toLowerCase().includes(q.toLowerCase())) evidence.push("path");
+    const abstract = abstractFromFrontmatter(r.frontmatter_json);
+    const snippetSrc = abstract || String(r.body_text);
     out.push({
       path: r.path,
       title,
       score: Number(r.score),
-      snippet: makeSnippet(String(r.body_text), q),
+      snippet: makeSnippet(snippetSrc, q),
       evidence,
+      ...(abstract ? { abstract } : {}),
     });
   }
   return out;
@@ -98,4 +116,15 @@ LIMIT ${Math.max(1, Math.floor(limit))}`;
 
 function containsFold(haystack: string, needle: string): boolean {
   return haystack.toLowerCase().includes(needle.toLowerCase());
+}
+
+function abstractFromFrontmatter(json: string | null | undefined): string | undefined {
+  if (!json) return undefined;
+  try {
+    const data = JSON.parse(json) as Record<string, unknown>;
+    const a = typeof data.abstract === "string" ? data.abstract.trim() : "";
+    return a || undefined;
+  } catch {
+    return undefined;
+  }
 }

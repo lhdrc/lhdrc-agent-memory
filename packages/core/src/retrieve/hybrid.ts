@@ -262,13 +262,18 @@ export async function hybridQueryDetailed(
   }
 
   const top = afterSignals.slice(0, limit);
-  const hits: QueryHit[] = top.map((f) => ({
-    path: f.path,
-    title: f.title ?? titles.get(f.path) ?? f.path,
-    score: f.score,
-    snippet: f.snippet ?? meta.get(f.path)?.snippet ?? "",
-    evidence: f.evidence,
-  }));
+  const hits: QueryHit[] = top.map((f) => {
+    const bm = bm25Hits.find((h) => h.path === f.path);
+    const abstract = bm?.abstract;
+    return {
+      path: f.path,
+      title: f.title ?? titles.get(f.path) ?? f.path,
+      score: f.score,
+      snippet: f.snippet ?? meta.get(f.path)?.snippet ?? "",
+      evidence: f.evidence,
+      ...(abstract ? { abstract } : {}),
+    };
+  });
 
   if (!opts.skipCache) {
     await setSearchCache(db, q, knobs, hits);

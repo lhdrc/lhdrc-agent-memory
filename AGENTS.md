@@ -5,7 +5,7 @@
 ## 项目是什么
 
 **df-memory**：开源、单机、本地部署的记忆模块——「agent 的 git + 知识库」。  
-当前交付焦点：MVP + 二期 + **三期已落地**；四期（MCP/REST）与五期（架构补齐 Spec 已起草）均需明确要求后再实现。
+当前交付焦点：MVP + 二期 + 三期已落地；**正在实现五期（架构补齐 P5.1–P5.5）**；四期（MCP/REST）为**补充期**，未获明确要求前不做。
 
 > 口号里的「git」指版本化知识仓体验；**实现上热路径以 md 文件为权威**，git 为可选批量账本（08 **D1/D18**）。
 
@@ -14,7 +14,7 @@
 | 优先级 | 路径 | 用途 |
 |---|---|---|
 | 1 | [`specs/mvp/`](specs/mvp/) | **实现规格**——按此编码与验收 |
-| 2 | [`specs/二期/`](specs/二期/) · [`三期/`](specs/三期/) · [`四期/`](specs/四期/) · [`五期/`](specs/五期/) | 二/三期已做；四期 MCP/REST；五期架构补齐（draft） |
+| 2 | [`specs/二期/`](specs/二期/) · [`三期/`](specs/三期/) · [`五期/`](specs/五期/) · [`四期/`](specs/四期/)（补充期） | 二/三期已做；**五期进行中**；四期 MCP/REST 后置 |
 | 3 | [`reports/08-开源记忆模块设计方案.md`](reports/08-开源记忆模块设计方案.md) | 架构与 ADR；与 Spec 冲突时 **先改 Spec/ADR 再改代码** |
 | 4 | [`reports/01`](reports/01-gbrain-调研报告.md)–[`05`](reports/05-四项目对比总结.md) | 调研背景，不直接当接口规格 |
 
@@ -22,23 +22,27 @@
 
 ## 当前状态与接下来做什么
 
-**MVP（M1–M3 + D18）已落地**；**二期（P2.1a + P2.2）已落地**；**三期（P3.1–P3.3）已落地**：
+**MVP（M1–M3 + D18）已落地**；**二期（P2.1a + P2.2）已落地**；**三期（P3.1–P3.3）已落地**；**五期进行中**：
 
-| Spec | 能力摘要 |
-|---|---|
-| P3.1 | 零 LLM 抽链 → `links`；关系臂 + `graph-query`；graph signals；意图；`search_cache`；`query --explain` |
-| P3.2 | Skill 结晶 / outcome / 状态机；dream v1 五段；cost / observer；skills 索引 |
-| P3.3 | `AccessControl`；`brain create/list` + `--brain`；隔离 fuzz；`evals/` 脚手架 |
+| Spec | 能力摘要 | 状态 |
+|---|---|---|
+| P3.1–P3.3 | 图谱 / skill·dream / AccessControl | **done** |
+| **P5.1** | L0 提取快路径：余弦去重 + 启发式/LLM facts | **done** |
+| **P5.2** | 分层读写 abstract/overview | **done** |
+| P5.3 | 检索增强 tokenmax / 实体层 / hotness | draft |
+| P5.4 | EventLedger / linkFacts / `--purge` | draft |
+| P5.5 | `think`/`find`/`eval`；`agent_id` | draft |
+| P5.6–P5.8 | 评测 / Postgres / ingest（增强轨） | draft |
 
 回归：`bun test packages/core/tests/`；隔离：`bun run test:isolation`；迷你评测：`bun run eval:mini`。
 
-1. 改行为前先读 / 更新对应 Spec（[`00-conventions.md`](specs/mvp/00-conventions.md) §8、M1/M2/M3、[`二期/`](specs/二期/)、[`三期/`](specs/三期/)）  
+1. 改行为前先读 / 更新对应 Spec（[`00-conventions.md`](specs/mvp/00-conventions.md) §8、M1/M2/M3、[`二期/`](specs/二期/)、[`三期/`](specs/三期/)、[`五期/`](specs/五期/)）  
 2. 写入校验以 [`WRITE_FORMAT.md`](specs/mvp/WRITE_FORMAT.md) 为准（含 experience §9、skill §10）  
-3. **不要**开始四期（**MCP·REST** / harness）或五期实现，除非用户明确要求；五期 Spec 见 [`specs/五期/`](specs/五期/)  
+3. **当前实现五期**（P5.1–P5.2 已完成，下一步 **P5.3**）；**不要**开始四期（**MCP·REST** / harness），除非用户明确要求；四期见 [`specs/四期/`](specs/四期/)（补充期）  
 4. 与 Spec 冲突时：**先改 Spec/08 ADR，再改代码**  
 5. **不**扩 dream 夜间维护全集（v1 五段维持；五期非目标）  
 
-分期速查：二期 = P2.1a+P2.2（**done**）；三期 = P3.1–P3.3（**done**）；四期 = P4.1（MCP/REST）；五期 = P5.1–P5.8（draft，架构补齐）。
+分期速查：二期 = P2.1a+P2.2（**done**）；三期 = P3.1–P3.3（**done**）；**五期 = P5.1–P5.8（架构补齐，当前）**；四期 = P4.1（MCP/REST，**补充期**）。
 
 ## 技术栈（已锁定）
 
@@ -83,8 +87,8 @@
 - 先改 Spec / 测试意图，再写代码；Given/When/Then 要有对应 `bun:test`  
 - 错误码与路径规则跟 `00-conventions.md`  
 - Schema 形状来自 pack YAML（默认 `problem-tree`），核心不硬编码 issue 路径语义  
-- 不要把调研报告或 08 全文复制进代码注释；引用 Spec ID（如 `M2-11`）即可  
-- 验收口令与 CLI 面见 [`specs/mvp/README.md`](specs/mvp/README.md)  
+- 不要把调研报告或 08 全文复制进代码注释；引用 Spec ID（如 `M2-11` / `P51-03`）即可  
+- 验收口令与 CLI 面见 [`specs/mvp/README.md`](specs/mvp/README.md)、[`specs/五期/`](specs/五期/)  
 - 每次完成阶段建设后更新AGENTS.md文档，同步进度和完成背景。  
 - 对于简单的任务可以交给subagent做，subagent使用composer2.5 模型。  
 
@@ -114,11 +118,11 @@ bun run eval:mini
 
 ## 明确不要做
 
-- 在 MVP/默认路径引入云向量库、默认云 API；MCP/REST 服务属**四期**  
+- 在 MVP/默认路径引入云向量库、默认云 API；MCP/REST 服务属**四期补充期**（未要求勿做）  
 - Entity merge 只 UPDATE PGLite  
 - 用覆盖写破坏 ADD-only  
 - 把 `experiences/`、`skills/` 建在 `brains/{id}/` 之外  
-- 未获要求实现四期能力或并行 Java 栈  
+- 未获要求实现四期（补充期）能力或并行 Java 栈  
 - 修改本文件或 Spec 以「绕过」验收，除非用户要求修订规格  
 - 在「索引 / flush 失败」时用 `git checkout` 抹掉已成功的权威 md  
 - 把先验 dirty 与 force commit（如 merge）打进同一条 commit  
@@ -144,8 +148,12 @@ bun run memory -- brain list
 bun run memory -- --brain team-b capture --title "B仓笔记" --type note --body "仅B可见"
 bun run memory -- dream --phases 1,2
 bun run memory -- observer --json
+bun run memory -- layers refresh --dirs --json
+bun run memory -- read <path> --layer l0 --json
 ```
 
-细节见各 Spec 验收节与 [`specs/mvp/README.md`](specs/mvp/README.md)、[`specs/三期/README.md`](specs/三期/README.md)。
+五期口令见 [`specs/五期/P5.1-l0-extract.md`](specs/五期/P5.1-l0-extract.md)、[`P5.2-layers.md`](specs/五期/P5.2-layers.md) 等各 Spec 验收节。
+
+细节见各 Spec 验收节与 [`specs/mvp/README.md`](specs/mvp/README.md)、[`specs/三期/README.md`](specs/三期/README.md)、[`specs/五期/README.md`](specs/五期/README.md)。
 
 > **多租户提示**：单仓多 brain 时 git 历史对同仓可见，非密码学隔离；鉴权由 `AccessControl` + `brain_id` 过滤保证。

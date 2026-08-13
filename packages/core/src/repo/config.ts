@@ -9,10 +9,23 @@ import type { CostConfig } from "../cost/logger.ts";
 import type { AuthConfig } from "../auth/types.ts";
 import { parseAuthConfig } from "../auth/access-control.ts";
 
+export interface WriteConfig {
+  dedupe_cosine: number;
+  dedupe_window: number;
+}
+
+export interface LayersConfig {
+  auto: boolean;
+  overview_max_chars: number;
+  dir_aggregate: boolean;
+}
+
 export interface RepoConfig {
   version: number;
   brain_id: string;
   schema_pack: string;
+  write: WriteConfig;
+  layers: LayersConfig;
   git: {
     mode: "off" | "batch" | "per_write";
     auto_commit: boolean;
@@ -55,10 +68,29 @@ function parseLLMConfig(data: Record<string, any>): LLMConfig {
   return {
     provider: parseLLMProvider(llm.provider),
     distill: llm.distill !== false,
+    extract: llm.extract === true,
     kill_switch: {
       distill: llm.kill_switch?.distill === true,
       abstract: llm.kill_switch?.abstract === true,
+      extract: llm.kill_switch?.extract === true,
     },
+  };
+}
+
+function parseWriteConfig(data: Record<string, any>): WriteConfig {
+  const write = data.write ?? {};
+  return {
+    dedupe_cosine: Number(write.dedupe_cosine ?? 0) || 0,
+    dedupe_window: Number(write.dedupe_window ?? 200) || 200,
+  };
+}
+
+function parseLayersConfig(data: Record<string, any>): LayersConfig {
+  const layers = data.layers ?? {};
+  return {
+    auto: layers.auto === true,
+    overview_max_chars: Number(layers.overview_max_chars ?? 4000) || 4000,
+    dir_aggregate: layers.dir_aggregate !== false,
   };
 }
 
@@ -76,6 +108,8 @@ export async function loadRepoConfig(repoRoot: string): Promise<RepoConfig> {
     version: data.version ?? 1,
     brain_id: data.brain_id ?? "default",
     schema_pack: data.schema_pack ?? "problem-tree",
+    write: parseWriteConfig(data),
+    layers: parseLayersConfig(data),
     git: {
       mode,
       auto_commit: data.git?.auto_commit ?? true,

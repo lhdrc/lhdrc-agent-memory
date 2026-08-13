@@ -243,8 +243,10 @@ describe("扩展覆盖", () => {
 
   test("OpenAI embedding mock fetch 成功", async () => {
     const origFetch = globalThis.fetch;
-    globalThis.fetch = async () =>
-      new Response(JSON.stringify({ data: [{ embedding: [0.1, 0.2, 0.3] }] }), { status: 200 });
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ data: [{ embedding: [0.1, 0.2, 0.3] }] }), {
+        status: 200,
+      })) as unknown as typeof fetch;
     try {
       process.env.TEST_OPENAI_KEY = "sk-test";
       const p = createEmbeddingProvider({

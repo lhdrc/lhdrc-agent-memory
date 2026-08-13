@@ -13,6 +13,7 @@ export type MemoryDiffOp =
   | "skill_activate"
   | "skill_outcome"
   | "skill_archive"
+  | "skip_duplicate"
   | "noop";
 
 export interface MemoryDiffEntry {

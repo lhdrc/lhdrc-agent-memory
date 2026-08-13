@@ -12,6 +12,7 @@ import type { EmbeddingProvider } from "../embed/types.ts";
 import { float32ToBytes } from "../embed/cosine.ts";
 import { writeIndexMeta, writeEmbeddingMeta } from "./meta.ts";
 import { deleteLinksForPath, syncLinksForPage } from "./sync-links.ts";
+import { isDerivedLayerFile } from "../layers/generate.ts";
 
 export interface SyncOptions {
   embedder?: EmbeddingProvider;
@@ -81,6 +82,9 @@ export async function syncPage(
   } catch {
     await db.query(`DELETE FROM pages WHERE path = $1`, [relPath]);
     await deleteLinksForPath(db, relPath);
+    return;
+  }
+  if (isDerivedLayerFile(relPath)) {
     return;
   }
   const hash = sha256Hex(raw);

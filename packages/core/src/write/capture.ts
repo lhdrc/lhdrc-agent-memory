@@ -79,5 +79,13 @@ export async function captureNode(
     },
     `capture ${n.schemaType} ${relFromSource}`,
   );
+
+  try {
+    const { maybeAutoAbstract } = await import("../layers/refresh.ts");
+    await maybeAutoAbstract(repoRoot, opts.brainId, n.path, queue);
+  } catch {
+    /* 富化失败不回滚已写 md（D1） */
+  }
+
   return n.path;
 }

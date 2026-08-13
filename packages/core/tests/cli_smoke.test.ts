@@ -169,4 +169,11 @@ describe("CLI 冒烟", () => {
     },
     T,
   );
+
+  test("layers --help 说明三层与目录文件", async () => {
+    const r = await runCli(["layers", "--help"]);
+    expect(r.exit).toBe(0);
+    expect(r.out).toMatch(/l0|abstract/i);
+    expect(r.out).toContain("_overview.md");
+  });
 });

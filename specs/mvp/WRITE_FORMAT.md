@@ -169,3 +169,15 @@ L2 技能层走 `validateSkillWrite` → `writeSkill`（WriteQueue），目录 `
 成熟判定常量（可配置覆盖，默认冻结）：`eta_score >= 0.7 && support >= 2 && counter_examples.length == 0`。
 
 outcome：成功 `eta_score += 0.1`、`support += 1`；失败 `eta_score -= 0.2` 并 append `counter_examples`。
+
+## 11. 分层字段与 sidecar（P5.2）
+
+`abstract`（L0）与 `overview`（L1）为**派生字段**，不走 L0 `CreateNodeRequest` 必填校验；`capture` / `import` 可不带。由 `layers refresh` 或 `layers.auto` 写入 frontmatter，**禁止改正文**。
+
+| 形态 | 规则 |
+|---|---|
+| frontmatter `abstract` / `overview` | 字符串；refresh 可覆盖（非 ADD-only 正文） |
+| sidecar `{stem}.overview.md` | 当 overview 超过 `layers.overview_max_chars` 时落在同目录；`read --layer l1` 优先读 sidecar |
+| 目录摘要 `{dir}/_overview.md` | `layers refresh --dirs` 写出；可覆盖重算；**不是** L0 capture 目标 |
+
+上述 sidecar / `_overview.md` **豁免** WRITE_FORMAT 节点校验与 ADD-only 冲突（派生文件，允许刷新覆盖）。

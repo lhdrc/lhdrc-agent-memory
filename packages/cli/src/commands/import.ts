@@ -1,4 +1,4 @@
-import { MemoryError, ErrorCodes, loadPack, importPath } from "@df-memory/core";
+import { MemoryError, ErrorCodes, loadPack, importPath, loadRepoConfig, enrichAfterWrite } from "@df-memory/core";
 import { parseArgs } from "../args.ts";
 import { loadContext } from "../context.ts";
 import { createQueue } from "../services.ts";
@@ -14,6 +14,7 @@ export async function importCommand(argv: string[]): Promise<number> {
     throw new MemoryError(ErrorCodes.USAGE, "import 需要一个文件或目录");
   }
   const ctx = await loadContext(Boolean(o.json));
+  const cfg = await loadRepoConfig(ctx.repoRoot);
   const createdBy = (o["created-by"] as string) ?? `cli:${process.env.USER ?? process.env.USERNAME ?? "user"}`;
   const pack = await loadPack();
   const queue = await createQueue(ctx.repoRoot);
@@ -22,6 +23,19 @@ export async function importCommand(argv: string[]): Promise<number> {
     sourceId: (o.source as string) ?? ctx.sourceId,
     createdBy,
   });
+
+  const enrichEnabled = cfg.llm.extract || cfg.write.dedupe_cosine > 0;
+  if (enrichEnabled) {
+    for (const r of results) {
+      await enrichAfterWrite({
+        repoRoot: ctx.repoRoot,
+        brainId: ctx.brainId,
+        path: r.destRel,
+        queue,
+      });
+    }
+  }
+
   if (o.json) {
     console.log(JSON.stringify(results.map((r) => ({ from: r.sourcePath, path: r.destRel }))));
   } else {

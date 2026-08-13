@@ -21,6 +21,19 @@ export interface ExperienceResult {
   body: string;
 }
 
+export interface FactExtractMeta {
+  event_type: string;
+  attributed_to: string;
+  at: string;
+}
+
+export interface ExtractFact {
+  text: string;
+  event_type: string;
+  attributed_to: string;
+  at: string;
+}
+
 export interface LLMProvider {
   readonly id: string;
   judgeDistill(existing: string[], candidate: string): Promise<DistillDecision>;
@@ -28,6 +41,7 @@ export interface LLMProvider {
   generateOverview(children: string[]): Promise<string>;
   refineExperience(ctx: ExperienceContext): Promise<ExperienceResult>;
   embed?(texts: string[]): Promise<number[][]>;
+  extractFacts?(body: string, meta: FactExtractMeta): Promise<ExtractFact[]>;
 }
 
 export type LLMProviderId = "off" | "openai";
@@ -35,10 +49,12 @@ export type LLMProviderId = "off" | "openai";
 export interface LLMKillSwitch {
   distill: boolean;
   abstract: boolean;
+  extract: boolean;
 }
 
 export interface LLMConfig {
   provider: LLMProviderId;
   distill: boolean;
+  extract: boolean;
   kill_switch: LLMKillSwitch;
 }

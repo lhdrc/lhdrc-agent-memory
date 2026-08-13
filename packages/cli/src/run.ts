@@ -18,6 +18,7 @@ import { skillCommand } from "./commands/skill.ts";
 import { dreamCommand } from "./commands/dream.ts";
 import { observerCommand } from "./commands/observer.ts";
 import { brainCommand } from "./commands/brain.ts";
+import { layersCommand } from "./commands/layers.ts";
 
 const HELP = `df-memory CLI
 
@@ -25,11 +26,12 @@ const HELP = `df-memory CLI
   memory [--brain <id>] [--token <tok>] <cmd> ...
   memory init [dir] [--brain <id>] [--source <id>] [--force]
   memory brain <create|list>
-  memory capture --title <t> --type <schema_type> --body <b> [options]
+  memory capture --title <t> --type <schema_type> --body <b> [--extract] [--no-dedupe] [options]
   memory import <file|dir> [--source <id>]
   memory query <text> [--limit N] [--source <id>] [--type <schema_type>] [--mode <m>] [--explain] [--json]
   memory graph-query <text> [--limit N] [--source <id>] [--json]
-  memory read <path>
+  memory read <path> [--layer l0|l1|l2] [--json]
+  memory layers refresh [--path <rel>] [--dirs] [--json]
   memory tree [path] [--depth N]
   memory forget <path> [--by <id>]
   memory entity <create|list|resolve|merge>
@@ -70,6 +72,7 @@ const COMMANDS: Record<string, Command> = {
   skill: skillCommand,
   dream: dreamCommand,
   observer: observerCommand,
+  layers: layersCommand,
 };
 
 /** 剥离全局 --brain / --token，写入环境变量供 loadContext 使用。 */

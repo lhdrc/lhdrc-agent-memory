@@ -40,9 +40,18 @@ search:
 llm:
   provider: off
   distill: true
+  extract: false
   kill_switch:
     distill: false
     abstract: false
+    extract: false
+write:
+  dedupe_cosine: 0
+  dedupe_window: 200
+layers:
+  auto: false
+  overview_max_chars: 4000
+  dir_aggregate: true
 cost:
   daily_token_cap: 0
   log: .dfmemory/costs.jsonl

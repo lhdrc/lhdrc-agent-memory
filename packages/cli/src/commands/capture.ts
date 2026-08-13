@@ -1,12 +1,25 @@
 import { resolve } from "node:path";
 import { readFile } from "node:fs/promises";
-import { MemoryError, ErrorCodes, loadPack, captureNode, todayUtc, assertSourceScope } from "@df-memory/core";
+import {
+  MemoryError,
+  ErrorCodes,
+  loadPack,
+  captureNode,
+  enrichAfterWrite,
+  todayUtc,
+  assertSourceScope,
+} from "@df-memory/core";
 import { parseArgs } from "../args.ts";
 import { loadContext } from "../context.ts";
 import { createQueue } from "../services.ts";
 
 function defaultCreatedBy(): string {
   return `cli:${process.env.USER ?? process.env.USERNAME ?? "user"}`;
+}
+
+function envExtractEnabled(): boolean {
+  const v = process.env.DF_MEMORY_EXTRACT;
+  return v === "1" || v === "true";
 }
 
 export async function captureCommand(argv: string[]): Promise<number> {
@@ -21,6 +34,8 @@ export async function captureCommand(argv: string[]): Promise<number> {
     { name: "alias", type: "string[]" },
     { name: "fact", type: "string[]" },
     { name: "created-by", type: "string" },
+    { name: "extract", type: "boolean" },
+    { name: "no-dedupe", type: "boolean" },
     { name: "json", type: "boolean" },
   ]);
   if (!o.title || !o.type) {
@@ -60,7 +75,19 @@ export async function captureCommand(argv: string[]): Promise<number> {
     createdBy,
   });
 
-  if (o.json) console.log(JSON.stringify({ path }));
-  else console.log(path);
+  const enrich = await enrichAfterWrite({
+    repoRoot: ctx.repoRoot,
+    brainId: ctx.brainId,
+    path,
+    queue,
+    extract: Boolean(o.extract) || envExtractEnabled(),
+    noDedupe: Boolean(o["no-dedupe"]),
+  });
+
+  if (o.json) {
+    const out: { path: string; enrich?: typeof enrich } = { path };
+    if (enrich !== undefined) out.enrich = enrich;
+    console.log(JSON.stringify(out));
+  } else console.log(path);
   return 0;
 }
