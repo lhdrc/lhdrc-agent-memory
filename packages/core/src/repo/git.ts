@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { MemoryError, ErrorCodes } from "../errors.ts";
 
 export interface GitResult {
@@ -45,6 +47,20 @@ export async function gitIsRepo(repoRoot: string): Promise<boolean> {
 export async function gitAdd(repoRoot: string, paths: string[]): Promise<void> {
   if (paths.length === 0) return;
   assertGitOk(await runGit(repoRoot, ["add", "-A", "--", ...paths]), "git add");
+}
+
+/** 可 `git add` 的路径：工作区仍在，或已被跟踪（含已删除）。 */
+export async function filterGitAddPaths(repoRoot: string, paths: string[]): Promise<string[]> {
+  const usable: string[] = [];
+  for (const p of paths) {
+    if (existsSync(join(repoRoot, p))) {
+      usable.push(p);
+      continue;
+    }
+    const tracked = await runGit(repoRoot, ["ls-files", "--", p]);
+    if (tracked.stdout.trim()) usable.push(p);
+  }
+  return usable;
 }
 
 export async function gitAddAll(repoRoot: string): Promise<void> {

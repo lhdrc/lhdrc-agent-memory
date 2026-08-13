@@ -5,7 +5,7 @@
 ## 项目是什么
 
 **df-memory**：开源、单机、本地部署的记忆模块——「agent 的 git + 知识库」。  
-当前交付焦点：MVP + 二期 + 三期已落地；**正在实现五期（架构补齐 P5.1–P5.5）**；四期（MCP/REST）为**补充期**，未获明确要求前不做。
+当前交付焦点：MVP + 二期 + 三期已落地；**五期主线（P5.1–P5.5）已完成**，增强轨 P5.6–P5.8 可选；四期（MCP/REST）为**补充期**，未获明确要求前不做。
 
 > 口号里的「git」指版本化知识仓体验；**实现上热路径以 md 文件为权威**，git 为可选批量账本（08 **D1/D18**）。
 
@@ -22,7 +22,7 @@
 
 ## 当前状态与接下来做什么
 
-**MVP（M1–M3 + D18）已落地**；**二期（P2.1a + P2.2）已落地**；**三期（P3.1–P3.3）已落地**；**五期进行中**：
+**MVP（M1–M3 + D18）已落地**；**二期（P2.1a + P2.2）已落地**；**三期（P3.1–P3.3）已落地**；**五期主线已完成**（增强轨可选）：
 
 | Spec | 能力摘要 | 状态 |
 |---|---|---|
@@ -30,15 +30,15 @@
 | **P5.1** | L0 提取快路径：余弦去重 + 启发式/LLM facts | **done** |
 | **P5.2** | 分层读写 abstract/overview | **done** |
 | **P5.3** | 检索增强 tokenmax / 实体层 / hotness | **done** |
-| P5.4 | EventLedger / linkFacts / `--purge` | draft |
-| P5.5 | `think`/`find`/`eval`；`agent_id` | draft |
+| **P5.4** | EventLedger / linkFacts / `--purge` | **done** |
+| **P5.5** | `think`/`find`/`eval`；`agent_id` | **done** |
 | P5.6–P5.8 | 评测 / Postgres / ingest（增强轨） | draft |
 
 回归：`bun test packages/core/tests/`；隔离：`bun run test:isolation`；迷你评测：`bun run eval:mini`。
 
 1. 改行为前先读 / 更新对应 Spec（[`00-conventions.md`](specs/mvp/00-conventions.md) §8、M1/M2/M3、[`二期/`](specs/二期/)、[`三期/`](specs/三期/)、[`五期/`](specs/五期/)）  
 2. 写入校验以 [`WRITE_FORMAT.md`](specs/mvp/WRITE_FORMAT.md) 为准（含 experience §9、skill §10）  
-3. **当前实现五期**（P5.1–P5.3 已完成，下一步 **P5.4**）；**不要**开始四期（**MCP·REST** / harness），除非用户明确要求；四期见 [`specs/四期/`](specs/四期/)（补充期）  
+3. **当前实现五期**（P5.1–P5.5 主线已完成，下一步 **P5.6** 增强轨）；**不要**开始四期（**MCP·REST** / harness），除非用户明确要求；四期见 [`specs/四期/`](specs/四期/)（补充期）  
 4. 与 Spec 冲突时：**先改 Spec/08 ADR，再改代码**  
 5. **不**扩 dream 夜间维护全集（v1 五段维持；五期非目标）  
 
@@ -151,9 +151,18 @@ bun run memory -- observer --json
 bun run memory -- layers refresh --dirs --json
 bun run memory -- read <path> --layer l0 --json
 bun run memory -- query "重试" --mode tokenmax --explain --json
+bun run memory -- events list --json
+bun run memory -- entity link-facts alice --fact "已签约" --json
+bun run memory -- forget <path>
+bun run memory -- forget <path> --purge --confirm
+bun run memory -- find "重试" --json
+bun run memory -- think "重试" --json
+bun run memory -- eval --mini
+bun run memory -- agent register --id bot --source default
+bun run memory -- agent list --json
 ```
 
-五期口令见 [`specs/五期/P5.1-l0-extract.md`](specs/五期/P5.1-l0-extract.md)、[`P5.2-layers.md`](specs/五期/P5.2-layers.md)、[`P5.3-retrieval-advanced.md`](specs/五期/P5.3-retrieval-advanced.md) 等各 Spec 验收节。
+五期口令见 [`specs/五期/P5.1-l0-extract.md`](specs/五期/P5.1-l0-extract.md)、[`P5.2-layers.md`](specs/五期/P5.2-layers.md)、[`P5.3-retrieval-advanced.md`](specs/五期/P5.3-retrieval-advanced.md)、[`P5.4-ledger-purge.md`](specs/五期/P5.4-ledger-purge.md)、[`P5.5-cli-agent-scope.md`](specs/五期/P5.5-cli-agent-scope.md) 等各 Spec 验收节。
 
 细节见各 Spec 验收节与 [`specs/mvp/README.md`](specs/mvp/README.md)、[`specs/三期/README.md`](specs/三期/README.md)、[`specs/五期/README.md`](specs/五期/README.md)。
 

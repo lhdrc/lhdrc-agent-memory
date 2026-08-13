@@ -27,6 +27,9 @@ import {
   MemoryError,
   ErrorCodes,
   resolveNodeRelPath,
+  registerAgent,
+  applyAgentScope,
+  assertSourceScope,
 } from "../src/index.ts";
 
 const T = { timeout: 120_000 };
@@ -255,6 +258,29 @@ describe("P3.3 isolation fuzz", () => {
           const allowed: string[] = [ErrorCodes.AUTH, ErrorCodes.FORBIDDEN, ErrorCodes.PATH_ESCAPE];
           expect(allowed.includes(code)).toBe(true);
         }
+      }
+    },
+    T,
+  );
+
+  test(
+    "P5.5 agent×source：未登记 source → E_FORBIDDEN",
+    async () => {
+      const cfg = await loadRepoConfig(repoRoot);
+      const agent = await registerAgent(repoRoot, "brain-a", { id: "bot", sources: ["default"] });
+      const auth = authorize(
+        { channel: "cli", token: tokenARaw, brainId: "brain-a", sourceId: "default" },
+        cfg.auth,
+      );
+      const scoped = applyAgentScope(auth, agent);
+      expect(scoped.agentId).toBe("bot");
+      expect(scoped.allowedSources).toEqual(["default"]);
+      expect(() => assertSourceScope(scoped, "default")).not.toThrow();
+      expect(() => assertSourceScope(scoped, "other")).toThrow(MemoryError);
+      try {
+        assertSourceScope(scoped, "other");
+      } catch (e) {
+        expect((e as MemoryError).code).toBe(ErrorCodes.FORBIDDEN);
       }
     },
     T,

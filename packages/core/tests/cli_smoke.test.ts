@@ -89,7 +89,7 @@ describe("CLI 冒烟", () => {
       const f = await runCli(["forget", path, "--purge"]);
       expect(f.exit).toBe(2);
       expect(f.err).toContain("E_USAGE");
-      expect(f.err).toContain("--purge 未实现");
+      expect(f.err).toMatch(/--confirm/);
     },
     T,
   );

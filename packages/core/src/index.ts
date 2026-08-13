@@ -16,7 +16,7 @@ export {
   brainsRoot,
 } from "./repo/layout.ts";
 export type { NormalizedRepoPath } from "./repo/layout.ts";
-export { gitAdd, gitCommit, gitAddAll, gitInit, gitLog, gitIsRepo, runGit } from "./repo/git.ts";
+export { gitAdd, gitCommit, gitAddAll, gitInit, gitLog, gitIsRepo, runGit, filterGitAddPaths } from "./repo/git.ts";
 
 export { loadPack, stripYamlFence, DEFAULT_PACK, PACKS_DIR } from "./schema/loadPack.ts";
 export type { SchemaPack } from "./schema/loadPack.ts";
@@ -24,7 +24,24 @@ export { setSchemaPack } from "./schema/setPack.ts";
 
 export { EntityRegistryImpl, createEntityRegistry, monthDir } from "./entity/registry.ts";
 export type { EntityRegistry } from "./entity/registry.ts";
-export type { Entity, EntityCreateInput, EntityMergeInput, EntityListOptions } from "./entity/types.ts";
+export type {
+  Entity,
+  EntityCreateInput,
+  EntityMergeInput,
+  EntityListOptions,
+  EntityLinkFactsInput,
+  EntityFact,
+} from "./entity/types.ts";
+export {
+  listLedgerEvents,
+  appendLedgerEvent,
+  parseLedgerLine,
+  newLedgerEvent,
+  writeLedgerLine,
+  serializeLedgerEvent,
+  ledgerRel,
+} from "./events/ledger.ts";
+export type { LedgerEvent, ListLedgerOptions } from "./events/ledger.ts";
 export { entityToFile, fileToEntity } from "./entity/files.ts";
 
 export { directGitExecutor } from "./write/executor.ts";
@@ -39,7 +56,7 @@ export { flushDirtyLedger } from "./write/flush.ts";
 export type { FlushResult } from "./write/flush.ts";
 export type { ExecuteOptions, FlushReason, GitMode } from "./write/flush-policy.ts";
 export { shouldForceCommit, shouldBatchFlush } from "./write/flush-policy.ts";
-export { readDirtyState, addDirtyPaths, clearDirtyState, writeDirtyState } from "./write/dirty.ts";
+export { readDirtyState, addDirtyPaths, removeDirtyPaths, clearDirtyState, writeDirtyState } from "./write/dirty.ts";
 export type { DirtyState } from "./write/dirty.ts";
 export { WriteValidator, todayUtc } from "./write/validator.ts";
 export { captureNode, buildMarkdownBody } from "./write/capture.ts";
@@ -49,7 +66,7 @@ export type { EnrichResult, EnrichOptions } from "./write/enrich.ts";
 export { heuristicExtractFacts, validateFactsForAppend } from "./write/extract.ts";
 export { checkDedupe } from "./write/dedupe.ts";
 export type { DedupeResult } from "./write/dedupe.ts";
-export { forgetNode } from "./write/forget.ts";
+export { forgetNode, purgeNode, assertCanPurge } from "./write/forget.ts";
 export { importNode, importPath } from "./write/import.ts";
 export type { ImportOptions, ImportedFile } from "./write/import.ts";
 export type {
@@ -121,6 +138,8 @@ export type { QueryOptions, QueryHit } from "./retrieve/query.ts";
 export { semanticArm } from "./retrieve/semantic.ts";
 export type { SemanticArmOptions } from "./retrieve/semantic.ts";
 export { hybridQuery, hybridQueryDetailed } from "./retrieve/hybrid.ts";
+export { thinkQuery } from "./retrieve/think.ts";
+export type { ThinkResult, ThinkHit } from "./retrieve/think.ts";
 export type { HybridQueryOptions, HybridQueryResult, QueryExplain } from "./retrieve/hybrid.ts";
 export { bigrams } from "./retrieve/ngrams.ts";
 export {
@@ -214,6 +233,15 @@ export type {
   BrainGrant,
 } from "./auth/types.ts";
 export { EMPTY_AUTH_CONFIG } from "./auth/types.ts";
+export {
+  registerAgent,
+  listAgents,
+  loadAgent,
+  applyAgentScope,
+  applyAgentScopeFromId,
+  agentRel,
+} from "./agent/registry.ts";
+export type { AgentRecord } from "./agent/registry.ts";
 export {
   filterSharedSkillsHits,
   listVisibleSharedSkills,

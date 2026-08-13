@@ -125,7 +125,7 @@ export async function initMemoryRepo(dir: string, opts: InitOptions): Promise<st
       const p = d.replace(/^sources\/default/, `sources/${opts.source}`);
       await mkdir(join(brainRoot, p), { recursive: true });
     }
-    for (const d of ["entities", "events", "experiences", "skills"]) {
+    for (const d of ["entities", "events", "experiences", "skills", "agents"]) {
       await mkdir(join(brainRoot, d), { recursive: true });
     }
     await writeFile(join(brainRoot, "contradictions.md"), "# Contradictions\n");

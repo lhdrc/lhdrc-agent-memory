@@ -7,6 +7,8 @@ import {
   loadRepoConfig,
   loadPack,
   recordQueryStat,
+  assertSourceScope,
+  assertPathScope,
   type SearchMode,
 } from "@df-memory/core";
 import { parseArgs } from "../args.ts";
@@ -34,6 +36,12 @@ export async function queryCommand(argv: string[]): Promise<number> {
     throw new MemoryError(ErrorCodes.USAGE, `--mode 必须是 conservative|balanced|tokenmax，收到: ${modeRaw}`);
   }
   const mode = modeRaw as SearchMode;
+  let sourceId = o.source as string | undefined;
+  if (sourceId) {
+    assertSourceScope(ctx.auth, sourceId);
+  } else if (!ctx.auth.allowedSources.includes("*") && ctx.auth.allowedSources.length === 1) {
+    sourceId = ctx.auth.allowedSources[0];
+  }
   const embedder =
     cfg.embedding.provider !== "off" ? createEmbeddingProvider(cfg.embedding) : null;
   let intentLexicon: Record<string, string[]> | null = null;
@@ -45,11 +53,11 @@ export async function queryCommand(argv: string[]): Promise<number> {
   }
   const conn = await openPglite(ctx.repoRoot);
   try {
-    const { hits, explain } = await hybridQueryDetailed(conn.db, {
+    const { hits: rawHits, explain } = await hybridQueryDetailed(conn.db, {
       brainId: ctx.brainId,
       query: text,
       limit: o.limit !== undefined ? parseInt(String(o.limit), 10) || 10 : 10,
-      sourceId: o.source as string | undefined,
+      sourceId,
       schemaType: o.type as string | undefined,
       mode,
       embedder,
@@ -59,6 +67,16 @@ export async function queryCommand(argv: string[]): Promise<number> {
       search: cfg.search,
       skipCache: Boolean(o.explain),
     });
+    const hits = ctx.auth.allowedSources.includes("*")
+      ? rawHits
+      : rawHits.filter((h) => {
+          try {
+            assertPathScope(ctx.auth, h.path);
+            return true;
+          } catch {
+            return false;
+          }
+        });
     const avgScore = hits.length ? hits.reduce((s, h) => s + h.score, 0) / hits.length : 0;
     await recordQueryStat(ctx.repoRoot, {
       query: text,
@@ -82,5 +100,17 @@ export async function queryCommand(argv: string[]): Promise<number> {
     return 0;
   } finally {
     await conn.close();
+  }
+}
+
+/** P5.5：与 query 同库同 mode，flags 透传。 */
+export async function findCommand(argv: string[]): Promise<number> {
+  try {
+    return await queryCommand(argv);
+  } catch (e) {
+    if (e instanceof MemoryError && e.message === "query 需要一个查询文本") {
+      throw new MemoryError(ErrorCodes.USAGE, "find 需要一个查询文本");
+    }
+    throw e;
   }
 }

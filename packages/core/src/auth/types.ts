@@ -50,6 +50,8 @@ export interface AuthContext {
   allowedSources: string[];
   trustedLocal: boolean;
   tokenId?: string;
+  /** P5.5：全局 --agent 收窄后的登记 id */
+  agentId?: string;
 }
 
 export const EMPTY_AUTH_CONFIG: AuthConfig = { users: [], tokens: [] };

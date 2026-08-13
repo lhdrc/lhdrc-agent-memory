@@ -7,9 +7,10 @@ import type { FileMutationExecutor } from "./executor.ts";
 import { FileLock } from "./lock.ts";
 import type { IndexSyncHooks } from "./hooks.ts";
 import { noopIndexHooks, invokeIndexHooks } from "./hooks.ts";
-import { addDirtyPaths, readDirtyState } from "./dirty.ts";
+import { addDirtyPaths, readDirtyState, removeDirtyPaths } from "./dirty.ts";
 import { flushDirtyLedger } from "./flush.ts";
 import { shouldBatchFlush, shouldForceCommit, type ExecuteOptions, type FlushReason } from "./flush-policy.ts";
+import { filterGitAddPaths } from "../repo/git.ts";
 
 export type WriteJob =
   | { type: "create_node"; payload: unknown }
@@ -69,6 +70,12 @@ export class WriteQueue implements FileMutationExecutor {
           this.warn(`[E_INDEX] 索引同步失败（文件已写入，可执行 rebuild-index）: ${msg}`);
         }
 
+        const stageable = await filterGitAddPaths(this.repoRoot, changed);
+        const dropped = changed.filter((p) => !stageable.includes(p));
+        if (dropped.length > 0) {
+          await removeDirtyPaths(this.repoRoot, dropped);
+        }
+
         const force = shouldForceCommit(this.cfg, opts);
         const commitMsg = `${this.cfg.git.commit_prefix} ${message}`.trim();
 
@@ -83,16 +90,18 @@ export class WriteQueue implements FileMutationExecutor {
               );
             }
           }
-          await addDirtyPaths(this.repoRoot, changed);
-          // 只提交本 job 路径，避免与未刷干净的 dirty 混 commit
-          await flushDirtyLedger(this.repoRoot, this.cfg, "force", {
-            paths: changed,
-            message: commitMsg,
-            throwOnError: true,
-            warn: this.warn,
-          });
-        } else {
-          const state = await addDirtyPaths(this.repoRoot, changed);
+          if (stageable.length > 0) {
+            await addDirtyPaths(this.repoRoot, stageable);
+            // 只提交本 job 路径，避免与未刷干净的 dirty 混 commit
+            await flushDirtyLedger(this.repoRoot, this.cfg, "force", {
+              paths: stageable,
+              message: commitMsg,
+              throwOnError: true,
+              warn: this.warn,
+            });
+          }
+        } else if (stageable.length > 0) {
+          const state = await addDirtyPaths(this.repoRoot, stageable);
           if (shouldBatchFlush(this.cfg, state.writeCount, state.lastFlushAt, state.firstDirtyAt)) {
             await this.flushLocked("batch", undefined, false);
           }

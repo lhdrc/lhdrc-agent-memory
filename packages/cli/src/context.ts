@@ -1,4 +1,4 @@
-import { findRepoRoot, loadRepoConfig, resolveEnvDefaults, loadBrainConfig, resolveSourceId, authorize, type AuthContext } from "@df-memory/core";
+import { findRepoRoot, loadRepoConfig, resolveEnvDefaults, loadBrainConfig, resolveSourceId, authorize, applyAgentScopeFromId, type AuthContext } from "@df-memory/core";
 import type { BrainConfig, RepoConfig } from "@df-memory/core";
 
 export interface CommandContext {
@@ -11,6 +11,16 @@ export interface CommandContext {
   brainCfg: BrainConfig;
 }
 
+async function withAgentScope(
+  repoRoot: string,
+  brainId: string,
+  auth: AuthContext,
+): Promise<AuthContext> {
+  const agentId = process.env.DF_MEMORY_AGENT?.trim();
+  if (!agentId) return auth;
+  return applyAgentScopeFromId(repoRoot, brainId, auth, agentId);
+}
+
 export async function loadContext(json: boolean): Promise<CommandContext> {
   const repoRoot = findRepoRoot();
   const cfg = await loadRepoConfig(repoRoot);
@@ -18,14 +28,18 @@ export async function loadContext(json: boolean): Promise<CommandContext> {
   const brainId = brain ?? cfg.brain_id;
   const brainCfg = await loadBrainConfig(repoRoot, brainId);
   const sourceId = process.env.DF_MEMORY_SOURCE ?? resolveSourceId(brainCfg);
-  const auth = authorize(
-    {
-      channel: "cli",
-      token: process.env.DF_MEMORY_TOKEN ?? null,
-      brainId,
-      sourceId,
-    },
-    cfg.auth,
+  const auth = await withAgentScope(
+    repoRoot,
+    brainId,
+    authorize(
+      {
+        channel: "cli",
+        token: process.env.DF_MEMORY_TOKEN ?? null,
+        brainId,
+        sourceId,
+      },
+      cfg.auth,
+    ),
   );
   return { repoRoot, brainId, sourceId, json, auth, cfg, brainCfg };
 }
@@ -37,13 +51,18 @@ export async function loadNoSourceContext(
   const cfg = await loadRepoConfig(repoRoot);
   const { brain } = resolveEnvDefaults(cfg);
   const brainId = brain ?? cfg.brain_id;
-  const auth = authorize(
-    {
-      channel: "cli",
-      token: process.env.DF_MEMORY_TOKEN ?? null,
-      brainId,
-    },
-    cfg.auth,
+  const auth = await withAgentScope(
+    repoRoot,
+    brainId,
+    authorize(
+      {
+        channel: "cli",
+        token: process.env.DF_MEMORY_TOKEN ?? null,
+        brainId,
+      },
+      cfg.auth,
+    ),
   );
   return { repoRoot, brainId, json, auth, cfg };
 }
+

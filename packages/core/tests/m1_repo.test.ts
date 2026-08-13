@@ -35,6 +35,7 @@ describe("M1 仓库与文件权威", () => {
       "brains/default/events",
       "brains/default/experiences",
       "brains/default/skills",
+      "brains/default/agents",
       "brains/default/contradictions.md",
     ];
     for (const rel of entries) {

@@ -1,4 +1,4 @@
-import { gitAdd, gitCommit } from "../repo/git.ts";
+import { gitAdd, gitCommit, filterGitAddPaths } from "../repo/git.ts";
 import { loadRepoConfig } from "../repo/config.ts";
 import { shouldForceCommit, type ExecuteOptions } from "./flush-policy.ts";
 
@@ -23,7 +23,9 @@ export function directGitExecutor(repoRoot: string, commitPrefix = "memory:"): F
       // 允许调用方覆盖 prefix（测试/兼容）
       const prefix = commitPrefix || cfg.git.commit_prefix;
       if (!shouldForceCommit(cfg, opts)) return paths;
-      await gitAdd(repoRoot, paths);
+      const stageable = await filterGitAddPaths(repoRoot, paths);
+      if (stageable.length === 0) return paths;
+      await gitAdd(repoRoot, stageable);
       await gitCommit(repoRoot, `${prefix} ${message}`.trim());
       return paths;
     },

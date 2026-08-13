@@ -56,6 +56,15 @@ export async function addDirtyPaths(repoRoot: string, paths: string[]): Promise<
   return state;
 }
 
+export async function removeDirtyPaths(repoRoot: string, paths: string[]): Promise<DirtyState> {
+  const state = await readDirtyState(repoRoot);
+  if (paths.length === 0) return state;
+  const drop = new Set(paths);
+  state.paths = state.paths.filter((p) => !drop.has(p));
+  await writeDirtyState(repoRoot, state);
+  return state;
+}
+
 export function dirtyFileExists(repoRoot: string): boolean {
   return existsSync(dirtyPath(repoRoot));
 }

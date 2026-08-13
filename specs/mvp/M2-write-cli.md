@@ -168,7 +168,7 @@ memory forget <path> [--by <id>]
 3. 索引 hook（M3：查询默认排除 archived）  
 4. dirty / 条件 flush；**不**要求单次 forget 必有独立 commit（除非 `per_write`）  
 
-`--purge`：**MVP 解析参数但返回 `E_USAGE`「未实现」**（接口预留；将来进 `force_commit_on`）。
+`--purge`：见 [P5.4](../五期/P5.4-ledger-purge.md)。必须 `--confirm`；物理删除 + `node_purged`；`git.mode≠off` 时独立 force commit；需 owner。硬删不可默认、不可自动化。无 `--confirm` → `E_USAGE`。
 
 ## 10. schema use
 

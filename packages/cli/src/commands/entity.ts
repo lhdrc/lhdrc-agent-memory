@@ -9,8 +9,9 @@ function usage(sub?: string): void {
     list: "memory entity list [--all]",
     resolve: "memory entity resolve <name>",
     merge: "memory entity merge <slug>... --canonical <slug> --confirm",
+    "link-facts": "memory entity link-facts <slug> --fact <text> [--path <rel>]",
   };
-  console.error(help[sub ?? ""] ?? "memory entity <create|list|resolve|merge>");
+  console.error(help[sub ?? ""] ?? "memory entity <create|list|resolve|merge|link-facts>");
 }
 
 export async function entityCommand(argv: string[]): Promise<number> {
@@ -89,6 +90,28 @@ export async function entityCommand(argv: string[]): Promise<number> {
       });
       if (o.json) console.log(JSON.stringify(merged));
       else console.log(`merged -> ${merged.slug}`);
+      return 0;
+    }
+    case "link-facts": {
+      const o = parseArgs(rest, [
+        { name: "fact", type: "string" },
+        { name: "path", type: "string" },
+        { name: "json", type: "boolean" },
+      ]);
+      const slug = o._[0] as string | undefined;
+      const fact = o.fact as string | undefined;
+      if (!slug || !fact) {
+        usage("link-facts");
+        throw new MemoryError(ErrorCodes.USAGE, "entity link-facts 需要 <slug> 与 --fact");
+      }
+      const e = await registry.linkFacts({
+        slug,
+        fact,
+        path: o.path as string | undefined,
+        by: "cli:user",
+      });
+      if (o.json) console.log(JSON.stringify({ slug: e.slug, facts: e.facts ?? [] }));
+      else console.log(`linked ${e.slug}`);
       return 0;
     }
     default:

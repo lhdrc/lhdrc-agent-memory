@@ -181,3 +181,9 @@ outcome：成功 `eta_score += 0.1`、`support += 1`；失败 `eta_score -= 0.2`
 | 目录摘要 `{dir}/_overview.md` | `layers refresh --dirs` 写出；可覆盖重算；**不是** L0 capture 目标 |
 
 上述 sidecar / `_overview.md` **豁免** WRITE_FORMAT 节点校验与 ADD-only 冲突（派生文件，允许刷新覆盖）。
+
+## 12. Entity facts 与硬删（P5.4）
+
+`memory entity link-facts <slug> --fact <text>` 向 **entity 文件** frontmatter `facts` **append**（不改正文），并写 `fact_linked` 账本事件。不是 L0 `capture` 路径，不走 ADD-only 冲突。
+
+`forget <path>` 软归档（文件保留，`node_archived`）。`forget <path> --purge --confirm` **物理删除**文件（`node_purged`）；禁止无确认、禁止自动化/dream 触发。

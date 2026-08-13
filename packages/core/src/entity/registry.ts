@@ -6,14 +6,23 @@ import { isSlug } from "../util/slug.ts";
 import { resolveBrainRoot } from "../repo/layout.ts";
 import type { FileMutationExecutor } from "../write/executor.ts";
 import { directGitExecutor } from "../write/executor.ts";
+import { parseFrontmatter, serializeFrontmatter } from "../frontmatter.ts";
+import { newLedgerEvent, writeLedgerLine } from "../events/ledger.ts";
 import { entityToFile, fileToEntity } from "./files.ts";
-import type { Entity, EntityCreateInput, EntityMergeInput, EntityListOptions } from "./types.ts";
+import type {
+  Entity,
+  EntityCreateInput,
+  EntityMergeInput,
+  EntityListOptions,
+  EntityLinkFactsInput,
+} from "./types.ts";
 
 export interface EntityRegistry {
   create(input: EntityCreateInput): Promise<Entity>;
   resolve(aliasOrSlug: string): Promise<Entity>;
   list(opts?: EntityListOptions): Promise<Entity[]>;
   merge(input: EntityMergeInput): Promise<Entity>;
+  linkFacts(input: EntityLinkFactsInput): Promise<Entity>;
 }
 
 const REDIRECT_DEPTH_LIMIT = 2;
@@ -57,7 +66,12 @@ export class EntityRegistryImpl implements EntityRegistry {
   }
 
   private async writeEntityFile(entity: Entity): Promise<string> {
-    await writeFile(this.entityAbs(entity.slug), entityToFile(entity));
+    const abs = this.entityAbs(entity.slug);
+    let body: string | undefined;
+    if (existsSync(abs) && entity.status !== "merged") {
+      body = parseFrontmatter(await readFile(abs, "utf8")).body;
+    }
+    await writeFile(abs, entityToFile(entity, body));
     return this.entityRel(entity.slug);
   }
 
@@ -220,7 +234,14 @@ export class EntityRegistryImpl implements EntityRegistry {
       ...new Set([...canonical.aliases, ...losers.flatMap((l) => l.aliases)].filter((a) => a !== canonicalSlug)),
     ];
     const newExternalIds = [...new Set([...canonical.externalIds, ...losers.flatMap((l) => l.externalIds)])];
-    const updated: Entity = { ...canonical, aliases: newAliases, externalIds: newExternalIds, updatedAt: now };
+    const mergedFacts = [...(canonical.facts ?? []), ...losers.flatMap((l) => l.facts ?? [])];
+    const updated: Entity = {
+      ...canonical,
+      aliases: newAliases,
+      externalIds: newExternalIds,
+      updatedAt: now,
+      facts: mergedFacts.length ? mergedFacts : undefined,
+    };
 
     await this.executor.execute(async () => {
       const changed: string[] = [await this.writeEntityFile(updated)];
@@ -254,6 +275,44 @@ export class EntityRegistryImpl implements EntityRegistry {
     });
 
     return updated;
+  }
+
+  async linkFacts(input: EntityLinkFactsInput): Promise<Entity> {
+    const text = input.fact.trim();
+    if (!text) {
+      throw new MemoryError(ErrorCodes.VALIDATION, "fact 必填", { field: "fact" });
+    }
+    if (text.length > 2000) {
+      throw new MemoryError(ErrorCodes.VALIDATION, "facts[].text ≤2000", { field: "fact" });
+    }
+    const entity = await this.resolve(input.slug);
+    const abs = this.entityAbs(entity.slug);
+    const raw = await readFile(abs, "utf8");
+    const { data, body } = parseFrontmatter(raw);
+    const now = new Date().toISOString();
+    const fact = {
+      text,
+      event_type: "fact_linked",
+      attributed_to: input.by,
+      at: now,
+      ...(input.path ? { path: input.path } : {}),
+    };
+    const facts = Array.isArray(data.facts) ? [...(data.facts as unknown[])] : [];
+    facts.push(fact);
+    data.facts = facts;
+    data.updated_at = now;
+    await this.executor.execute(async () => {
+      await writeFile(abs, serializeFrontmatter(data, body), "utf8");
+      const evt = newLedgerEvent({
+        type: "fact_linked",
+        by: input.by,
+        from: entity.slug,
+        payload: { slug: entity.slug, fact: text, path: input.path },
+      });
+      const ledgerRel = await writeLedgerLine(this.repoRoot, this.brainId, evt);
+      return [this.entityRel(entity.slug), ledgerRel];
+    }, `entity link-facts ${entity.slug}`);
+    return fileToEntity(serializeFrontmatter(data, body));
   }
 }
 
