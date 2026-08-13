@@ -66,6 +66,7 @@ compile:
   dedupe_window: 200
   max_input_chars: 32000
   tool_max_chars: 2000
+  prefetch_topn: 5
 recall:
   threshold: 3
   min_query_chars: 4

@@ -21,6 +21,7 @@ export interface CompileConfig {
   dedupe_window: number;
   max_input_chars: number;
   tool_max_chars: number;
+  prefetch_topn: number;
 }
 
 export interface RecallConfig {
@@ -35,6 +36,7 @@ export const DEFAULT_COMPILE_CONFIG: CompileConfig = {
   dedupe_window: 200,
   max_input_chars: 32_000,
   tool_max_chars: 2000,
+  prefetch_topn: 5,
 };
 
 export const DEFAULT_RECALL_CONFIG: RecallConfig = {
@@ -147,7 +149,15 @@ function parseCompileConfig(data: Record<string, any>): CompileConfig {
     tool_max_chars:
       Number(compile.tool_max_chars ?? inbox.tool_max_chars ?? DEFAULT_COMPILE_CONFIG.tool_max_chars) ||
       DEFAULT_COMPILE_CONFIG.tool_max_chars,
+    prefetch_topn: parsePrefetchTopn(compile.prefetch_topn),
   };
+}
+
+function parsePrefetchTopn(raw: unknown): number {
+  if (raw == null || raw === "") return DEFAULT_COMPILE_CONFIG.prefetch_topn;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return DEFAULT_COMPILE_CONFIG.prefetch_topn;
+  return Math.floor(n);
 }
 
 function parseRecallConfig(data: Record<string, any>): RecallConfig {

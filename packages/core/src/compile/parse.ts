@@ -70,6 +70,89 @@ export function formatTurnsForPrompt(turns: Turn[]): string {
   return lines.join("\n");
 }
 
+export const ALREADY_IN_KB_HEADING =
+  "## Already in the knowledge base (do not re-extract; only emit genuinely new items)";
+
+export const JSON_REPAIR_SUFFIX =
+  'Previous response was not a JSON object with an "items" array. Return only that JSON object.';
+
+export type ExistingMemoryLine = { title: string; snippet: string };
+
+export function numberedTurnCount(turns: Turn[]): number {
+  return turns.filter((t) => t.role === "user" || t.role === "assistant").length;
+}
+
+export function resolveSessionTime(turns: Turn[], now = new Date()): Date {
+  for (const t of turns) {
+    if (!t.at) continue;
+    const d = new Date(t.at);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  return now;
+}
+
+export function formatSessionTimeLabel(at: Date): string {
+  const iso = at.toISOString();
+  const weekday = at.toLocaleString("en-US", { weekday: "long", timeZone: "UTC" });
+  return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC (${weekday})`;
+}
+
+export function prefetchQueryText(turns: Turn[], maxChars = 500): string {
+  const users = turns
+    .filter((t) => t.role === "user")
+    .map((t) => t.text)
+    .join("\n")
+    .trim();
+  const base =
+    users ||
+    turns
+      .filter((t) => t.role === "user" || t.role === "assistant")
+      .map((t) => t.text)
+      .join("\n")
+      .trim();
+  return base.length <= maxChars ? base : base.slice(0, maxChars);
+}
+
+export function formatCompileUserPrompt(opts: {
+  turns: Turn[];
+  existing?: ExistingMemoryLine[];
+  now?: Date;
+}): string {
+  const time = formatSessionTimeLabel(resolveSessionTime(opts.turns, opts.now));
+  const parts = [
+    "## Session",
+    `**Session Time:** ${time}`,
+    "Relative times (e.g. yesterday) are based on Session Time, not the model's clock.",
+    "",
+  ];
+  if (opts.existing && opts.existing.length > 0) {
+    parts.push(ALREADY_IN_KB_HEADING);
+    for (const e of opts.existing) {
+      const snip = e.snippet.replace(/\s+/g, " ").trim();
+      parts.push(`- ${e.title}: ${snip}`);
+    }
+    parts.push("");
+  }
+  parts.push("## Conversation");
+  parts.push(formatTurnsForPrompt(opts.turns));
+  return parts.join("\n");
+}
+
+export type SourceTurnsCheck = { ok: true; turns?: number[] } | { ok: false };
+
+export function checkSourceTurns(raw: unknown, turnCount: number): SourceTurnsCheck {
+  if (raw === undefined || raw === null) return { ok: true };
+  if (!Array.isArray(raw)) return { ok: false };
+  if (raw.length === 0) return { ok: true, turns: [] };
+  const out: number[] = [];
+  for (const x of raw) {
+    const n = typeof x === "number" ? x : Number(x);
+    if (!Number.isInteger(n) || n < 1 || n > turnCount) return { ok: false };
+    out.push(n);
+  }
+  return { ok: true, turns: out };
+}
+
 export function truncateTurns(turns: Turn[], maxChars: number): { turns: Turn[]; truncated: boolean } {
   const eligible = turns.filter((t) => t.role === "user" || t.role === "assistant");
   const others = turns.filter((t) => t.role !== "user" && t.role !== "assistant");

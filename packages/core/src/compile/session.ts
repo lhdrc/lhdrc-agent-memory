@@ -27,9 +27,14 @@ import {
   type Turn,
 } from "../inbox/session.ts";
 import { linkifyBody } from "./linkify.ts";
+import { prefetchExistingMemories } from "./prefetch.ts";
 import {
-  formatTurnsForPrompt,
+  checkSourceTurns,
+  formatCompileUserPrompt,
+  JSON_REPAIR_SUFFIX,
+  numberedTurnCount,
   parseCompleteItemsJson,
+  prefetchQueryText,
   stripTurnsContext,
   truncateTurns,
 } from "./parse.ts";
@@ -250,22 +255,17 @@ export async function compileSession(opts: CompileSessionOpts): Promise<CompileR
         opts.llm ??
         createLLMProvider(cfg.llm, { repoRoot: opts.repoRoot, cost: cfg.cost });
       const system = await loadSessionExtractPrompt();
-      const prompt = formatTurnsForPrompt(turns);
-      let text: string;
+      const existing = await prefetchExistingMemories({
+        repoRoot: opts.repoRoot,
+        brainId: opts.brainId,
+        query: prefetchQueryText(turns),
+        topn: cfg.compile.prefetch_topn,
+      });
+      const prompt = formatCompileUserPrompt({ turns, existing });
       try {
-        const completed = await llm.complete({ purpose: "compile", system, prompt });
-        text = completed.text;
+        itemsRaw = await completeItemsWithRepair(llm, system, prompt);
       } catch (e) {
         const err = e instanceof MemoryError ? e : new MemoryError(ErrorCodes.LLM, e instanceof Error ? e.message : String(e));
-        if (!dryRun && sessionId) {
-          await markFailed(opts.repoRoot, opts.brainId, sessionId, { code: err.code, message: err.message });
-        }
-        throw err;
-      }
-      try {
-        itemsRaw = parseCompleteItemsJson(text);
-      } catch (e) {
-        const err = e instanceof MemoryError ? e : new MemoryError(ErrorCodes.LLM, String(e));
         if (!dryRun && sessionId) {
           await markFailed(opts.repoRoot, opts.brainId, sessionId, { code: err.code, message: err.message });
         }
@@ -301,6 +301,11 @@ export async function compileSession(opts: CompileSessionOpts): Promise<CompileR
       }
       if (!ALLOWED_TYPES.has(type) || !title || title.length > 200 || !body) {
         result.errors.push({ message: `item type/title/body 不合法: ${excerptOf(title || type)}`, code: ErrorCodes.VALIDATION });
+        continue;
+      }
+      const srcTurns = checkSourceTurns(raw.source_turns, numberedTurnCount(turns));
+      if (!srcTurns.ok) {
+        result.errors.push({ message: `item source_turns 不合法: ${excerptOf(title)}`, code: ErrorCodes.VALIDATION });
         continue;
       }
 
@@ -448,6 +453,24 @@ export async function retrySession(opts: Omit<CompileSessionOpts, "turns"> & { s
     await clearFailed(opts.repoRoot, opts.brainId, opts.sessionId);
   }
   return compileSession({ ...opts, sessionId: opts.sessionId, turns: undefined });
+}
+
+async function completeItemsWithRepair(
+  llm: LLMProvider,
+  system: string,
+  prompt: string,
+): Promise<unknown[]> {
+  const first = await llm.complete({ purpose: "compile", system, prompt });
+  try {
+    return parseCompleteItemsJson(first.text);
+  } catch {
+    const repaired = await llm.complete({
+      purpose: "compile",
+      system,
+      prompt: `${prompt}\n\n${JSON_REPAIR_SUFFIX}`,
+    });
+    return parseCompleteItemsJson(repaired.text);
+  }
 }
 
 async function loadEntities(repoRoot: string, brainId: string, queue: FileMutationExecutor): Promise<Entity[]> {

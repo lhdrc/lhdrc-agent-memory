@@ -314,5 +314,6 @@ export type { Turn, InboxMeta, InboxStatus, ExtractedCheckpoint } from "./inbox/
 
 export { compileSession, retrySession, loadSessionExtractPrompt } from "./compile/session.ts";
 export type { CompileResult, CompileSessionOpts } from "./compile/session.ts";
-export { parseSessionTurns, stripMemoryContext, formatTurnsForPrompt } from "./compile/parse.ts";
+export { parseSessionTurns, stripMemoryContext, formatTurnsForPrompt, formatCompileUserPrompt, ALREADY_IN_KB_HEADING, JSON_REPAIR_SUFFIX } from "./compile/parse.ts";
+export { prefetchExistingMemories } from "./compile/prefetch.ts";
 export { linkifyBody } from "./compile/linkify.ts";

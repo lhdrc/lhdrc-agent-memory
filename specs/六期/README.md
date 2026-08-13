@@ -6,6 +6,7 @@
 > **原则**：不破坏 D1/D17/D18；原文归档 ≠ L0 记忆；会话写入经 **compile 入口的一次 WriteQueue job**（节点是 `captureWrite`）。  
 > **本期产品承诺**：会话摄入必须经 LLM `complete()` 把原文编成短记忆；无 Key 则命令失败并提示，不以启发式冒充。人手 `capture` / BM25 `query` 仍可零 LLM。  
 > **主线状态**：P6.1–P6.4 + P6.5 门控 **done**。Cursor 模板（P6.5 §4）仍为增强轨。  
+> **主线补丁**：[`P6.6-extract-contract.md`](P6.6-extract-contract.md) **done**（类型合同 + prefetch；学 OV 说明书思路，不抄 11 类 / ReAct）。  
 > **明确不做**：MCP/REST（四期）；Idle TTL / token 阈值 / PreCompact；11 类记忆；自动 `entity create`；扩 dream；用 LLM 判断「该不该查」。
 
 ## 架构选择（已锁定）
@@ -48,8 +49,9 @@ brains/{id}/sources/ … L0
 | 3 | P6.3 Session compile | [`P6.3-session-compile.md`](P6.3-session-compile.md) | P6.1, P6.2, P5.1, P3.1 | prompt+逻辑；必须 complete |
 | 4 | P6.4 CLI | [`P6.4-cli-remember.md`](P6.4-cli-remember.md) | P6.3, P5.8 | `remember` / `ingest session` / `--retry` |
 | 5 | P6.5 查询门控 | [`P6.5-harness.md`](P6.5-harness.md) | P5.5 | **主线**：`shouldQueryMemory` 打分；模板为增强轨 |
+| 6 | P6.6 提取合同 | [`P6.6-extract-contract.md`](P6.6-extract-contract.md) | P6.3 | **主线补丁**：三类型说明书、prefetch 已有标题、`source_turns`、一次 JSON 修复 |
 
-主线 = P6.1–P6.4 + P6.5 门控函数。Cursor 模板不阻塞「六期主线完成」。F11/F12 **本期不做**。
+主线 = P6.1–P6.4 + P6.5 门控函数。Cursor 模板不阻塞「六期主线完成」。P6.6 不改类型清单，只加厚提取 prompt。F11/F12 **本期不做**。
 
 ## 与五期 / 四期边界
 
@@ -68,4 +70,4 @@ brains/{id}/sources/ … L0
 
 ## 六期完成标志
 
-P6.1–P6.4 口令全绿 + P6.5 门控单测（P65-01–08）→ **六期主线完成**。Cursor 模板为增强轨。访问面仍属四期。
+P6.1–P6.4 口令全绿 + P6.5 门控单测（P65-01–08）→ **六期主线完成**。P6.6 提取合同（P66-01–08）为补丁，已落地。Cursor 模板为增强轨。访问面仍属四期。
