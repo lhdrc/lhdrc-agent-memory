@@ -5,7 +5,7 @@
 ## 项目是什么
 
 **df-memory**：开源、单机、本地部署的记忆模块——「agent 的 git + 知识库」。  
-当前交付焦点：MVP + 二期 + 三期已落地；**五期主线（P5.1–P5.5）与 P5.6 评测已完成**，增强轨 P5.7–P5.8 可选；四期（MCP/REST）为**补充期**，未获明确要求前不做。
+当前交付焦点：MVP + 二期 + 三期已落地；**五期主线（P5.1–P5.5）与 P5.6 评测、P5.7 PostgresEngine 已完成**，增强轨 P5.8 可选；四期（MCP/REST）为**补充期**，未获明确要求前不做。
 
 > 口号里的「git」指版本化知识仓体验；**实现上热路径以 md 文件为权威**，git 为可选批量账本（08 **D1/D18**）。
 
@@ -14,7 +14,7 @@
 | 优先级 | 路径 | 用途 |
 |---|---|---|
 | 1 | [`specs/mvp/`](specs/mvp/) | **实现规格**——按此编码与验收 |
-| 2 | [`specs/二期/`](specs/二期/) · [`三期/`](specs/三期/) · [`五期/`](specs/五期/) · [`四期/`](specs/四期/)（补充期） | 二/三期已做；**五期主线 + P5.6 done**；四期 MCP/REST 后置 |
+| 2 | [`specs/二期/`](specs/二期/) · [`三期/`](specs/三期/) · [`五期/`](specs/五期/) · [`四期/`](specs/四期/)（补充期） | 二/三期已做；**五期主线 + P5.6/P5.7 done**；四期 MCP/REST 后置 |
 | 3 | [`reports/08-开源记忆模块设计方案.md`](reports/08-开源记忆模块设计方案.md) | 架构与 ADR；与 Spec 冲突时 **先改 Spec/ADR 再改代码** |
 | 4 | [`reports/01`](reports/01-gbrain-调研报告.md)–[`05`](reports/05-四项目对比总结.md) | 调研背景，不直接当接口规格 |
 
@@ -22,7 +22,7 @@
 
 ## 当前状态与接下来做什么
 
-**MVP（M1–M3 + D18）已落地**；**二期（P2.1a + P2.2）已落地**；**三期（P3.1–P3.3）已落地**；**五期主线已完成**；**P5.6 评测已完成**（增强轨 P5.7–P5.8 可选）：
+**MVP（M1–M3 + D18）已落地**；**二期（P2.1a + P2.2）已落地**；**三期（P3.1–P3.3）已落地**；**五期主线已完成**；**P5.6 评测、P5.7 PostgresEngine 已完成**（增强轨 P5.8 可选）：
 
 | Spec | 能力摘要 | 状态 |
 |---|---|---|
@@ -33,24 +33,25 @@
 | **P5.4** | EventLedger / linkFacts / `--purge` | **done** |
 | **P5.5** | `think`/`find`/`eval`；`agent_id` | **done** |
 | **P5.6** | `eval:mini`/`distill`/`report`；LoCoMo fixture；receipt | **done** |
-| P5.7–P5.8 | Postgres / ingest（增强轨） | draft |
+| **P5.7** | `IndexEngine`；`index.engine: postgres` + `DF_MEMORY_DATABASE_URL` | **done** |
+| P5.8 | ingest（增强轨） | draft |
 
 回归：`bun test packages/core/tests/`；隔离：`bun run test:isolation`；迷你评测：`bun run eval:mini`；蒸馏：`bun run eval:distill`；摘要：`bun run eval:report`。
 
 1. 改行为前先读 / 更新对应 Spec（[`00-conventions.md`](specs/mvp/00-conventions.md) §8、M1/M2/M3、[`二期/`](specs/二期/)、[`三期/`](specs/三期/)、[`五期/`](specs/五期/)）  
 2. 写入校验以 [`WRITE_FORMAT.md`](specs/mvp/WRITE_FORMAT.md) 为准（含 experience §9、skill §10）  
-3. **当前实现五期**（P5.1–P5.6 已完成，下一步 **P5.7** 增强轨）；**不要**开始四期（**MCP·REST** / harness），除非用户明确要求；四期见 [`specs/四期/`](specs/四期/)（补充期）  
+3. **当前实现五期**（P5.1–P5.7 已完成，下一步 **P5.8** 增强轨）；**不要**开始四期（**MCP·REST** / harness），除非用户明确要求；四期见 [`specs/四期/`](specs/四期/)（补充期）  
 4. 与 Spec 冲突时：**先改 Spec/08 ADR，再改代码**  
 5. **不**扩 dream 夜间维护全集（v1 五段维持；五期非目标）  
 
-分期速查：二期 = P2.1a+P2.2（**done**）；三期 = P3.1–P3.3（**done**）；**五期 = P5.1–P5.8（架构补齐；P5.1–P5.6 done）**；四期 = P4.1（MCP/REST，**补充期**）。
+分期速查：二期 = P2.1a+P2.2（**done**）；三期 = P3.1–P3.3（**done**）；**五期 = P5.1–P5.8（架构补齐；P5.1–P5.7 done）**；四期 = P4.1（MCP/REST，**补充期**）。
 
 ## 技术栈（已锁定）
 
 - TypeScript strict + **Bun** workspaces  
 - 权威存储：**md + frontmatter**（文件真相）  
 - 版本账本：git **可选批量 flush**（默认 `git.mode: batch`）  
-- 索引：**PGLite**（`.dfmemory/pglite/`，可丢可 `rebuild-index`）  
+- 索引：**PGLite**（`.dfmemory/pglite/`，可丢可 `rebuild-index`）；可选 **Postgres**（`index.engine: postgres` + `DF_MEMORY_DATABASE_URL`，见 `scripts/dev-postgres.md`）  
 - 包：`packages/core`、`packages/cli`（bin: `memory`）  
 - **不实现 Java**；默认 **不强制联网**（`embedding.provider` / `llm.provider` 默认 `off`）  
 
@@ -103,6 +104,7 @@ bun run memory -- <cmd>
 bun run eval:mini
 bun run eval:distill
 bun run eval:report
+bun run test:postgres
 ```
 
 ### 本仓库 git 提交约束（硬）

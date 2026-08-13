@@ -2,7 +2,7 @@
  * P3.1 关系臂：parseRelationalQuery + links BFS depth≤2。
  * fail-open：解析失败 → 空臂。
  */
-import type { PGlite } from "@electric-sql/pglite";
+import type { SqlClient } from "../index/sql.ts";
 import { makeSnippet } from "./query.ts";
 import type { RankedHit } from "./rrf.ts";
 
@@ -51,7 +51,7 @@ export interface GraphArmOptions {
  * 关系臂：解析失败返回 []（fail-open）。
  * BFS 从与 seed 匹配的 to_ref / from_path / title 出发，沿 links 扩 depth≤2。
  */
-export async function graphArm(db: PGlite, opts: GraphArmOptions): Promise<RankedHit[]> {
+export async function graphArm(db: SqlClient, opts: GraphArmOptions): Promise<RankedHit[]> {
   try {
     const parsed = parseRelationalQuery(opts.query);
     if (!parsed) return [];

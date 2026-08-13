@@ -1,7 +1,7 @@
 /**
  * P3.1：将抽链结果写入 links 表（删旧插新）。
  */
-import type { PGlite } from "@electric-sql/pglite";
+import type { SqlClient } from "./sql.ts";
 import { sha256Hex } from "../util/hash.ts";
 import { extractEntityRefs, type ExtractedLink } from "../graph/link-extraction.ts";
 
@@ -9,13 +9,13 @@ export function linkRowId(fromPath: string, to: string, type: string, source: st
   return sha256Hex(`${fromPath}\0${to}\0${type}\0${source}`);
 }
 
-export async function deleteLinksForPath(db: PGlite, fromPath: string): Promise<void> {
+export async function deleteLinksForPath(db: SqlClient, fromPath: string): Promise<void> {
   await db.query(`DELETE FROM links WHERE from_path = $1`, [fromPath]);
 }
 
 /** 删 from_path 旧边，再插入新边。 */
 export async function syncLinksForPage(
-  db: PGlite,
+  db: SqlClient,
   fromPath: string,
   body: string,
   frontmatter: Record<string, unknown>,

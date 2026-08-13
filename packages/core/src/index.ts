@@ -124,8 +124,8 @@ export {
   DIR_OVERVIEW_NAME,
 } from "./layers/generate.ts";
 
-export { openPglite, ensureSchema, clearBrainIndex } from "./index/engine.ts";
-export type { IndexConnection } from "./index/engine.ts";
+export { openPglite, openIndex, ensureSchema, clearBrainIndex } from "./index/engine.ts";
+export type { IndexConnection, SqlClient, IndexEngineId } from "./index/engine.ts";
 export { syncPage, syncEntity, syncAll, chunkText } from "./index/sync.ts";
 export type { SyncOptions } from "./index/sync.ts";
 export { rebuildIndex } from "./index/rebuild.ts";

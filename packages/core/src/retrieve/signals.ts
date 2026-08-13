@@ -2,7 +2,7 @@
  * P3.1 graph signals：对 top-K 重权（fail-open）。
  * adjacency hub 1.05 / cross-source 1.10 / session diversify 0.95
  */
-import type { PGlite } from "@electric-sql/pglite";
+import type { SqlClient } from "../index/sql.ts";
 import type { FusedHit } from "./rrf.ts";
 
 export const SIGNAL_HUB = 1.05;
@@ -34,7 +34,7 @@ function sourcePrefix(path: string): string {
  * 对融合后的候选施加 graph signals；任一异常跳过该信号。
  */
 export async function applyGraphSignals(
-  db: PGlite,
+  db: SqlClient,
   hits: FusedHit[],
   opts: { brainId: string; topK?: number },
 ): Promise<ApplySignalsResult> {

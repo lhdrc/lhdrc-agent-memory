@@ -26,6 +26,7 @@ git:
     - schema_use
     - purge
 index:
+  # 单机默认 pglite；大规模可改 postgres 并设置 DF_MEMORY_DATABASE_URL
   engine: pglite
   path: .dfmemory/pglite
 writer:

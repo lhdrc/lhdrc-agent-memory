@@ -2,7 +2,7 @@ import { MemoryError, ErrorCodes } from "../errors.ts";
 import { createEmbeddingProvider } from "../embed/factory.ts";
 import { loadRepoConfig } from "../repo/config.ts";
 import { listBrains } from "../repo/brain.ts";
-import { openPglite, ensureSchema, clearBrainIndex } from "./engine.ts";
+import { openIndex, ensureSchema, clearBrainIndex } from "./engine.ts";
 import { syncAll, type SyncOptions } from "./sync.ts";
 import { invalidateSearchCache } from "../retrieve/cache.ts";
 
@@ -35,7 +35,7 @@ export async function rebuildIndex(
       embeddingModel: cfg.embedding.model,
     };
   }
-  const conn = await openPglite(repoRoot);
+  const conn = await openIndex(repoRoot);
   try {
     await ensureSchema(conn.db);
     await invalidateSearchCache(conn.db);

@@ -1,7 +1,7 @@
 import type { IndexSyncHooks } from "../write/hooks.ts";
 import { createEmbeddingProvider } from "../embed/factory.ts";
 import { loadRepoConfig } from "../repo/config.ts";
-import { openPglite, ensureSchema } from "./engine.ts";
+import { openIndex, ensureSchema } from "./engine.ts";
 import { syncPage, syncEntity } from "./sync.ts";
 import { readIndexMeta, writeIndexMeta } from "./meta.ts";
 import { invalidateSearchCache } from "../retrieve/cache.ts";
@@ -17,7 +17,7 @@ async function resolveSyncOptions(repoRoot: string) {
 export const pgliteIndexHooks: IndexSyncHooks = {
   async onFilesWritten(repoRoot, paths) {
     const syncOpts = await resolveSyncOptions(repoRoot);
-    const conn = await openPglite(repoRoot);
+    const conn = await openIndex(repoRoot);
     try {
       await ensureSchema(conn.db);
       for (const p of paths) {
@@ -37,7 +37,7 @@ export const pgliteIndexHooks: IndexSyncHooks = {
         ...meta,
         lastSyncAt: new Date().toISOString(),
         fileCount: Number(count.rows[0]?.n ?? 0),
-        engine: "pglite",
+        engine: conn.db.engine,
       });
     } finally {
       await conn.close();

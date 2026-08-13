@@ -1,7 +1,10 @@
-import type { PGlite } from "@electric-sql/pglite";
+import type { SqlClient } from "../index/sql.ts";
 import { bytesToFloat32, cosineSimilarity } from "../embed/cosine.ts";
 import { makeSnippet } from "./query.ts";
 import type { RankedHit } from "./rrf.ts";
+import { PGVECTOR_WARN } from "../index/postgres.ts";
+
+let warnedSkipSemantic = false;
 
 export interface SemanticArmOptions {
   brainId: string;
@@ -17,7 +20,14 @@ export interface SemanticArmOptions {
 /**
  * 语义臂：brute-force cosine vs chunks.embedding（非 null）→ 同 path max-pool → top limit。
  */
-export async function semanticArm(db: PGlite, opts: SemanticArmOptions): Promise<RankedHit[]> {
+export async function semanticArm(db: SqlClient, opts: SemanticArmOptions): Promise<RankedHit[]> {
+  if (db.engine === "postgres" && !db.pgvector) {
+    if (!warnedSkipSemantic) {
+      warnedSkipSemantic = true;
+      console.warn(PGVECTOR_WARN);
+    }
+    return [];
+  }
   const { ensureSchema } = await import("../index/engine.ts");
   await ensureSchema(db);
 

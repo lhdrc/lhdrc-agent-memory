@@ -2,37 +2,87 @@ import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { MemoryError, ErrorCodes } from "../errors.ts";
 import { loadRepoConfig } from "../repo/config.ts";
+import type { SqlClient, IndexEngineId } from "./sql.ts";
+import { isKnownIndexEngine, parseIndexEngine } from "./sql.ts";
+import { openPostgresSqlClient } from "./postgres.ts";
+
+export type { SqlClient, IndexEngineId } from "./sql.ts";
 
 export interface IndexConnection {
   repoRoot: string;
-  db: PGlite;
+  db: SqlClient;
+  engine: IndexEngineId;
   close(): Promise<void>;
 }
 
-export async function openPglite(repoRoot: string): Promise<IndexConnection> {
-  const cfg = await loadRepoConfig(repoRoot);
-  const dataDir = join(repoRoot, cfg.index.path);
-  let db: PGlite;
-  try {
-    db = new PGlite(dataDir);
-    if ("waitReady" in db && typeof (db as { waitReady?: Promise<unknown> }).waitReady?.then === "function") {
-      await (db as { waitReady?: Promise<unknown> }).waitReady;
-    }
-    await ensureSchema(db);
-  } catch (e) {
-    throw new MemoryError(ErrorCodes.INDEX, `PGLite 打开失败: ${e instanceof Error ? e.message : String(e)}`);
-  }
+function wrapPglite(raw: PGlite): SqlClient {
   return {
-    repoRoot,
-    db,
+    engine: "pglite",
+    pgvector: false,
+    query: <T>(sql: string, params?: unknown[]) => raw.query<T>(sql, params as never),
+    exec: (sql: string) => raw.exec(sql),
     close: async () => {
       try {
-        await db.close();
+        await raw.close();
       } catch {
         /* 忽略关闭错误 */
       }
     },
   };
+}
+
+async function openPgliteEngine(repoRoot: string, dataDir: string): Promise<SqlClient> {
+  let raw: PGlite;
+  try {
+    raw = new PGlite(dataDir);
+    if ("waitReady" in raw && typeof (raw as { waitReady?: Promise<unknown> }).waitReady?.then === "function") {
+      await (raw as { waitReady?: Promise<unknown> }).waitReady;
+    }
+  } catch (e) {
+    throw new MemoryError(ErrorCodes.INDEX, `PGLite 打开失败: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  const db = wrapPglite(raw);
+  await ensureSchema(db);
+  return db;
+}
+
+/**
+ * 按 memory.yml `index.engine` 打开索引（P5.7）。
+ * 默认 pglite；postgres 需 DF_MEMORY_DATABASE_URL，失败不回退。
+ */
+export async function openIndex(repoRoot: string): Promise<IndexConnection> {
+  const cfg = await loadRepoConfig(repoRoot);
+  const rawEngine = cfg.index.engine;
+  if (!isKnownIndexEngine(rawEngine)) {
+    throw new MemoryError(
+      ErrorCodes.INDEX,
+      `未知 index.engine: ${rawEngine}（支持 pglite | postgres）`,
+    );
+  }
+  const engine = parseIndexEngine(rawEngine);
+  let db: SqlClient;
+  try {
+    if (engine === "postgres") {
+      db = await openPostgresSqlClient();
+      await ensureSchema(db);
+    } else {
+      db = await openPgliteEngine(repoRoot, join(repoRoot, cfg.index.path));
+    }
+  } catch (e) {
+    if (e instanceof MemoryError) throw e;
+    throw new MemoryError(ErrorCodes.INDEX, `打开索引失败: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  return {
+    repoRoot,
+    db,
+    engine: db.engine,
+    close: () => db.close(),
+  };
+}
+
+/** 兼容旧名：按配置分发，不再强制 PGLite。 */
+export async function openPglite(repoRoot: string): Promise<IndexConnection> {
+  return openIndex(repoRoot);
 }
 
 const ENTITY_REGISTRY_DDL = `CREATE TABLE IF NOT EXISTS entity_registry (
@@ -48,7 +98,7 @@ const ENTITY_REGISTRY_DDL = `CREATE TABLE IF NOT EXISTS entity_registry (
 );`;
 
 /** 旧库 slug-PK → (brain_id, slug) PK；缺列则重建（可丢索引，文件可 rebuild）。 */
-async function migrateEntityRegistry(db: PGlite): Promise<void> {
+async function migrateEntityRegistry(db: SqlClient): Promise<void> {
   try {
     const cols = await db.query<{ column_name: string }>(
       `SELECT column_name FROM information_schema.columns
@@ -69,14 +119,14 @@ async function migrateEntityRegistry(db: PGlite): Promise<void> {
   }
 }
 
-export async function ensureSchema(db: PGlite): Promise<void> {
+export async function ensureSchema(db: SqlClient): Promise<void> {
   const sql = await Bun.file(join(import.meta.dir, "schema.sql")).text();
   await db.exec(sql);
   await migrateEntityRegistry(db);
 }
 
 /** 仅清除指定 brain 的索引行，保留其他 brain（多 brain 安全）。 */
-export async function clearBrainIndex(db: PGlite, brainId: string): Promise<void> {
+export async function clearBrainIndex(db: SqlClient, brainId: string): Promise<void> {
   const prefix = `brains/${brainId}/%`;
   await db.query(`DELETE FROM chunks WHERE path LIKE $1`, [prefix]);
   await db.query(`DELETE FROM pages WHERE brain_id = $1`, [brainId]);

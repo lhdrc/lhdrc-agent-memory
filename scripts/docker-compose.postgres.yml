@@ -1,0 +1,14 @@
+services:
+  dfmemory-pg:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: dfmemory
+      POSTGRES_PASSWORD: dfmemory
+      POSTGRES_DB: dfmemory
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dfmemory -d dfmemory"]
+      interval: 3s
+      timeout: 5s
+      retries: 10

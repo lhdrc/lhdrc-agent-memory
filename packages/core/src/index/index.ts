@@ -1,5 +1,5 @@
-export { openPglite, ensureSchema } from "./engine.ts";
-export type { IndexConnection } from "./engine.ts";
+export { openPglite, openIndex, ensureSchema } from "./engine.ts";
+export type { IndexConnection, SqlClient, IndexEngineId } from "./engine.ts";
 export { syncPage, syncEntity, syncAll, chunkText, PAGE_COLS } from "./sync.ts";
 export type { SyncOptions } from "./sync.ts";
 export { rebuildIndex } from "./rebuild.ts";

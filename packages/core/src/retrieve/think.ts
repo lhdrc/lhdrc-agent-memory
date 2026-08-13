@@ -1,4 +1,4 @@
-import type { PGlite } from "@electric-sql/pglite";
+import type { SqlClient } from "../index/sql.ts";
 import { hybridQueryDetailed, type HybridQueryOptions } from "./hybrid.ts";
 import type { QueryHit } from "./query.ts";
 
@@ -29,7 +29,7 @@ function bucket(path: string): "skills" | "experiences" | "notes" {
 }
 
 export async function thinkQuery(
-  db: PGlite,
+  db: SqlClient,
   opts: Pick<HybridQueryOptions, "brainId" | "repoRoot" | "search" | "embedder" | "intentLexicon"> & {
     query: string;
     limit?: number;

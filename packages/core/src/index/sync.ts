@@ -1,7 +1,7 @@
 import { join, basename } from "node:path";
 import { readFile, readdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import type { PGlite } from "@electric-sql/pglite";
+import type { SqlClient } from "./sql.ts";
 import { MemoryError, ErrorCodes } from "../errors.ts";
 import { parseFrontmatter } from "../frontmatter.ts";
 import { fileToEntity } from "../entity/files.ts";
@@ -70,7 +70,7 @@ export function chunkText(text: string, maxLen = 800): string[] {
 
 /** 增量同步单个 page 文件；文件被物理删除时软删除索引行。 */
 export async function syncPage(
-  db: PGlite,
+  db: SqlClient,
   repoRoot: string,
   relPath: string,
   opts?: SyncOptions,
@@ -160,7 +160,7 @@ export async function syncPage(
 }
 
 /** 增量同步单个 entity 文件。 */
-export async function syncEntity(db: PGlite, repoRoot: string, relPath: string): Promise<void> {
+export async function syncEntity(db: SqlClient, repoRoot: string, relPath: string): Promise<void> {
   const abs = join(repoRoot, relPath);
   const brainId = brainIdFromPath(relPath);
   const slug = entitySlugFromPath(relPath);
@@ -209,7 +209,7 @@ function entitySlugFromPath(relPath: string): string {
 
 /** 全量扫描 brain：sources/**\/*.md + entities/*.md。 */
 export async function syncAll(
-  db: PGlite,
+  db: SqlClient,
   repoRoot: string,
   brainId: string,
   opts?: SyncOptions,
@@ -252,11 +252,16 @@ export async function syncAll(
   }
   const count = await db.query<{ n: string }>(`SELECT COUNT(*) AS n FROM pages`);
   const fileCount = Number(count.rows[0]?.n ?? 0);
-  await writeIndexMeta(repoRoot, { schemaVersion: 2, lastSyncAt: new Date().toISOString(), fileCount, engine: "pglite" });
+  await writeIndexMeta(repoRoot, {
+    schemaVersion: 2,
+    lastSyncAt: new Date().toISOString(),
+    fileCount,
+    engine: db.engine,
+  });
   return { fileCount };
 }
 
-async function ensureSchemaForSync(db: PGlite): Promise<void> {
+async function ensureSchemaForSync(db: SqlClient): Promise<void> {
   const { ensureSchema } = await import("./engine.ts");
   await ensureSchema(db);
 }

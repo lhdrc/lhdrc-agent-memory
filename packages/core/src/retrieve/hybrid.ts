@@ -1,4 +1,4 @@
-import type { PGlite } from "@electric-sql/pglite";
+import type { SqlClient } from "../index/sql.ts";
 import type { EmbeddingProvider, SearchConfig } from "../embed/types.ts";
 import { DEFAULT_SEARCH_CONFIG } from "../embed/types.ts";
 import { readEmbeddingMeta } from "../index/meta.ts";
@@ -129,7 +129,7 @@ interface EntityBoostPack {
 }
 
 async function computeEntityBoosts(
-  db: PGlite,
+  db: SqlClient,
   brainId: string,
   query: string,
 ): Promise<EntityBoostPack> {
@@ -192,13 +192,13 @@ async function resolveSearch(opts: HybridQueryOptions): Promise<SearchConfig> {
   return DEFAULT_SEARCH_CONFIG;
 }
 
-export async function hybridQuery(db: PGlite, opts: HybridQueryOptions): Promise<QueryHit[]> {
+export async function hybridQuery(db: SqlClient, opts: HybridQueryOptions): Promise<QueryHit[]> {
   const result = await hybridQueryDetailed(db, opts);
   return result.hits;
 }
 
 export async function hybridQueryDetailed(
-  db: PGlite,
+  db: SqlClient,
   opts: HybridQueryOptions,
 ): Promise<HybridQueryResult> {
   const q = opts.query.trim();

@@ -1,4 +1,4 @@
-import type { PGlite } from "@electric-sql/pglite";
+import type { SqlClient } from "../index/sql.ts";
 import { MemoryError, ErrorCodes } from "../errors.ts";
 import { bigrams } from "./ngrams.ts";
 
@@ -40,7 +40,7 @@ export function makeSnippet(text: string, query: string): string {
  * 默认排除 archived（specs/mvp/M3 §5.2）。
  * title/path 用 position(lower(...))，避免 ILIKE 把 %/_ 当通配符。
  */
-export async function bm25Query(db: PGlite, opts: QueryOptions): Promise<QueryHit[]> {
+export async function bm25Query(db: SqlClient, opts: QueryOptions): Promise<QueryHit[]> {
   const q = opts.query.trim();
   if (!q) return [];
   const qng = bigrams(q);

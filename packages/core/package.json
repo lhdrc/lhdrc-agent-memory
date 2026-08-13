@@ -8,6 +8,10 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.0",
+    "pg": "^8.23.0",
     "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.21.0"
   }
 }

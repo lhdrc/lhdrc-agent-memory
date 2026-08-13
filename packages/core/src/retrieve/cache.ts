@@ -1,7 +1,7 @@
 /**
  * P3.1 search_cache：cache_key = hash(query + knobs_hash)。
  */
-import type { PGlite } from "@electric-sql/pglite";
+import type { SqlClient } from "../index/sql.ts";
 import { sha256Hex } from "../util/hash.ts";
 import type { SearchMode } from "./rrf.ts";
 import type { QueryIntent } from "./intent.ts";
@@ -43,7 +43,7 @@ export function cacheKey(query: string, knobs: SearchKnobs): string {
 }
 
 export async function getSearchCache(
-  db: PGlite,
+  db: SqlClient,
   query: string,
   knobs: SearchKnobs,
 ): Promise<{ hits: QueryHit[]; knobsHash: string } | null> {
@@ -65,7 +65,7 @@ export async function getSearchCache(
 }
 
 export async function setSearchCache(
-  db: PGlite,
+  db: SqlClient,
   query: string,
   knobs: SearchKnobs,
   hits: QueryHit[],
@@ -89,7 +89,7 @@ export async function setSearchCache(
 }
 
 /** 写入后失效查询缓存（防旧结果）。 */
-export async function invalidateSearchCache(db: PGlite): Promise<void> {
+export async function invalidateSearchCache(db: SqlClient): Promise<void> {
   try {
     await db.exec(`DELETE FROM search_cache`);
   } catch {
