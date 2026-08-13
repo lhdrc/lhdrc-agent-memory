@@ -58,8 +58,11 @@ class FakeLLM implements LLMProvider {
       trigger: ctx.existingSummaries[0] ?? "timeout",
       procedure: "1. 检查重试\n2. 验证阈值",
       boundary: "支付同步调用",
-      body: "## Procedure\n1. 检查重试\n\n## Boundary\n支付同步\n\n## Verification\n跑回归\n",
+      body: "\n## Procedure\n1. 检查重试\n\n## Boundary\n支付同步\n\n## Verification\n跑回归\n",
     };
+  }
+  async complete() {
+    return { text: JSON.stringify({ items: [] }) };
   }
 }
 

@@ -90,6 +90,10 @@ class FakeLLM implements LLMProvider {
       body: this.exp?.body ?? ctx.candidate,
     };
   }
+
+  async complete() {
+    return { text: JSON.stringify({ items: [] }) };
+  }
 }
 
 beforeEach(async () => {
@@ -607,6 +611,9 @@ describe("扩展覆盖", () => {
             boundary: "b",
             body: ctx.candidate,
           };
+        },
+        async complete() {
+          return { text: "{}" };
         },
       };
       const wrapped = withCostAccounting(inner, repoRoot, costCfg, "test");

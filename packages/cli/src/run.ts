@@ -24,6 +24,8 @@ import { brainCommand } from "./commands/brain.ts";
 import { layersCommand } from "./commands/layers.ts";
 import { eventsCommand } from "./commands/events.ts";
 import { ingestCommand } from "./commands/ingest.ts";
+import { rememberCommand } from "./commands/remember.ts";
+import { inboxCommand } from "./commands/inbox.ts";
 
 const HELP = `df-memory CLI
 
@@ -34,7 +36,9 @@ const HELP = `df-memory CLI
   memory capture --title <t> --type <schema_type> --body <b> [--extract] [--no-dedupe] [options]
   memory import <file|dir> [--source <id>]
   memory ingest --list-adapters
-  memory ingest --adapter generic-jsonl|df-app --input <file> [--json] [--continue-on-error]
+  memory ingest --adapter generic-jsonl|df-app|session --input <file> [--json] [--continue-on-error] [--dry-run] [--retry <id>]
+  memory remember --body "…" [--dry-run] [--json] [--extract|--no-extract]
+  memory inbox list [--json] [--status pending|failed|done]
   memory query <text> [--limit N] [--source <id>] [--type <schema_type>] [--mode conservative|balanced|tokenmax] [--explain] [--json]
   memory find <text> [--limit N] [--source <id>] [--type <schema_type>] [--mode conservative|balanced|tokenmax] [--explain] [--json]
   memory think <text> [--json]
@@ -91,6 +95,8 @@ const COMMANDS: Record<string, Command> = {
   layers: layersCommand,
   events: eventsCommand,
   ingest: ingestCommand,
+  remember: rememberCommand,
+  inbox: inboxCommand,
   find: findCommand,
   think: thinkCommand,
   eval: evalCommand,

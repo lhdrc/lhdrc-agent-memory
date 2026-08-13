@@ -5,7 +5,14 @@ import { appendFile, readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { mkdirp } from "../util/fs.ts";
-import type { LLMProvider, ExperienceContext, ExperienceResult, DistillDecision } from "../llm/types.ts";
+import type {
+  LLMProvider,
+  ExperienceContext,
+  ExperienceResult,
+  DistillDecision,
+  CompleteRequest,
+  CompleteResult,
+} from "../llm/types.ts";
 import type { RepoConfig } from "../repo/config.ts";
 
 export interface CostConfig {
@@ -147,7 +154,16 @@ export function withCostAccounting(
         (r: ExperienceResult) => `${r.title}\n${r.procedure}\n${r.boundary}`,
       );
     },
+    complete(req: CompleteRequest) {
+      return wrap(
+        req.purpose === "compile" ? "compile" : `${defaultKind}:${req.purpose}`,
+        `${req.system ?? ""}\n${req.prompt}`,
+        () => inner.complete(req),
+        (r: CompleteResult) => r.text,
+      );
+    },
     embed: inner.embed?.bind(inner),
+    extractFacts: inner.extractFacts?.bind(inner),
   };
 }
 

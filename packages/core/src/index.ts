@@ -4,7 +4,8 @@ export type { ErrorCode } from "./errors.ts";
 export { initMemoryRepo, memoryYml, brainYml, sourceMarker } from "./repo/init.ts";
 export type { InitOptions } from "./repo/init.ts";
 export { findRepoRoot, loadRepoConfig, resolveEnvDefaults } from "./repo/config.ts";
-export type { RepoConfig, WriteConfig, LayersConfig } from "./repo/config.ts";
+export type { RepoConfig, WriteConfig, LayersConfig, CompileConfig, RecallConfig } from "./repo/config.ts";
+export { DEFAULT_COMPILE_CONFIG, DEFAULT_RECALL_CONFIG } from "./repo/config.ts";
 export { loadBrainConfig, resolveSourceId, createBrain, listBrains, hasSharedSkillsMount } from "./repo/brain.ts";
 export type { BrainConfig, BrainMount, CreateBrainOptions } from "./repo/brain.ts";
 export {
@@ -59,7 +60,7 @@ export { shouldForceCommit, shouldBatchFlush } from "./write/flush-policy.ts";
 export { readDirtyState, addDirtyPaths, removeDirtyPaths, clearDirtyState, writeDirtyState } from "./write/dirty.ts";
 export type { DirtyState } from "./write/dirty.ts";
 export { WriteValidator, todayUtc } from "./write/validator.ts";
-export { captureNode, buildMarkdownBody } from "./write/capture.ts";
+export { captureNode, captureWrite, buildMarkdownBody } from "./write/capture.ts";
 export type { CaptureOptions } from "./write/capture.ts";
 export { ingestJsonl, ingestRecordToCapture } from "./ingest/run.ts";
 export { parseJsonl } from "./ingest/jsonl.ts";
@@ -97,7 +98,15 @@ export {
 } from "./write/experience-validator.ts";
 export { writeExperience, patchExperienceStatus } from "./write/experience.ts";
 
-export { createLLMProvider, isDistillEnabled, NoopLLMProvider } from "./llm/index.ts";
+export {
+  createLLMProvider,
+  isDistillEnabled,
+  isCompileEnabled,
+  NoopLLMProvider,
+  OpenAILLMProvider,
+  EnvMockLLMProvider,
+  DEFAULT_LLM_CONFIG,
+} from "./llm/index.ts";
 export type {
   LLMProvider,
   LLMConfig,
@@ -105,6 +114,9 @@ export type {
   DistillDecision,
   ExperienceContext,
   ExperienceResult,
+  CompletePurpose,
+  CompleteRequest,
+  CompleteResult,
 } from "./llm/index.ts";
 
 export { refineSource, mapDistillDecision, heuristicAbstract } from "./distill/refine.ts";
@@ -174,6 +186,8 @@ export type {
 } from "./retrieve/rrf.ts";
 export { classifyIntent } from "./retrieve/intent.ts";
 export type { QueryIntent } from "./retrieve/intent.ts";
+export { shouldQueryMemory } from "./retrieve/query-triggers.ts";
+export type { QueryGateHit, QueryGateCtx, ShouldQueryMemoryInput, RecallCommand } from "./retrieve/query-triggers.ts";
 export { graphArm, parseRelationalQuery } from "./retrieve/graph.ts";
 export type { RelationalParse, GraphArmOptions } from "./retrieve/graph.ts";
 export {
@@ -284,3 +298,21 @@ export { parseFrontmatter, serializeFrontmatter, hasValidFrontmatter } from "./f
 export type { ParsedMd } from "./frontmatter.ts";
 export { sha256Hex } from "./util/hash.ts";
 export { isSlug, titleToSlug } from "./util/slug.ts";
+
+export {
+  archiveSession,
+  loadSession,
+  markDone,
+  markFailed,
+  listInbox,
+  generateSessionId,
+  writeExtracted,
+  loadExtracted,
+  clearFailed,
+} from "./inbox/session.ts";
+export type { Turn, InboxMeta, InboxStatus, ExtractedCheckpoint } from "./inbox/session.ts";
+
+export { compileSession, retrySession, loadSessionExtractPrompt } from "./compile/session.ts";
+export type { CompileResult, CompileSessionOpts } from "./compile/session.ts";
+export { parseSessionTurns, stripMemoryContext, formatTurnsForPrompt } from "./compile/parse.ts";
+export { linkifyBody } from "./compile/linkify.ts";

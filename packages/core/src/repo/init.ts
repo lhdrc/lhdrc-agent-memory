@@ -51,12 +51,25 @@ search:
   alias_hop: true
 llm:
   provider: off
+  model: gpt-4o-mini
+  openai_api_key_env: OPENAI_API_KEY
+  base_url: https://api.openai.com
   distill: true
   extract: false
   kill_switch:
     distill: false
     abstract: false
     extract: false
+    compile: false
+compile:
+  dedupe_cosine: 0.95
+  dedupe_window: 200
+  max_input_chars: 32000
+  tool_max_chars: 2000
+recall:
+  threshold: 3
+  min_query_chars: 4
+  dedupe_window_s: 120
 write:
   dedupe_cosine: 0
   dedupe_window: 200
@@ -108,7 +121,7 @@ export async function initMemoryRepo(dir: string, opts: InitOptions): Promise<st
     await writeFile(join(abs, "memory.yml"), memoryYml(opts.brain, pack.id));
     await writeFile(
       join(abs, ".gitignore"),
-      ".dfmemory/pglite/\n.dfmemory/write.lock\n.dfmemory/index-meta.json\n.dfmemory/embedding-meta.json\n.dfmemory/git-dirty.json\n.dfmemory/costs.jsonl\n",
+      ".dfmemory/pglite/\n.dfmemory/write.lock\n.dfmemory/index-meta.json\n.dfmemory/embedding-meta.json\n.dfmemory/git-dirty.json\n.dfmemory/costs.jsonl\n.dfmemory/inbox/\n",
     );
 
     await mkdir(join(abs, ".dfmemory", "logs"), { recursive: true });

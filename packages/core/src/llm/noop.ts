@@ -1,8 +1,22 @@
-import type { DistillDecision, ExperienceContext, ExperienceResult, LLMProvider } from "./types.ts";
+import { MemoryError, ErrorCodes } from "../errors.ts";
+import type {
+  CompleteRequest,
+  CompleteResult,
+  DistillDecision,
+  ExperienceContext,
+  ExperienceResult,
+  LLMProvider,
+} from "./types.ts";
 
-/** provider=off：所有 LLM 调用返回空/跳过决策。 */
+/** provider=off：complete 不可用；其余方法返回空/跳过决策。 */
 export class NoopLLMProvider implements LLMProvider {
   readonly id = "off";
+
+  async complete(_req: CompleteRequest): Promise<CompleteResult> {
+    throw new MemoryError(ErrorCodes.DISABLED, "llm.provider=off：complete 不可用（会话摄入需要 openai + key 或测试 mock）", {
+      skipped_reason: "provider_off",
+    });
+  }
 
   async judgeDistill(_existing: string[], _candidate: string): Promise<DistillDecision> {
     return { candidate: "skip", confidence: 0, rationale: "llm off" };

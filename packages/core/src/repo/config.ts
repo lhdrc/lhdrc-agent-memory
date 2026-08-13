@@ -6,6 +6,7 @@ import { MemoryError, ErrorCodes } from "../errors.ts";
 import type { EmbeddingConfig, EmbeddingProviderId, SearchConfig } from "../embed/types.ts";
 import { DEFAULT_SEARCH_CONFIG } from "../embed/types.ts";
 import type { LLMConfig, LLMProviderId } from "../llm/types.ts";
+import { DEFAULT_LLM_CONFIG } from "../llm/types.ts";
 import type { CostConfig } from "../cost/logger.ts";
 import type { AuthConfig } from "../auth/types.ts";
 import { parseAuthConfig } from "../auth/access-control.ts";
@@ -14,6 +15,34 @@ export interface WriteConfig {
   dedupe_cosine: number;
   dedupe_window: number;
 }
+
+export interface CompileConfig {
+  dedupe_cosine: number;
+  dedupe_window: number;
+  max_input_chars: number;
+  tool_max_chars: number;
+}
+
+export interface RecallConfig {
+  threshold: number;
+  min_query_chars: number;
+  dedupe_window_s: number;
+  force: boolean;
+}
+
+export const DEFAULT_COMPILE_CONFIG: CompileConfig = {
+  dedupe_cosine: 0.95,
+  dedupe_window: 200,
+  max_input_chars: 32_000,
+  tool_max_chars: 2000,
+};
+
+export const DEFAULT_RECALL_CONFIG: RecallConfig = {
+  threshold: 3,
+  min_query_chars: 4,
+  dedupe_window_s: 120,
+  force: false,
+};
 
 export interface LayersConfig {
   auto: boolean;
@@ -40,6 +69,8 @@ export interface RepoConfig {
   embedding: EmbeddingConfig;
   search: SearchConfig;
   llm: LLMConfig;
+  compile: CompileConfig;
+  recall: RecallConfig;
   cost: CostConfig;
   auth: AuthConfig;
 }
@@ -98,7 +129,34 @@ function parseLLMConfig(data: Record<string, any>): LLMConfig {
       distill: llm.kill_switch?.distill === true,
       abstract: llm.kill_switch?.abstract === true,
       extract: llm.kill_switch?.extract === true,
+      compile: llm.kill_switch?.compile === true,
     },
+    model: String(llm.model ?? DEFAULT_LLM_CONFIG.model),
+    openai_api_key_env: String(llm.openai_api_key_env ?? DEFAULT_LLM_CONFIG.openai_api_key_env),
+    base_url: String(llm.base_url ?? DEFAULT_LLM_CONFIG.base_url),
+  };
+}
+
+function parseCompileConfig(data: Record<string, any>): CompileConfig {
+  const compile = data.compile ?? {};
+  const inbox = data.inbox ?? {};
+  return {
+    dedupe_cosine: Number(compile.dedupe_cosine ?? DEFAULT_COMPILE_CONFIG.dedupe_cosine) || DEFAULT_COMPILE_CONFIG.dedupe_cosine,
+    dedupe_window: Number(compile.dedupe_window ?? DEFAULT_COMPILE_CONFIG.dedupe_window) || DEFAULT_COMPILE_CONFIG.dedupe_window,
+    max_input_chars: Number(compile.max_input_chars ?? DEFAULT_COMPILE_CONFIG.max_input_chars) || DEFAULT_COMPILE_CONFIG.max_input_chars,
+    tool_max_chars:
+      Number(compile.tool_max_chars ?? inbox.tool_max_chars ?? DEFAULT_COMPILE_CONFIG.tool_max_chars) ||
+      DEFAULT_COMPILE_CONFIG.tool_max_chars,
+  };
+}
+
+function parseRecallConfig(data: Record<string, any>): RecallConfig {
+  const recall = data.recall ?? {};
+  return {
+    threshold: Number(recall.threshold ?? DEFAULT_RECALL_CONFIG.threshold) || DEFAULT_RECALL_CONFIG.threshold,
+    min_query_chars: Number(recall.min_query_chars ?? DEFAULT_RECALL_CONFIG.min_query_chars) || DEFAULT_RECALL_CONFIG.min_query_chars,
+    dedupe_window_s: Number(recall.dedupe_window_s ?? DEFAULT_RECALL_CONFIG.dedupe_window_s) || DEFAULT_RECALL_CONFIG.dedupe_window_s,
+    force: recall.force === true,
   };
 }
 
@@ -161,6 +219,8 @@ export async function loadRepoConfig(repoRoot: string): Promise<RepoConfig> {
     },
     search: parseSearchConfig(data),
     llm: parseLLMConfig(data),
+    compile: parseCompileConfig(data),
+    recall: parseRecallConfig(data),
     cost: {
       daily_token_cap: Number(data.cost?.daily_token_cap ?? 0) || 0,
       log: String(data.cost?.log ?? ".dfmemory/costs.jsonl"),

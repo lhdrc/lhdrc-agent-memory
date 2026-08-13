@@ -9,6 +9,7 @@ export const ErrorCodes = {
   INDEX: "E_INDEX",
   INTERNAL: "E_INTERNAL",
   DISABLED: "E_DISABLED",
+  LLM: "E_LLM",
   AUTH: "E_AUTH",
   FORBIDDEN: "E_FORBIDDEN",
 } as const;

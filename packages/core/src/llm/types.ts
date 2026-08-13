@@ -34,8 +34,22 @@ export interface ExtractFact {
   at: string;
 }
 
+export type CompletePurpose = "compile" | "extract" | "abstract" | "distill" | "other";
+
+export type CompleteRequest = {
+  prompt: string;
+  system?: string;
+  purpose: CompletePurpose;
+};
+
+export type CompleteResult = {
+  text: string;
+  usage?: { prompt_tokens: number; completion_tokens: number };
+};
+
 export interface LLMProvider {
   readonly id: string;
+  complete(req: CompleteRequest): Promise<CompleteResult>;
   judgeDistill(existing: string[], candidate: string): Promise<DistillDecision>;
   generateAbstract(content: string): Promise<string>;
   generateOverview(children: string[]): Promise<string>;
@@ -50,6 +64,7 @@ export interface LLMKillSwitch {
   distill: boolean;
   abstract: boolean;
   extract: boolean;
+  compile: boolean;
 }
 
 export interface LLMConfig {
@@ -57,4 +72,22 @@ export interface LLMConfig {
   distill: boolean;
   extract: boolean;
   kill_switch: LLMKillSwitch;
+  model: string;
+  openai_api_key_env: string;
+  base_url: string;
 }
+
+export const DEFAULT_LLM_CONFIG: LLMConfig = {
+  provider: "off",
+  distill: true,
+  extract: false,
+  kill_switch: {
+    distill: false,
+    abstract: false,
+    extract: false,
+    compile: false,
+  },
+  model: "gpt-4o-mini",
+  openai_api_key_env: "OPENAI_API_KEY",
+  base_url: "https://api.openai.com",
+};

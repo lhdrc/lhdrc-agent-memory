@@ -22,6 +22,7 @@ import {
   type DistillDecision,
   type ExperienceContext,
   type ExperienceResult,
+  type CompleteResult,
 } from "../src/index.ts";
 
 let dir: string;
@@ -74,6 +75,10 @@ class FakeLLM implements LLMProvider {
       boundary: this.exp?.boundary ?? "only for idempotent requests",
       body: this.exp?.body ?? ctx.candidate,
     };
+  }
+
+  async complete(): Promise<CompleteResult> {
+    return { text: JSON.stringify({ items: [] }) };
   }
 }
 

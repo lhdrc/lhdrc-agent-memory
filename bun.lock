@@ -23,6 +23,13 @@
         "@df-memory/core": "workspace:*",
       },
     },
+    "packages/adapters/ingest-session": {
+      "name": "@df-memory/ingest-session",
+      "version": "0.1.0",
+      "dependencies": {
+        "@df-memory/core": "workspace:*",
+      },
+    },
     "packages/cli": {
       "name": "@df-memory/cli",
       "version": "0.1.0",
@@ -33,6 +40,7 @@
         "@df-memory/core": "workspace:*",
         "@df-memory/ingest-df-app": "workspace:*",
         "@df-memory/ingest-generic-jsonl": "workspace:*",
+        "@df-memory/ingest-session": "workspace:*",
       },
     },
     "packages/core": {
@@ -56,6 +64,8 @@
     "@df-memory/ingest-df-app": ["@df-memory/ingest-df-app@workspace:packages/adapters/ingest-df-app"],
 
     "@df-memory/ingest-generic-jsonl": ["@df-memory/ingest-generic-jsonl@workspace:packages/adapters/ingest-generic-jsonl"],
+
+    "@df-memory/ingest-session": ["@df-memory/ingest-session@workspace:packages/adapters/ingest-session"],
 
     "@electric-sql/pglite": ["@electric-sql/pglite@0.3.16", "", {}, "sha512-mZkZfOd9OqTMHsK+1cje8OSzfAQcpD7JmILXTl5ahdempjUDdmg4euf1biDex5/LfQIDJ3gvCu6qDgdnDxfJmA=="],
 

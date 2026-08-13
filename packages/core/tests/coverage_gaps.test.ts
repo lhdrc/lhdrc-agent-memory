@@ -84,6 +84,10 @@ class FakeLLM implements LLMProvider {
       body: this.exp?.body ?? "\n## Merged\nnew content",
     };
   }
+
+  async complete() {
+    return { text: JSON.stringify({ items: [] }) };
+  }
 }
 
 beforeEach(async () => {
