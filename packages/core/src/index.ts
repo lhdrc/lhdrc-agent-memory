@@ -96,7 +96,7 @@ export {
   generateExperienceId,
   type ExperienceWriteInput,
 } from "./write/experience-validator.ts";
-export { writeExperience, patchExperienceStatus } from "./write/experience.ts";
+export { writeExperience, patchExperienceStatus, restoreExperienceSnapshot } from "./write/experience.ts";
 
 export {
   createLLMProvider,
@@ -138,7 +138,7 @@ export type { RefineSourceOptions, RefineResult } from "./distill/refine.ts";
 export { mergeExperienceFields } from "./write/experience.ts";
 export { appendMemoryDiff, listMemoryDiffs, findMemoryDiff, memoryDiffRel } from "./distill/memory-diff.ts";
 export type { MemoryDiffEntry, MemoryDiffOp } from "./distill/memory-diff.ts";
-export { revertMemoryDiff } from "./distill/revert.ts";
+export { revertMemoryDiff, revertUnsupportedMessage } from "./distill/revert.ts";
 export type { RevertResult } from "./distill/revert.ts";
 
 export { readNode, parseMemoryLayer } from "./node/read.ts";

@@ -106,6 +106,32 @@ export async function mergeExperienceFields(
   return relPath;
 }
 
+/** P7.5：按 merge 前快照覆写 procedure/boundary/body/status。 */
+export async function restoreExperienceSnapshot(
+  repoRoot: string,
+  relPath: string,
+  queue: FileMutationExecutor,
+  snapshot: { procedure?: string; boundary?: string; body?: string; status?: string },
+): Promise<string> {
+  const abs = join(repoRoot, relPath);
+  let raw: string;
+  try {
+    raw = await readFile(abs, "utf8");
+  } catch {
+    throw new MemoryError(ErrorCodes.NOT_FOUND, `experience 不存在: ${relPath}`);
+  }
+  const { data, body } = parseFrontmatter(raw);
+  if (snapshot.procedure != null) data.procedure = snapshot.procedure;
+  if (snapshot.boundary != null) data.boundary = snapshot.boundary;
+  if (snapshot.status != null) data.status = snapshot.status;
+  const nextBody = snapshot.body != null ? snapshot.body : body;
+  await queue.execute(async () => {
+    await writeFile(abs, serializeFrontmatter(data, nextBody), "utf8");
+    return [relPath];
+  }, `experience restore ${relPath}`);
+  return relPath;
+}
+
 export function experienceFromNormalized(n: NormalizedExperienceWrite): ExperienceWriteInput {
   return {
     brainId: n.brainId,

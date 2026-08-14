@@ -23,7 +23,16 @@ export interface MemoryDiffEntry {
   paths_written: string[];
   paths_readonly_refs: string[];
   decision: Record<string, unknown>;
-  revert?: { action: string; path: string };
+  revert?: {
+    action: "archive_path" | "restore_snapshot" | "none" | string;
+    path?: string;
+    snapshot?: {
+      procedure?: string;
+      boundary?: string;
+      body?: string;
+      status?: string;
+    };
+  };
 }
 
 function diffId(): string {

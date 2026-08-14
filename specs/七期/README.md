@@ -1,7 +1,7 @@
 # 七期 Specs — LLM 真路径 + 图补齐
 
 > **前提**：六期主线已完成（P6.1–P6.4 + P6.5 门控 + P6.6）。**不依赖** MCP/REST。  
-> **分期**：当前交付主线。四期（MCP/REST）仍为 **补充期**。P6.5 Cursor 模板 **本期不做**。  
+> **分期**：七期主线已完成。四期（MCP/REST）仍为 **补充期**。P6.5 Cursor 模板 **本期不做**。  
 > **来源**：[`AGENTS.md`](../../AGENTS.md) CLI 审计 backlog（2026-08）；六期所称 F11/F12（滑动窗口、compile 自动建 entity）。  
 > **原则**：不破坏 D1/D17/D18；`complete()` 仍是唯一补全入口；`provider=off` 不以启发式冒充会话编译或蒸馏产品。  
 > **本期产品承诺**：配好 `llm.provider=openai` + key 后，`refine` / dream 3 / skill 结晶 / `capture --extract` / `layers refresh` **真打模型**；会话可按窗口攒 turns 再 compile；compile 成功后未蒸 L0 够数则懒蒸馏，成熟则自动结晶 **candidate** skill；compile/capture 统一挂链，模型可建 entity；普通 `query` 能用邻接。  
@@ -52,7 +52,7 @@
 | 2 | P7.2 Distill 真路径 | [`P7.2-distill-live.md`](P7.2-distill-live.md) | P7.1、P2.2、P3.2、P5.6 | **done**：refine / 编译后懒蒸 / 自动 candidate skill / eval:distill |
 | 3 | P7.3 滑动窗口摄入 | [`P7.3-sliding-window.md`](P7.3-sliding-window.md) | P6.2、P6.3、P6.4 | **done**：攒 turns，达上限或会话结束再 compile |
 | 4 | P7.4 图与实体 | [`P7.4-entity-graph.md`](P7.4-entity-graph.md) | P3.1、P6.3、P6.6、P7.1 | **done**：compile 可建 entity、统一 linkify、query 邻接 |
-| 5 | P7.5 CLI 补齐 | [`P7.5-cli-ops.md`](P7.5-cli-ops.md) | P6.2、P2.2、P3.2 | `inbox retry`；revert merge/skill/noop |
+| 5 | P7.5 CLI 补齐 | [`P7.5-cli-ops.md`](P7.5-cli-ops.md) | P6.2、P2.2、P3.2 | **done**：`inbox retry`；revert merge/skill/noop |
 
 主线 = P7.1–P7.4。P7.5 不阻塞主线完成，但建议同迭代做完。
 

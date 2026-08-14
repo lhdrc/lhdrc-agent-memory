@@ -39,6 +39,8 @@ const HELP = `df-memory CLI
   memory ingest --adapter generic-jsonl|df-app|session --input <file> [--json] [--continue-on-error] [--dry-run] [--retry <id>]
   memory remember --body "…" [--dry-run] [--json] [--extract|--no-extract]
   memory inbox list [--json] [--status pending|failed|done]
+  memory inbox retry <sessionId> [--json] [--dry-run]
+  memory inbox end [--session <id>] [--json]
   memory query <text> [--limit N] [--source <id>] [--type <schema_type>] [--mode conservative|balanced|tokenmax] [--explain] [--json]
   memory find <text> [--limit N] [--source <id>] [--type <schema_type>] [--mode conservative|balanced|tokenmax] [--explain] [--json]
   memory think <text> [--json]

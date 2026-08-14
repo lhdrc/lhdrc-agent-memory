@@ -164,6 +164,19 @@ async function refineOneSource(
 
   if (mapped.op === "experience_merge") {
     const expRel = `brains/${opts.brainId}/experiences/${mapped.targetExpId}.md`;
+    const expAbs = join(repoRoot, expRel);
+    let snapshot: { procedure?: string; boundary?: string; body?: string; status?: string } | undefined;
+    try {
+      const before = parseFrontmatter(await readFile(expAbs, "utf8"));
+      snapshot = {
+        procedure: String(before.data.procedure ?? ""),
+        boundary: String(before.data.boundary ?? ""),
+        body: before.body,
+        status: String(before.data.status ?? "active"),
+      };
+    } catch {
+      snapshot = undefined;
+    }
     const expResult = await llm.refineExperience({
       sourcePath: sourceRel,
       title: String(data.title ?? ""),
@@ -183,6 +196,9 @@ async function refineOneSource(
       paths_written: [expRel],
       paths_readonly_refs: [sourceRel],
       decision: decision as unknown as Record<string, unknown>,
+      revert: snapshot
+        ? { action: "restore_snapshot", path: expRel, snapshot }
+        : undefined,
     });
     await assertSourceUnchanged(abs, sourceHashBefore, sourceRel);
     return { written: true, path: expRel };

@@ -220,6 +220,7 @@ export async function crystallizeExperiences(
         experience_ids: cluster.map((e) => e.id),
         status: "candidate",
       },
+      revert: { action: "archive_path", path },
     });
 
     written.push(path);

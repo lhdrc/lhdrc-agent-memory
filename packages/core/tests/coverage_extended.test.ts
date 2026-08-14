@@ -19,6 +19,7 @@ import {
   writeExperience,
   revertMemoryDiff,
   listMemoryDiffs,
+  appendMemoryDiff,
   importPath,
   readNode,
   openPglite,
@@ -464,38 +465,16 @@ describe("扩展覆盖", () => {
   );
 
   test(
-    "revert experience_merge → unsupported_op",
+    "revert experience_merge 无快照 → unsupported_op",
     async () => {
       const queue = await makeQueue();
-      const sourceRel = await captureNode(repoRoot, pack, queue, {
-        brainId: "default",
-        sourceId: "default",
-        schemaType: "decision",
-        title: "merge回滚",
-        body: "merge 暂不支持 revert。",
-        createdBy: "test",
+      const mergeDiff = await appendMemoryDiff(repoRoot, "default", {
+        op: "experience_merge",
+        paths_written: ["brains/default/experiences/expmer01.md"],
+        paths_readonly_refs: [],
+        decision: { handmade: true },
       });
-      await writeExperience(repoRoot, pack, queue, {
-        brainId: "default",
-        title: "待合并",
-        trigger: "t",
-        procedure: "p",
-        boundary: "b",
-        sourcePaths: [sourceRel.replace(/^brains\/default\//, "")],
-        id: "expmer01",
-      });
-      const llm = new FakeLLM({
-        candidate: "none",
-        item: "merge",
-        targetExpId: "expmer01",
-        confidence: 0.9,
-        rationale: "mer",
-      });
-      await refineSource(repoRoot, { brainId: "default", path: sourceRel, queue, llm });
-      const diffs = await listMemoryDiffs(repoRoot, "default", 10);
-      const mergeDiff = diffs.find((d) => d.op === "experience_merge");
-      expect(mergeDiff).toBeDefined();
-      const rev = await revertMemoryDiff(repoRoot, "default", mergeDiff!.id, queue);
+      const rev = await revertMemoryDiff(repoRoot, "default", mergeDiff.id, queue);
       expect(rev.ok).toBe(false);
       expect(rev.reason).toBe("unsupported_op");
     },
