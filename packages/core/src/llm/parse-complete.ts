@@ -2,7 +2,7 @@
  * P7.1：complete() 文本 → 各 purpose JSON 合同。
  */
 import { MemoryError, ErrorCodes } from "../errors.ts";
-import type { DistillDecision, ExperienceResult } from "./types.ts";
+import type { DistillDecision, ExperienceResult, ExtractFact, FactExtractMeta } from "./types.ts";
 
 export function stripCompleteJson(text: string): string {
   let s = text.trim();
@@ -81,4 +81,44 @@ export function isJudgeJsonFailure(text: string): boolean {
   } catch {
     return true;
   }
+}
+
+/** 整段若是单一 markdown 围栏则剥掉；abstract/overview 用。 */
+export function stripMarkdownFence(text: string): string {
+  const s = text.trim();
+  const fence = /^```(?:\w+)?\s*([\s\S]*?)```\s*$/im.exec(s);
+  if (fence?.[1]) return fence[1].trim();
+  return s;
+}
+
+export function isExtractJsonFailure(text: string): boolean {
+  try {
+    const obj = parseCompleteObject(text);
+    return !Array.isArray(obj.facts);
+  } catch {
+    return true;
+  }
+}
+
+/** 非法条丢弃；JSON 合同失败由调用方 retry / 空数组。 */
+export function parseExtractFacts(text: string, meta: FactExtractMeta): ExtractFact[] {
+  const obj = parseCompleteObject(text);
+  const raw = obj.facts;
+  if (!Array.isArray(raw)) {
+    throw new MemoryError(ErrorCodes.LLM, "extractFacts 响应缺少 facts 数组");
+  }
+  const out: ExtractFact[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const rec = item as Record<string, unknown>;
+    const factText = String(rec.text ?? "").trim();
+    if (!factText || factText.length > 2000) continue;
+    out.push({
+      text: factText,
+      event_type: String(rec.event_type ?? meta.event_type),
+      attributed_to: String(rec.attributed_to ?? meta.attributed_to),
+      at: String(rec.at ?? meta.at),
+    });
+  }
+  return out;
 }

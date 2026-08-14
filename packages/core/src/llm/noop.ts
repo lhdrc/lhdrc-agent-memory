@@ -31,6 +31,8 @@ export class NoopLLMProvider implements LLMProvider {
   }
 
   async refineExperience(_ctx: ExperienceContext): Promise<ExperienceResult> {
-    throw new Error("NoopLLMProvider.refineExperience unavailable when provider=off");
+    throw new MemoryError(ErrorCodes.DISABLED, "llm.provider=off：refineExperience 不可用", {
+      skipped_reason: "provider_off",
+    });
   }
 }

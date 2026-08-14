@@ -6,6 +6,8 @@ import { loadRepoConfig } from "../repo/config.ts";
 import { resolveNodeRelPath } from "../node/paths.ts";
 import type { FileMutationExecutor } from "../write/executor.ts";
 import { mkdirp } from "../util/fs.ts";
+import { createLLMProvider } from "../llm/factory.ts";
+import type { LLMProvider } from "../llm/types.ts";
 import {
   DIR_OVERVIEW_NAME,
   heuristicAbstract,
@@ -29,6 +31,8 @@ export interface LayerUpdate {
   path: string;
   abstract?: boolean;
   overview?: boolean;
+  /** 该 path 的 abstract 是否采用了模型结果（P7.1） */
+  llm_abstract?: boolean;
 }
 
 export interface RefreshLayersResult {
@@ -147,6 +151,10 @@ export async function refreshLayers(opts: RefreshLayersOptions): Promise<Refresh
   const targets = await collectTargets(opts.repoRoot, opts.brainId, opts.path);
   const updated: LayerUpdate[] = [];
   const metas: NodeMeta[] = [];
+  const useLlm = cfg.llm.provider === "openai" && !cfg.llm.kill_switch.abstract;
+  const llm: LLMProvider | undefined = useLlm
+    ? createLLMProvider(cfg.llm, { repoRoot: opts.repoRoot, cost: cfg.cost })
+    : undefined;
 
   for (const rel of targets) {
     const abs = join(opts.repoRoot, rel);
@@ -155,8 +163,30 @@ export async function refreshLayers(opts: RefreshLayersOptions): Promise<Refresh
     const title = String(data.title ?? rel.split("/").pop() ?? rel);
     metas.push({ rel, title });
 
-    const abstract = heuristicAbstract(body);
-    const overview = heuristicOverview(body, maxChars);
+    let abstract = heuristicAbstract(body);
+    let overview = heuristicOverview(body, maxChars);
+    let llmAbstract = false;
+
+    if (llm) {
+      try {
+        const a = (await llm.generateAbstract(body)).trim();
+        if (a) {
+          abstract = a;
+          llmAbstract = true;
+        }
+      } catch {
+        /* 失败回退启发式，不回滚已有 md */
+      }
+      if (!opts.abstractOnly) {
+        try {
+          const o = (await llm.generateOverview([body])).trim();
+          if (o) overview = o;
+        } catch {
+          /* 同上 */
+        }
+      }
+    }
+
     const fullBody = body.replace(/\r\n/g, "\n").trim();
     const needSidecar = !opts.abstractOnly && fullBody.length > maxChars;
     const sidecarRel = needSidecar ? overviewSidecarRel(rel) : undefined;
@@ -172,6 +202,7 @@ export async function refreshLayers(opts: RefreshLayersOptions): Promise<Refresh
       path: rel,
       abstract: true,
       overview: opts.abstractOnly ? undefined : true,
+      ...(llmAbstract ? { llm_abstract: true } : {}),
     });
   }
 

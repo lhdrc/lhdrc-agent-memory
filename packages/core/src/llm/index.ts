@@ -20,12 +20,16 @@ export type { CreateLLMOptions } from "./factory.ts";
 export {
   loadDistillJudgePrompt,
   loadDistillRefinePrompt,
+  loadExtractPrompt,
+  loadAbstractPrompt,
+  loadOverviewPrompt,
   formatExistingExperienceLine,
   formatJudgeCandidate,
   formatJudgeUserPrompt,
   formatRefineUserPrompt,
+  formatExtractUserPrompt,
   refineTaskLine,
   REFINE_TASK_CREATE,
   REFINE_TASK_SYNTHESIZE,
 } from "./distill-prompt.ts";
-export { parseJudgeDecision, parseExperienceResult } from "./parse-complete.ts";
+export { parseJudgeDecision, parseExperienceResult, parseExtractFacts, stripMarkdownFence } from "./parse-complete.ts";

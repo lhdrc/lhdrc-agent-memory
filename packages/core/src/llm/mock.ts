@@ -2,7 +2,13 @@ import { appendFile } from "node:fs/promises";
 import { MemoryError, ErrorCodes } from "../errors.ts";
 import { mkdirp } from "../util/fs.ts";
 import { dirname } from "node:path";
-import { judgeDistillWithComplete, refineExperienceWithComplete } from "./distill-complete.ts";
+import {
+  extractFactsWithComplete,
+  generateAbstractWithComplete,
+  generateOverviewWithComplete,
+  judgeDistillWithComplete,
+  refineExperienceWithComplete,
+} from "./distill-complete.ts";
 import type {
   CompletePurpose,
   CompleteRequest,
@@ -10,6 +16,8 @@ import type {
   DistillDecision,
   ExperienceContext,
   ExperienceResult,
+  ExtractFact,
+  FactExtractMeta,
   LLMProvider,
 } from "./types.ts";
 
@@ -77,14 +85,18 @@ export class EnvMockLLMProvider implements LLMProvider {
   }
 
   async generateAbstract(content: string): Promise<string> {
-    return content.slice(0, 100);
+    return generateAbstractWithComplete((req) => this.complete(req), content);
   }
 
   async generateOverview(children: string[]): Promise<string> {
-    return children.join("\n").slice(0, 200);
+    return generateOverviewWithComplete((req) => this.complete(req), children);
   }
 
   async refineExperience(ctx: ExperienceContext): Promise<ExperienceResult> {
     return refineExperienceWithComplete((req) => this.complete(req), ctx);
+  }
+
+  async extractFacts(body: string, meta: FactExtractMeta): Promise<ExtractFact[]> {
+    return extractFactsWithComplete((req) => this.complete(req), body, meta);
   }
 }

@@ -167,6 +167,9 @@ describe("P7.1 distill 接线", () => {
   const prevMock = process.env.DF_MEMORY_MOCK_COMPLETE;
   const prevDistill = process.env.DF_MEMORY_MOCK_COMPLETE_DISTILL;
   const prevFail = process.env.DF_MEMORY_MOCK_COMPLETE_FAIL;
+  const prevExtract = process.env.DF_MEMORY_MOCK_COMPLETE_EXTRACT;
+  const prevAbstract = process.env.DF_MEMORY_MOCK_COMPLETE_ABSTRACT;
+  const prevCompile = process.env.DF_MEMORY_MOCK_COMPLETE_COMPILE;
 
   beforeEach(async () => {
     const dir = await mkdtemp(join(tmpdir(), "dfmem-p71-"));
@@ -179,6 +182,9 @@ describe("P7.1 distill 接线", () => {
     restoreEnv("DF_MEMORY_MOCK_COMPLETE", prevMock);
     restoreEnv("DF_MEMORY_MOCK_COMPLETE_DISTILL", prevDistill);
     restoreEnv("DF_MEMORY_MOCK_COMPLETE_FAIL", prevFail);
+    restoreEnv("DF_MEMORY_MOCK_COMPLETE_EXTRACT", prevExtract);
+    restoreEnv("DF_MEMORY_MOCK_COMPLETE_ABSTRACT", prevAbstract);
+    restoreEnv("DF_MEMORY_MOCK_COMPLETE_COMPILE", prevCompile);
   });
 
   async function makeQueue() {
@@ -428,5 +434,79 @@ describe("P7.1 distill 接线", () => {
     const d = await p.judgeDistill([], "cand");
     expect(d.candidate).toBe("skip");
     expect(d.rationale).toBe("parse_error");
+  });
+
+  test("P71-03 openai extractFacts 有定义且走 complete", async () => {
+    delete process.env.DF_MEMORY_MOCK_COMPLETE;
+    delete process.env.DF_MEMORY_MOCK_COMPLETE_DISTILL;
+    delete process.env.DF_MEMORY_MOCK_COMPLETE_EXTRACT;
+    delete process.env.DF_MEMORY_MOCK_COMPLETE_ABSTRACT;
+    delete process.env.DF_MEMORY_MOCK_COMPLETE_COMPILE;
+    delete process.env.DF_MEMORY_MOCK_COMPLETE_FAIL;
+    process.env.OPENAI_API_KEY = "sk-test";
+    let sawExtract = false;
+    const p = createLLMProvider(
+      { provider: "openai" },
+      {
+        fetch: async (_url, init) => {
+          const body = JSON.parse(String(init?.body ?? "{}")) as {
+            messages?: Array<{ role: string; content: string }>;
+          };
+          const system = body.messages?.find((m) => m.role === "system")?.content ?? "";
+          sawExtract = system.includes("facts");
+          return new Response(
+            JSON.stringify({
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      facts: [
+                        {
+                          text: "MOCK_FACT_A",
+                          event_type: "note",
+                          attributed_to: "t",
+                          at: "2026-08-14",
+                        },
+                      ],
+                    }),
+                  },
+                },
+              ],
+            }),
+            { status: 200 },
+          );
+        },
+      },
+    );
+    expect(p).toBeInstanceOf(OpenAILLMProvider);
+    expect(typeof p.extractFacts).toBe("function");
+    const facts = await p.extractFacts!("plain body no lists", {
+      event_type: "note",
+      attributed_to: "t",
+      at: "2026-08-14",
+    });
+    expect(facts[0]?.text).toBe("MOCK_FACT_A");
+    expect(sawExtract).toBe(true);
+  });
+
+  test("P71-04 kill_switch.abstract → generateAbstract 的 complete 抛 E_DISABLED", async () => {
+    delete process.env.DF_MEMORY_MOCK_COMPLETE;
+    delete process.env.DF_MEMORY_MOCK_COMPLETE_DISTILL;
+    delete process.env.DF_MEMORY_MOCK_COMPLETE_EXTRACT;
+    delete process.env.DF_MEMORY_MOCK_COMPLETE_ABSTRACT;
+    delete process.env.DF_MEMORY_MOCK_COMPLETE_COMPILE;
+    delete process.env.DF_MEMORY_MOCK_COMPLETE_FAIL;
+    process.env.OPENAI_API_KEY = "sk-test";
+    const p = createLLMProvider({
+      provider: "openai",
+      kill_switch: { distill: false, abstract: true, extract: false, compile: false },
+    });
+    expect(p).toBeInstanceOf(OpenAILLMProvider);
+    await expect(p.generateAbstract("hello world")).rejects.toMatchObject({
+      code: ErrorCodes.DISABLED,
+    });
+    await expect(p.complete({ prompt: "x", purpose: "abstract" })).rejects.toMatchObject({
+      code: ErrorCodes.DISABLED,
+    });
   });
 });

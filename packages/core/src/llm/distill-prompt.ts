@@ -10,6 +10,9 @@ const RESOURCES = join(dirname(fileURLToPath(import.meta.url)), "../../resources
 
 let judgePromptCache: string | undefined;
 let refinePromptCache: string | undefined;
+let extractPromptCache: string | undefined;
+let abstractPromptCache: string | undefined;
+let overviewPromptCache: string | undefined;
 
 export async function loadDistillJudgePrompt(): Promise<string> {
   judgePromptCache ??= await readFile(join(RESOURCES, "distill-judge-v1.md"), "utf8");
@@ -19,6 +22,34 @@ export async function loadDistillJudgePrompt(): Promise<string> {
 export async function loadDistillRefinePrompt(): Promise<string> {
   refinePromptCache ??= await readFile(join(RESOURCES, "distill-refine-v1.md"), "utf8");
   return refinePromptCache;
+}
+
+export async function loadExtractPrompt(): Promise<string> {
+  extractPromptCache ??= await readFile(join(RESOURCES, "extract-v1.md"), "utf8");
+  return extractPromptCache;
+}
+
+export async function loadAbstractPrompt(): Promise<string> {
+  abstractPromptCache ??= await readFile(join(RESOURCES, "abstract-v1.md"), "utf8");
+  return abstractPromptCache;
+}
+
+export async function loadOverviewPrompt(): Promise<string> {
+  overviewPromptCache ??= await readFile(join(RESOURCES, "overview-v1.md"), "utf8");
+  return overviewPromptCache;
+}
+
+export function formatExtractUserPrompt(
+  body: string,
+  meta: { event_type: string; attributed_to: string; at: string },
+): string {
+  return [
+    `event_type: ${meta.event_type}`,
+    `attributed_to: ${meta.attributed_to}`,
+    `at: ${meta.at}`,
+    "---",
+    body,
+  ].join("\n");
 }
 
 export interface ExistingExperienceLine {
@@ -100,3 +131,6 @@ export const JUDGE_JSON_REPAIR_SUFFIX =
 
 export const REFINE_JSON_REPAIR_SUFFIX =
   'Previous response was not a JSON object with title, trigger, procedure, boundary, and body. Return only that JSON object.';
+
+export const EXTRACT_JSON_REPAIR_SUFFIX =
+  'Previous response was not a JSON object with a facts array. Return only { "facts": [ { "text", "event_type", "attributed_to", "at" } ] }.';

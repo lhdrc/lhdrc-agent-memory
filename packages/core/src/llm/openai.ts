@@ -1,7 +1,24 @@
 import { MemoryError, ErrorCodes } from "../errors.ts";
 import { appendCostEntry, wouldExceedCap, type CostConfig } from "../cost/logger.ts";
-import { judgeDistillWithComplete, refineExperienceWithComplete } from "./distill-complete.ts";
-import { DEFAULT_LLM_CONFIG, type CompleteRequest, type CompleteResult, type DistillDecision, type ExperienceContext, type ExperienceResult, type LLMConfig, type LLMProvider } from "./types.ts";
+import {
+  extractFactsWithComplete,
+  generateAbstractWithComplete,
+  generateOverviewWithComplete,
+  judgeDistillWithComplete,
+  refineExperienceWithComplete,
+} from "./distill-complete.ts";
+import {
+  DEFAULT_LLM_CONFIG,
+  type CompleteRequest,
+  type CompleteResult,
+  type DistillDecision,
+  type ExperienceContext,
+  type ExperienceResult,
+  type ExtractFact,
+  type FactExtractMeta,
+  type LLMConfig,
+  type LLMProvider,
+} from "./types.ts";
 
 const COMPLETE_TIMEOUT_MS = 60_000;
 const MAX_TOKENS = 4096;
@@ -139,14 +156,18 @@ export class OpenAILLMProvider implements LLMProvider {
   }
 
   async generateAbstract(content: string): Promise<string> {
-    return content.replace(/\s+/g, " ").trim().slice(0, 100);
+    return generateAbstractWithComplete((req) => this.complete(req), content);
   }
 
   async generateOverview(children: string[]): Promise<string> {
-    return children.join("\n").slice(0, 200);
+    return generateOverviewWithComplete((req) => this.complete(req), children);
   }
 
   async refineExperience(ctx: ExperienceContext): Promise<ExperienceResult> {
     return refineExperienceWithComplete((req) => this.complete(req), ctx);
+  }
+
+  async extractFacts(body: string, meta: FactExtractMeta): Promise<ExtractFact[]> {
+    return extractFactsWithComplete((req) => this.complete(req), body, meta);
   }
 }

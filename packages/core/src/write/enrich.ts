@@ -98,24 +98,21 @@ export async function enrichAfterWrite(opts: EnrichOptions): Promise<EnrichResul
   if (opts.extractFactsFn) {
     newFacts = await opts.extractFactsFn(body);
   } else if (useLlm) {
-    const provider = createLLMProvider(cfg.llm);
-    if (!provider.extractFacts) {
-      newFacts = heuristicExtractFacts(body, meta);
-    } else {
-      const costCfg = readCostConfig(cfg);
-      if (await wouldExceedCap(opts.repoRoot, costCfg)) {
-        await appendCostEntry(opts.repoRoot, costCfg, {
-          kind: "extract",
-          tokens_in: 0,
-          tokens_out: 0,
-          model: provider.id,
-          skipped: true,
-          reason: "daily_token_cap",
-        });
-        return { skipped_reason: skippedReason ?? "cost_cap" };
-      }
-      newFacts = await provider.extractFacts(body, meta);
+    const provider = createLLMProvider(cfg.llm, { repoRoot: opts.repoRoot, cost: readCostConfig(cfg) });
+    const costCfg = readCostConfig(cfg);
+    if (await wouldExceedCap(opts.repoRoot, costCfg)) {
+      await appendCostEntry(opts.repoRoot, costCfg, {
+        kind: "extract",
+        tokens_in: 0,
+        tokens_out: 0,
+        model: provider.id,
+        skipped: true,
+        reason: "daily_token_cap",
+      });
+      return { skipped_reason: skippedReason ?? "cost_cap" };
     }
+    // P7.1：openai 必有 extractFacts；不再因方法缺失静默启发式
+    newFacts = await provider.extractFacts!(body, meta);
   } else {
     newFacts = heuristicExtractFacts(body, meta);
   }
