@@ -4,8 +4,8 @@ export type { ErrorCode } from "./errors.ts";
 export { initMemoryRepo, memoryYml, brainYml, sourceMarker } from "./repo/init.ts";
 export type { InitOptions, GitInitPolicy } from "./repo/init.ts";
 export { findRepoRoot, loadRepoConfig, resolveEnvDefaults } from "./repo/config.ts";
-export type { RepoConfig, WriteConfig, LayersConfig, CompileConfig, RecallConfig } from "./repo/config.ts";
-export { DEFAULT_COMPILE_CONFIG, DEFAULT_RECALL_CONFIG } from "./repo/config.ts";
+export type { RepoConfig, WriteConfig, LayersConfig, CompileConfig, RecallConfig, DistillConfig } from "./repo/config.ts";
+export { DEFAULT_COMPILE_CONFIG, DEFAULT_RECALL_CONFIG, DEFAULT_DISTILL_CONFIG } from "./repo/config.ts";
 export { loadBrainConfig, resolveSourceId, createBrain, listBrains, hasSharedSkillsMount } from "./repo/brain.ts";
 export type { BrainConfig, BrainMount, CreateBrainOptions } from "./repo/brain.ts";
 export {
@@ -133,7 +133,7 @@ export type {
   CompleteResult,
 } from "./llm/index.ts";
 
-export { refineSource, mapDistillDecision, heuristicAbstract } from "./distill/refine.ts";
+export { refineSource, mapDistillDecision, heuristicAbstract, maybeLazyDistillAfterCompile, countUndistilledL0 } from "./distill/refine.ts";
 export type { RefineSourceOptions, RefineResult } from "./distill/refine.ts";
 export { mergeExperienceFields } from "./write/experience.ts";
 export { appendMemoryDiff, listMemoryDiffs, findMemoryDiff, memoryDiffRel } from "./distill/memory-diff.ts";
@@ -234,7 +234,7 @@ export {
   SKILL_NAME_RE,
 } from "./write/skill.ts";
 export type { SkillWriteInput, SkillStatus } from "./write/skill.ts";
-export { crystallizeExperiences } from "./crystallize/crystallize.ts";
+export { crystallizeExperiences, maybeAutoCrystallize } from "./crystallize/crystallize.ts";
 export type { CrystallizeOptions, CrystallizeResult } from "./crystallize/crystallize.ts";
 export { runDream } from "./dream/runner.ts";
 export type { DreamOptions, DreamResult, DreamPhase, DreamPhaseResult } from "./dream/runner.ts";

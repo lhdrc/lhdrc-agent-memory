@@ -8,6 +8,7 @@ export interface EvalArgv {
   help: boolean;
   wipeIndex: boolean;
   allowNet: boolean;
+  fixtureExperiences: boolean;
   adapter?: string;
 }
 
@@ -22,6 +23,7 @@ export function parseEvalArgv(argv: string[]): EvalArgv {
     help: false,
     wipeIndex: false,
     allowNet: false,
+    fixtureExperiences: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
@@ -33,6 +35,7 @@ export function parseEvalArgv(argv: string[]): EvalArgv {
     else if (a === "--help" || a === "-h") out.help = true;
     else if (a === "--wipe-index") out.wipeIndex = true;
     else if (a === "--allow-net") out.allowNet = true;
+    else if (a === "--fixture-experiences") out.fixtureExperiences = true;
     else if (a === "--adapter" || a.startsWith("--adapter=")) {
       const v = a.startsWith("--adapter=") ? a.slice("--adapter=".length) : argv[++i];
       if (v) out.adapter = v;
@@ -56,6 +59,7 @@ export const EVAL_HELP = `df-memory evals (P5.6)
 
 Flags:
   --mini --distill --report --adapter <id> --fixture --json
+  --fixture-experiences  distill 对照：仍写入工经验（默认关，走 refineSource）
   --wipe-index   清空索引且不 rebuild（检索门禁；应失败）
   --allow-net    允许 fetch 公开基准
 `;

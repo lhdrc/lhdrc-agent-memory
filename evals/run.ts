@@ -23,7 +23,7 @@ async function main(): Promise<number> {
     console.error("请只指定一种模式: --mini | --distill | --report | --adapter <id>");
     return 1;
   }
-  if (o.distill) return runDistill({ json: o.json });
+  if (o.distill) return runDistill({ json: o.json, fixtureExperiences: o.fixtureExperiences });
   if (o.report) return runReport({ json: o.json });
   if (o.adapter) return runAdapter({ adapter: o.adapter, fixture: o.fixture, json: o.json });
   return runMini({ wipeIndex: o.wipeIndex, json: o.json });

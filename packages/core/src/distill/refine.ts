@@ -5,7 +5,7 @@ import { parseFrontmatter } from "../frontmatter.ts";
 import { loadRepoConfig } from "../repo/config.ts";
 import { loadPack } from "../schema/loadPack.ts";
 import { sha256Hex } from "../util/hash.ts";
-import type { WriteQueue } from "../write/queue.ts";
+import type { FileMutationExecutor } from "../write/executor.ts";
 import { writeExperience, patchExperienceStatus, mergeExperienceFields } from "../write/experience.ts";
 import { createLLMProvider, isDistillEnabled, type LLMProvider } from "../llm/index.ts";
 import { formatExistingExperienceLine, formatJudgeCandidate } from "../llm/distill-prompt.ts";
@@ -14,6 +14,8 @@ import { mapDistillDecision, heuristicAbstract } from "./d17-map.ts";
 import { resolveBrainRoot } from "../repo/layout.ts";
 import { bm25Query } from "../retrieve/query.ts";
 import { openPglite } from "../index/engine.ts";
+import { maybeAutoCrystallize } from "../crystallize/crystallize.ts";
+import type { LLMConfig } from "../llm/types.ts";
 
 export interface RefineSourceOptions {
   brainId: string;
@@ -21,7 +23,7 @@ export interface RefineSourceOptions {
   path?: string;
   /** 仅处理该 sourceId 下的源（与 --source 对齐） */
   sourceId?: string;
-  queue: WriteQueue;
+  queue: FileMutationExecutor;
   /** 测试注入 FakeLLM */
   llm?: LLMProvider;
   createdBy?: string;
@@ -30,8 +32,12 @@ export interface RefineSourceOptions {
 export interface RefineResult {
   skipped: number;
   written: number;
+  /** @deprecated 用 skipped_reason；P2.2 仍读 reason */
   reason?: string;
+  skipped_reason?: string;
   paths?: string[];
+  lazy_omitted?: number;
+  crystallized?: string[];
 }
 
 function normalizeSourcePath(brainId: string, input: string): string {
@@ -276,13 +282,46 @@ export async function refineSource(repoRoot: string, opts: RefineSourceOptions):
   const llm = opts.llm ?? createLLMProvider(cfg.llm);
   const abstractEnabled = !cfg.llm.kill_switch.abstract;
 
-  const sources = await collectSourcePaths(repoRoot, opts.brainId, opts.path, opts.sourceId);
-  if (sources.length === 0) {
-    return { skipped: 0, written: 0, reason: "no_sources" };
+  const sourcesAll = await collectSourcePaths(repoRoot, opts.brainId, opts.path, opts.sourceId);
+  let lazyOmitted = 0;
+  let sources = sourcesAll;
+  if (!opts.path) {
+    const distilled = await collectDistilledSourceRels(repoRoot, opts.brainId);
+    sources = [];
+    for (const src of sourcesAll) {
+      if (distilled.has(toBrainSourceRel(opts.brainId, src))) lazyOmitted++;
+      else sources.push(src);
+    }
   }
 
   if (!isDistillEnabled(cfg.llm) && !opts.llm) {
-    return { skipped: sources.length, written: 0, reason: "llm_off" };
+    const skipped_reason = distillSkipReason(cfg.llm);
+    const crystallized = await maybeAutoCrystallize(repoRoot, { brainId: opts.brainId, queue: opts.queue });
+    return {
+      skipped: sourcesAll.length,
+      written: 0,
+      reason: skipped_reason,
+      skipped_reason,
+      paths: [],
+      lazy_omitted: opts.path ? 0 : lazyOmitted,
+      crystallized: crystallized?.written,
+    };
+  }
+
+  if (sources.length === 0) {
+    const crystallized = await maybeAutoCrystallize(repoRoot, {
+      brainId: opts.brainId,
+      queue: opts.queue,
+      llm: opts.llm,
+    });
+    return {
+      skipped: 0,
+      written: 0,
+      reason: "no_sources",
+      paths: [],
+      lazy_omitted: lazyOmitted,
+      crystallized: crystallized?.written,
+    };
   }
 
   let written = 0;
@@ -299,7 +338,72 @@ export async function refineSource(repoRoot: string, opts: RefineSourceOptions):
     }
   }
 
-  return { skipped, written, paths };
+  const crystallized = await maybeAutoCrystallize(repoRoot, {
+    brainId: opts.brainId,
+    queue: opts.queue,
+    llm: opts.llm,
+  });
+
+  return {
+    skipped,
+    written,
+    paths,
+    lazy_omitted: opts.path ? 0 : lazyOmitted,
+    crystallized: crystallized?.written,
+  };
+}
+
+function distillSkipReason(cfg: LLMConfig): string {
+  if (cfg.provider === "off") return "llm_off";
+  if (cfg.kill_switch.distill) return "kill_switch";
+  return "distill_false";
+}
+
+function toBrainSourceRel(brainId: string, input: string): string {
+  const p = input.replace(/\\/g, "/").replace(/^\/+/, "");
+  const prefix = `brains/${brainId}/`;
+  if (p.startsWith(prefix)) return p.slice(prefix.length);
+  return p;
+}
+
+async function collectDistilledSourceRels(repoRoot: string, brainId: string): Promise<Set<string>> {
+  const dir = join(resolveBrainRoot(repoRoot, brainId), "experiences");
+  const out = new Set<string>();
+  if (!existsSync(dir)) return out;
+  const files = (await readdir(dir)).filter((f) => f.endsWith(".md"));
+  for (const f of files) {
+    const raw = await readFile(join(dir, f), "utf8");
+    const { data } = parseFrontmatter(raw);
+    if (String(data.status) !== "active") continue;
+    const paths = Array.isArray(data.source_paths) ? data.source_paths : [];
+    for (const sp of paths) {
+      out.add(toBrainSourceRel(brainId, String(sp)));
+    }
+  }
+  return out;
+}
+
+export async function countUndistilledL0(repoRoot: string, brainId: string): Promise<number> {
+  const sources = await collectSourcePaths(repoRoot, brainId);
+  const distilled = await collectDistilledSourceRels(repoRoot, brainId);
+  let n = 0;
+  for (const src of sources) {
+    if (!distilled.has(toBrainSourceRel(brainId, src))) n++;
+  }
+  return n;
+}
+
+/** compile 放锁后调用：未蒸 L0 够数才蒸。失败由调用方 warn。 */
+export async function maybeLazyDistillAfterCompile(
+  repoRoot: string,
+  opts: { brainId: string; queue: FileMutationExecutor; llm?: LLMProvider },
+): Promise<RefineResult | undefined> {
+  const cfg = await loadRepoConfig(repoRoot);
+  const min = cfg.distill.lazy_min_sources;
+  if (min <= 0) return undefined;
+  const n = await countUndistilledL0(repoRoot, opts.brainId);
+  if (n < min) return undefined;
+  return refineSource(repoRoot, { brainId: opts.brainId, queue: opts.queue, llm: opts.llm });
 }
 
 export { normalizeSourcePath, buildCandidateText };

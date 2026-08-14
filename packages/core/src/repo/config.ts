@@ -52,6 +52,17 @@ export interface LayersConfig {
   dir_aggregate: boolean;
 }
 
+export interface DistillConfig {
+  /** compile 成功后未蒸 L0 达此数才懒蒸馏；≤0 关闭 */
+  lazy_min_sources: number;
+  auto_crystallize: boolean;
+}
+
+export const DEFAULT_DISTILL_CONFIG: DistillConfig = {
+  lazy_min_sources: 5,
+  auto_crystallize: true,
+};
+
 export interface RepoConfig {
   version: number;
   brain_id: string;
@@ -73,6 +84,7 @@ export interface RepoConfig {
   llm: LLMConfig;
   compile: CompileConfig;
   recall: RecallConfig;
+  distill: DistillConfig;
   cost: CostConfig;
   auth: AuthConfig;
 }
@@ -136,6 +148,15 @@ function parseLLMConfig(data: Record<string, any>): LLMConfig {
     model: String(llm.model ?? DEFAULT_LLM_CONFIG.model),
     openai_api_key_env: String(llm.openai_api_key_env ?? DEFAULT_LLM_CONFIG.openai_api_key_env),
     base_url: String(llm.base_url ?? DEFAULT_LLM_CONFIG.base_url),
+  };
+}
+
+function parseDistillConfig(data: Record<string, any>): DistillConfig {
+  const d = data.distill ?? {};
+  const lazy = Number(d.lazy_min_sources);
+  return {
+    lazy_min_sources: Number.isFinite(lazy) ? lazy : DEFAULT_DISTILL_CONFIG.lazy_min_sources,
+    auto_crystallize: d.auto_crystallize !== false,
   };
 }
 
@@ -231,6 +252,7 @@ export async function loadRepoConfig(repoRoot: string): Promise<RepoConfig> {
     llm: parseLLMConfig(data),
     compile: parseCompileConfig(data),
     recall: parseRecallConfig(data),
+    distill: parseDistillConfig(data),
     cost: {
       daily_token_cap: Number(data.cost?.daily_token_cap ?? 0) || 0,
       log: String(data.cost?.log ?? ".dfmemory/costs.jsonl"),

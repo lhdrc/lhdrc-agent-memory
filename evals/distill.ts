@@ -5,6 +5,12 @@ import {
   openPglite,
   thinkQuery,
   syncAll,
+  refineSource,
+  type LLMProvider,
+  type CompleteResult,
+  type DistillDecision,
+  type ExperienceContext,
+  type ExperienceResult,
 } from "../packages/core/src/index.ts";
 import { fixtureDir } from "./lib/paths.ts";
 import { writeReceipt } from "./lib/receipt.ts";
@@ -22,7 +28,39 @@ interface DistillFixture {
   questions: Array<{ id: string; query: string; gold: string[] }>;
 }
 
-export async function runDistill(opts: { json?: boolean } = {}): Promise<number> {
+function fixtureRefineLlm(experiences: DistillFixture["experiences"]): LLMProvider {
+  let i = 0;
+  return {
+    id: "openai",
+    async complete(): Promise<CompleteResult> {
+      return { text: "{}" };
+    },
+    async judgeDistill(): Promise<DistillDecision> {
+      return { candidate: "create", confidence: 1, rationale: "eval:distill" };
+    },
+    async generateAbstract(c: string) {
+      return c.slice(0, 100);
+    },
+    async generateOverview(c: string[]) {
+      return c.join("\n");
+    },
+    async refineExperience(_ctx: ExperienceContext): Promise<ExperienceResult> {
+      const e = experiences[Math.min(i, experiences.length - 1)]!;
+      i += 1;
+      return {
+        title: e.title,
+        trigger: e.trigger,
+        procedure: e.procedure,
+        boundary: e.boundary,
+        body: `${e.procedure}\n${e.boundary}`,
+      };
+    },
+  };
+}
+
+export async function runDistill(
+  opts: { json?: boolean; fixtureExperiences?: boolean } = {},
+): Promise<number> {
   const fixture = JSON.parse(await readFile(fixtureDir("distill", "cases.json"), "utf8")) as DistillFixture;
   const ws = await createEvalWorkspace({ brain: "default" });
   const ts = new Date().toISOString();
@@ -64,15 +102,33 @@ export async function runDistill(opts: { json?: boolean } = {}): Promise<number>
       await conn1.close();
     }
 
-    for (const e of fixture.experiences) {
-      await writeExperience(ws.repoRoot, ws.pack, ws.queue, {
+    let usedRefine = false;
+    let written = 0;
+
+    if (opts.fixtureExperiences) {
+      for (const e of fixture.experiences) {
+        await writeExperience(ws.repoRoot, ws.pack, ws.queue, {
+          brainId: "default",
+          title: e.title,
+          trigger: e.trigger,
+          procedure: e.procedure,
+          boundary: e.boundary,
+          sourcePaths: sourcePaths.length > 0 ? sourcePaths : ["sources/default/notes/placeholder.md"],
+        });
+      }
+      written = fixture.experiences.length;
+    } else {
+      const refine = await refineSource(ws.repoRoot, {
         brainId: "default",
-        title: e.title,
-        trigger: e.trigger,
-        procedure: e.procedure,
-        boundary: e.boundary,
-        sourcePaths: sourcePaths.length > 0 ? sourcePaths : ["sources/default/notes/placeholder.md"],
+        queue: ws.queue,
+        llm: fixtureRefineLlm(fixture.experiences),
       });
+      usedRefine = true;
+      written = refine.written;
+      if (written < 1) {
+        console.error("eval:distill refineSource written=0；需要 DF_MEMORY_MOCK_COMPLETE_DISTILL 或 openai key，或检查 fixture");
+        return 1;
+      }
     }
 
     const conn2 = await openPglite(ws.repoRoot);
@@ -80,10 +136,12 @@ export async function runDistill(opts: { json?: boolean } = {}): Promise<number>
       await syncAll(conn2.db, ws.repoRoot, "default");
       const withExperience = await scoreQuestions(conn2.db);
 
-      const ok = withExperience.recall >= withoutExperience.recall;
+      const ok = withExperience.recall >= withoutExperience.recall && (!usedRefine || written >= 1);
       const metrics = {
         with_experience: withExperience,
         without_experience: withoutExperience,
+        used_refine: usedRefine,
+        written,
       };
       const receiptPath = await writeReceipt({
         id: "distill",
@@ -92,7 +150,7 @@ export async function runDistill(opts: { json?: boolean } = {}): Promise<number>
         ok,
         metrics,
       });
-      const summary = { ok, kind: "distill", metrics, receipt: receiptPath };
+      const summary = { ok, kind: "distill", metrics, receipt: receiptPath, used_refine: usedRefine, written };
       console.log(JSON.stringify(summary));
       return ok ? 0 : 1;
     } finally {

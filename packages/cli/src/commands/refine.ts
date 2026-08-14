@@ -26,12 +26,12 @@ export async function refineCommand(argv: string[]): Promise<number> {
     queue,
   });
 
-  if (result.reason === "llm_off") {
-    const msg = `蒸馏已跳过（llm.provider=off 或 kill_switch.distill=true）: skipped=${result.skipped}`;
+  if (result.skipped_reason) {
+    const msg = `蒸馏已跳过（${result.skipped_reason}）: skipped=${result.skipped}`;
     if (o.json) {
       console.log(JSON.stringify({ ...result, message: msg }));
     } else {
-      console.log(msg);
+      console.error(msg);
     }
     return 0;
   }

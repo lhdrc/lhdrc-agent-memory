@@ -78,6 +78,9 @@ compile:
   max_input_chars: 32000
   tool_max_chars: 2000
   prefetch_topn: 5
+distill:
+  lazy_min_sources: 5
+  auto_crystallize: true
 recall:
   threshold: 3
   min_query_chars: 4

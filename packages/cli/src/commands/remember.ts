@@ -39,6 +39,7 @@ export function formatCompileOutput(result: CompileResult, json: boolean, dryRun
         errors: result.errors,
         skipped_reason: result.skipped_reason,
         truncated: result.truncated,
+        distill: result.distill,
       }),
     );
     return;

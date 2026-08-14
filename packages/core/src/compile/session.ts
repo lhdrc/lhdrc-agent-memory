@@ -28,6 +28,7 @@ import {
 } from "../inbox/session.ts";
 import { linkifyBody } from "./linkify.ts";
 import { prefetchExistingMemories } from "./prefetch.ts";
+import { maybeLazyDistillAfterCompile } from "../distill/refine.ts";
 import {
   checkSourceTurns,
   formatCompileUserPrompt,
@@ -52,6 +53,7 @@ export type CompileResult = {
   errors: Array<{ message: string; code?: string }>;
   skipped_reason?: string;
   truncated?: boolean;
+  distill?: { written: number; lazy_omitted?: number; crystallized?: string[]; error?: string };
 };
 
 export type CompileSessionOpts = {
@@ -440,6 +442,25 @@ export async function compileSession(opts: CompileSessionOpts): Promise<CompileR
       { code: ErrorCodes.INTERNAL, message: "部分条目写入失败" },
       keptPaths,
     );
+  }
+
+  if (keptPaths.length > 0) {
+    try {
+      const distill = await maybeLazyDistillAfterCompile(opts.repoRoot, {
+        brainId: opts.brainId,
+        queue: opts.queue,
+      });
+      if (distill) {
+        result.distill = {
+          written: distill.written,
+          lazy_omitted: distill.lazy_omitted,
+          crystallized: distill.crystallized,
+        };
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      result.distill = { written: 0, error: msg };
+    }
   }
 
   return result;

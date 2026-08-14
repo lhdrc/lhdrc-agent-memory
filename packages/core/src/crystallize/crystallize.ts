@@ -12,14 +12,15 @@ import { createLLMProvider, isDistillEnabled } from "../llm/factory.ts";
 import type { LLMProvider } from "../llm/types.ts";
 import { appendMemoryDiff } from "../distill/memory-diff.ts";
 import { readCostConfig, withCostAccounting } from "../cost/logger.ts";
-import type { WriteQueue } from "../write/queue.ts";
+import type { FileMutationExecutor } from "../write/executor.ts";
 import { writeSkill, isMatureExperience } from "../write/skill.ts";
 import { titleToSlug } from "../util/slug.ts";
+import { sha256Hex } from "../util/hash.ts";
 import { readFile } from "node:fs/promises";
 
 export interface CrystallizeOptions {
   brainId: string;
-  queue: WriteQueue;
+  queue: FileMutationExecutor;
   /** 只结晶该 trigger（精确或包含） */
   trigger?: string;
   /** 指定经验相对路径或 id */
@@ -33,6 +34,7 @@ export interface CrystallizeResult {
   written: string[];
   skipped: number;
   reason?: string;
+  errors?: Array<{ cluster: string; code: string; message: string }>;
 }
 
 interface ExpRow {
@@ -95,8 +97,13 @@ function heuristicSkillFromCluster(exps: ExpRow[]): {
 
 function skillNameFromTrigger(trigger: string, explicit?: string): string {
   if (explicit) return explicit;
-  const slug = titleToSlug(trigger).slice(0, 64);
-  return slug || `skill-${Date.now().toString(36)}`;
+  const ascii = titleToSlug(trigger)
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+  return ascii || `skill-${sha256Hex(trigger).slice(0, 16)}`;
 }
 
 /** 结晶成熟经验簇为 candidate SKILL.md。 */
@@ -145,6 +152,8 @@ export async function crystallizeExperiences(
 
   const written: string[] = [];
   let skipped = 0;
+  const errors: Array<{ cluster: string; code: string; message: string }> = [];
+  const useModel = Boolean(opts.llm) || (cfg.llm.provider !== "off" && isDistillEnabled(cfg.llm));
 
   for (const [, cluster] of clusters) {
     const name = skillNameFromTrigger(cluster[0]!.trigger, opts.name);
@@ -155,7 +164,7 @@ export async function crystallizeExperiences(
     }
 
     let synthesized = heuristicSkillFromCluster(cluster);
-    if (isDistillEnabled(cfg.llm) || opts.llm) {
+    if (useModel) {
       try {
         const joined = cluster.map((e) => `${e.title}\n${e.procedure}\n${e.boundary}`).join("\n---\n");
         const expResult = await llm.refineExperience({
@@ -175,8 +184,11 @@ export async function crystallizeExperiences(
             expResult.body ||
             `## Procedure\n${expResult.procedure}\n\n## Boundary\n${expResult.boundary}\n\n## Verification\n${synthesized.verification}\n`,
         };
-      } catch {
-        /* 启发式 fallback */
+      } catch (e) {
+        const err = e instanceof MemoryError ? e : new MemoryError(ErrorCodes.LLM, e instanceof Error ? e.message : String(e));
+        errors.push({ cluster: name, code: err.code, message: err.message });
+        skipped += cluster.length;
+        continue;
       }
     }
 
@@ -216,9 +228,20 @@ export async function crystallizeExperiences(
   }
 
   if (written.length === 0 && skipped > 0) {
-    return { written, skipped, reason: "skill_exists" };
+    return { written, skipped, reason: errors.length ? "llm_error" : "skill_exists", errors: errors.length ? errors : undefined };
   }
-  return { written, skipped };
+  return { written, skipped, errors: errors.length ? errors : undefined };
+}
+
+/** refine 后自动结晶 candidate；provider=off 或 auto_crystallize=false 则跳过。 */
+export async function maybeAutoCrystallize(
+  repoRoot: string,
+  opts: Pick<CrystallizeOptions, "brainId" | "queue" | "llm">,
+): Promise<CrystallizeResult | undefined> {
+  const cfg = await loadRepoConfig(repoRoot);
+  if (!cfg.distill.auto_crystallize) return undefined;
+  if (cfg.llm.provider === "off") return undefined;
+  return crystallizeExperiences(repoRoot, opts);
 }
 
 export async function requireMatureOrThrow(fm: Record<string, unknown>): Promise<void> {
