@@ -3,20 +3,30 @@ import { join, resolve } from "node:path";
 import { existsSync } from "node:fs";
 import { MemoryError, ErrorCodes } from "../errors.ts";
 import { loadPack } from "../schema/loadPack.ts";
-import { gitInit, gitAddAll, gitCommit, ensureGitIdentity } from "./git.ts";
+import { gitInit, gitAddAll, gitCommit, ensureGitIdentity, gitIsRepo } from "./git.ts";
+
+export type GitInitPolicy = "init" | "existing" | "off";
 
 export interface InitOptions {
   brain: string;
   source: string;
   force: boolean;
+  /** default "init" */
+  git?: GitInitPolicy;
+  /** default: off if git==="off" else "batch" */
+  gitMode?: "off" | "batch" | "per_write";
 }
 
-export function memoryYml(brain: string, schemaPack: string): string {
+export function memoryYml(
+  brain: string,
+  schemaPack: string,
+  gitMode: "off" | "batch" | "per_write" = "batch",
+): string {
   return `version: 1
 brain_id: ${brain}
 schema_pack: ${schemaPack}
 git:
-  mode: batch
+  mode: ${gitMode}
   auto_commit: true
   commit_prefix: "memory:"
   batch_size: 20
@@ -33,8 +43,9 @@ writer:
   lock_file: .dfmemory/write.lock
   lock_timeout_ms: 30000
 embedding:
-  provider: off
-  model: text-embedding-3-small
+  provider: local
+  model: hashed-bigram-384
+  # openai model unused unless provider=openai
   openai_api_key_env: OPENAI_API_KEY
 search:
   mode: balanced
@@ -118,8 +129,11 @@ export async function initMemoryRepo(dir: string, opts: InitOptions): Promise<st
   const pack = await loadPack("problem-tree");
   await mkdir(abs, { recursive: true });
 
+  const gitPolicy = opts.git ?? "init";
+  const gitMode = opts.gitMode ?? (gitPolicy === "off" ? "off" : "batch");
+
   try {
-    await writeFile(join(abs, "memory.yml"), memoryYml(opts.brain, pack.id));
+    await writeFile(join(abs, "memory.yml"), memoryYml(opts.brain, pack.id, gitMode));
     await writeFile(
       join(abs, ".gitignore"),
       ".dfmemory/pglite/\n.dfmemory/write.lock\n.dfmemory/index-meta.json\n.dfmemory/embedding-meta.json\n.dfmemory/git-dirty.json\n.dfmemory/costs.jsonl\n.dfmemory/inbox/\n",
@@ -145,10 +159,18 @@ export async function initMemoryRepo(dir: string, opts: InitOptions): Promise<st
     }
     await writeFile(join(brainRoot, "contradictions.md"), "# Contradictions\n");
 
-    await gitInit(abs);
-    await ensureGitIdentity(abs);
-    await gitAddAll(abs);
-    await gitCommit(abs, `memory: init brain ${opts.brain}`);
+    if (gitPolicy !== "off") {
+      let needInit = gitPolicy === "init";
+      if (gitPolicy === "existing") {
+        needInit = !(await gitIsRepo(abs));
+      }
+      if (needInit) {
+        await gitInit(abs);
+      }
+      await ensureGitIdentity(abs);
+      await gitAddAll(abs);
+      await gitCommit(abs, `memory: init brain ${opts.brain}`);
+    }
   } catch (e) {
     if (!existed || opts.force) {
       await rm(join(abs, "memory.yml"), { force: true }).catch(() => {});

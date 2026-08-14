@@ -38,49 +38,58 @@ export interface FusionWeights {
   wEntity: number;
 }
 
-/** balanced + graph + semantic */
+/** balanced + graph + semantic（general/task 冻结） */
 export const WEIGHTS_BALANCED_GRAPH: FusionWeights = {
-  wKw: 0.3,
-  wSem: 0.25,
-  wGraph: 0.25,
+  wKw: 0.35,
+  wSem: 0.2,
+  wGraph: 0.2,
   wTitle: 0.1,
-  wEntity: 0.1,
+  wEntity: 0.15,
 };
 
-/** relation 意图：抬高 w_graph */
+/** relation 意图：抬高 w_graph（语义开） */
 export const WEIGHTS_RELATION: FusionWeights = {
   wKw: 0.2,
   wSem: 0.15,
-  wGraph: 0.4,
+  wGraph: 0.45,
   wTitle: 0.1,
-  wEntity: 0.15,
+  wEntity: 0.1,
 };
 
 /** person 意图：抬高 entity */
 export const WEIGHTS_PERSON: FusionWeights = {
   wKw: 0.25,
-  wSem: 0.2,
-  wGraph: 0.2,
+  wSem: 0.15,
+  wGraph: 0.15,
   wTitle: 0.1,
-  wEntity: 0.25,
+  wEntity: 0.35,
 };
 
-/** experience 意图：仍走图融合；路径 boost 在 hybrid 侧另加 */
+/** experience 意图：仍走图融合；/experiences/ 路径 boost 在 fuseHybridArms 侧另加 */
 export const WEIGHTS_EXPERIENCE: FusionWeights = {
   wKw: 0.3,
   wSem: 0.25,
-  wGraph: 0.2,
+  wGraph: 0.15,
   wTitle: 0.15,
-  wEntity: 0.1,
+  wEntity: 0.15,
 };
 
-/** 无语义时的图融合降级（对齐 08 §7.2 量级） */
+/** 无语义 general/task（对齐 08 §7.2 kw/graph；hotness 在 hybrid 后乘） */
 export const WEIGHTS_NO_SEMANTIC: FusionWeights = {
-  wKw: 0.5,
+  wKw: 0.55,
   wSem: 0,
   wGraph: 0.3,
   wTitle: 0.1,
-  wEntity: 0.1,
+  wEntity: 0.05,
+};
+
+/** relation + 无语义（08 relation graph=0.55） */
+export const WEIGHTS_RELATION_NO_SEM: FusionWeights = {
+  wKw: 0.3,
+  wSem: 0,
+  wGraph: 0.55,
+  wTitle: 0.1,
+  wEntity: 0.05,
 };
 
 export type IntentForWeights = "task" | "experience" | "person" | "relation" | "general";
@@ -89,35 +98,21 @@ export function resolveFusionWeights(
   intent: IntentForWeights,
   semanticOn: boolean,
 ): FusionWeights {
-  let base: FusionWeights;
+  if (!semanticOn) {
+    return intent === "relation"
+      ? { ...WEIGHTS_RELATION_NO_SEM }
+      : { ...WEIGHTS_NO_SEMANTIC };
+  }
   switch (intent) {
     case "relation":
-      base = { ...WEIGHTS_RELATION };
-      break;
+      return { ...WEIGHTS_RELATION };
     case "person":
-      base = { ...WEIGHTS_PERSON };
-      break;
+      return { ...WEIGHTS_PERSON };
     case "experience":
-      base = { ...WEIGHTS_EXPERIENCE };
-      break;
+      return { ...WEIGHTS_EXPERIENCE };
     default:
-      base = { ...WEIGHTS_BALANCED_GRAPH };
+      return { ...WEIGHTS_BALANCED_GRAPH };
   }
-  if (!semanticOn) {
-    const sem = base.wSem;
-    base.wSem = 0;
-    base.wKw += sem * 0.6;
-    base.wGraph += sem * 0.4;
-    // renormalize-ish toward WEIGHTS_NO_SEMANTIC shape
-    const sum = base.wKw + base.wGraph + base.wTitle + base.wEntity;
-    if (sum > 0) {
-      base.wKw /= sum;
-      base.wGraph /= sum;
-      base.wTitle /= sum;
-      base.wEntity /= sum;
-    }
-  }
-  return base;
 }
 
 export function weightsKey(w: FusionWeights): string {

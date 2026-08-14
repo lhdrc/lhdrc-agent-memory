@@ -19,7 +19,7 @@ export class NoopLLMProvider implements LLMProvider {
   }
 
   async judgeDistill(_existing: string[], _candidate: string): Promise<DistillDecision> {
-    return { candidate: "skip", confidence: 0, rationale: "llm off" };
+    return { candidate: "skip", confidence: 0, rationale: "provider=off" };
   }
 
   async generateAbstract(content: string): Promise<string> {

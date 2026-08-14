@@ -2,14 +2,54 @@ import { appendFile } from "node:fs/promises";
 import { MemoryError, ErrorCodes } from "../errors.ts";
 import { mkdirp } from "../util/fs.ts";
 import { dirname } from "node:path";
-import type { CompleteRequest, CompleteResult, DistillDecision, ExperienceContext, ExperienceResult, LLMProvider } from "./types.ts";
+import { judgeDistillWithComplete, refineExperienceWithComplete } from "./distill-complete.ts";
+import type {
+  CompletePurpose,
+  CompleteRequest,
+  CompleteResult,
+  DistillDecision,
+  ExperienceContext,
+  ExperienceResult,
+  LLMProvider,
+} from "./types.ts";
+
+const PURPOSE_ENV: Record<CompletePurpose, string | undefined> = {
+  compile: "DF_MEMORY_MOCK_COMPLETE_COMPILE",
+  distill: "DF_MEMORY_MOCK_COMPLETE_DISTILL",
+  extract: "DF_MEMORY_MOCK_COMPLETE_EXTRACT",
+  abstract: "DF_MEMORY_MOCK_COMPLETE_ABSTRACT",
+  other: undefined,
+};
+
+export function isEnvMockCompleteEnabled(): boolean {
+  if (process.env.DF_MEMORY_MOCK_COMPLETE != null) return true;
+  if (process.env.DF_MEMORY_MOCK_COMPLETE_FAIL === "1") return true;
+  for (const key of Object.values(PURPOSE_ENV)) {
+    if (key && process.env[key] != null) return true;
+  }
+  return false;
+}
+
+function mockCompleteText(purpose: CompletePurpose): string {
+  const key = PURPOSE_ENV[purpose];
+  if (key && process.env[key] != null) return process.env[key]!;
+  return process.env.DF_MEMORY_MOCK_COMPLETE ?? "";
+}
+
+function distillJsonlLines(raw: string): string[] {
+  return raw
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.startsWith("{") && l.endsWith("}"));
+}
 
 /**
  * 测试注入：DF_MEMORY_MOCK_COMPLETE 提供 complete() 文本。
- * CLI 子进程无法 mock fetch，用环境变量走这条路径（P6.4）。
+ * CLI 子进程无法 mock fetch，用环境变量走这条路径（P6.4 / P7.1）。
  */
 export class EnvMockLLMProvider implements LLMProvider {
   readonly id = "openai";
+  private distillSeq = 0;
 
   async complete(req: CompleteRequest): Promise<CompleteResult> {
     const log = process.env.DF_MEMORY_MOCK_COMPLETE_LOG;
@@ -20,12 +60,20 @@ export class EnvMockLLMProvider implements LLMProvider {
     if (process.env.DF_MEMORY_MOCK_COMPLETE_FAIL === "1") {
       throw new MemoryError(ErrorCodes.LLM, "mock complete 失败");
     }
-    const text = process.env.DF_MEMORY_MOCK_COMPLETE ?? "";
+    let text = mockCompleteText(req.purpose);
+    if (req.purpose === "distill") {
+      const lines = distillJsonlLines(text);
+      if (lines.length >= 2) {
+        const i = Math.min(this.distillSeq, lines.length - 1);
+        this.distillSeq += 1;
+        text = lines[i]!;
+      }
+    }
     return { text, usage: { prompt_tokens: 1, completion_tokens: 1 } };
   }
 
-  async judgeDistill(_existing: string[], _candidate: string): Promise<DistillDecision> {
-    return { candidate: "skip", confidence: 0, rationale: "mock" };
+  async judgeDistill(existing: string[], candidate: string): Promise<DistillDecision> {
+    return judgeDistillWithComplete((req) => this.complete(req), existing, candidate);
   }
 
   async generateAbstract(content: string): Promise<string> {
@@ -36,7 +84,7 @@ export class EnvMockLLMProvider implements LLMProvider {
     return children.join("\n").slice(0, 200);
   }
 
-  async refineExperience(_ctx: ExperienceContext): Promise<ExperienceResult> {
-    throw new MemoryError(ErrorCodes.DISABLED, "mock refineExperience unavailable");
+  async refineExperience(ctx: ExperienceContext): Promise<ExperienceResult> {
+    return refineExperienceWithComplete((req) => this.complete(req), ctx);
   }
 }

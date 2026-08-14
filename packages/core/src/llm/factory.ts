@@ -1,5 +1,5 @@
 import type { CostConfig } from "../cost/logger.ts";
-import { EnvMockLLMProvider } from "./mock.ts";
+import { EnvMockLLMProvider, isEnvMockCompleteEnabled } from "./mock.ts";
 import { NoopLLMProvider } from "./noop.ts";
 import { OpenAILLMProvider, type OpenAILLMOptions } from "./openai.ts";
 import { DEFAULT_LLM_CONFIG, type LLMConfig, type LLMProvider } from "./types.ts";
@@ -25,7 +25,7 @@ export function createLLMProvider(
 ): LLMProvider {
   if (cfg.provider === "off") return new NoopLLMProvider();
   const full = withDefaults(cfg);
-  if (process.env.DF_MEMORY_MOCK_COMPLETE != null || process.env.DF_MEMORY_MOCK_COMPLETE_FAIL === "1") {
+  if (isEnvMockCompleteEnabled()) {
     return new EnvMockLLMProvider();
   }
   return new OpenAILLMProvider(full, opts);

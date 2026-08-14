@@ -77,6 +77,7 @@ describe("P2.1a 混合检索", () => {
   test(
     "P21a-01 provider=off → hybridQuery 仍可用（BM25 only）",
     async () => {
+      await setEmbeddingProvider("off");
       const rel = await capture("重试策略", "网关超时改为固定重试 3 次。");
       const hits = await hybrid("重试");
       expect(hits.length).toBeGreaterThan(0);

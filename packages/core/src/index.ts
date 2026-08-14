@@ -2,7 +2,7 @@ export { MemoryError, ErrorCodes, isUserError } from "./errors.ts";
 export type { ErrorCode } from "./errors.ts";
 
 export { initMemoryRepo, memoryYml, brainYml, sourceMarker } from "./repo/init.ts";
-export type { InitOptions } from "./repo/init.ts";
+export type { InitOptions, GitInitPolicy } from "./repo/init.ts";
 export { findRepoRoot, loadRepoConfig, resolveEnvDefaults } from "./repo/config.ts";
 export type { RepoConfig, WriteConfig, LayersConfig, CompileConfig, RecallConfig } from "./repo/config.ts";
 export { DEFAULT_COMPILE_CONFIG, DEFAULT_RECALL_CONFIG } from "./repo/config.ts";
@@ -106,6 +106,15 @@ export {
   OpenAILLMProvider,
   EnvMockLLMProvider,
   DEFAULT_LLM_CONFIG,
+  loadDistillJudgePrompt,
+  loadDistillRefinePrompt,
+  formatExistingExperienceLine,
+  formatJudgeCandidate,
+  formatJudgeUserPrompt,
+  formatRefineUserPrompt,
+  refineTaskLine,
+  parseJudgeDecision,
+  parseExperienceResult,
 } from "./llm/index.ts";
 export type {
   LLMProvider,
@@ -114,6 +123,7 @@ export type {
   DistillDecision,
   ExperienceContext,
   ExperienceResult,
+  RefineTask,
   CompletePurpose,
   CompleteRequest,
   CompleteResult,
@@ -175,6 +185,7 @@ export {
   WEIGHTS_PERSON,
   WEIGHTS_EXPERIENCE,
   WEIGHTS_NO_SEMANTIC,
+  WEIGHTS_RELATION_NO_SEM,
 } from "./retrieve/rrf.ts";
 export type {
   RankedHit,

@@ -1,5 +1,6 @@
 import { MemoryError, ErrorCodes } from "../errors.ts";
 import { appendCostEntry, wouldExceedCap, type CostConfig } from "../cost/logger.ts";
+import { judgeDistillWithComplete, refineExperienceWithComplete } from "./distill-complete.ts";
 import { DEFAULT_LLM_CONFIG, type CompleteRequest, type CompleteResult, type DistillDecision, type ExperienceContext, type ExperienceResult, type LLMConfig, type LLMProvider } from "./types.ts";
 
 const COMPLETE_TIMEOUT_MS = 60_000;
@@ -40,8 +41,13 @@ export class OpenAILLMProvider implements LLMProvider {
   }
 
   async complete(req: CompleteRequest): Promise<CompleteResult> {
-    if (req.purpose === "compile" && this.cfg.kill_switch.compile) {
-      throw new MemoryError(ErrorCodes.DISABLED, "llm.kill_switch.compile=true", {
+    if (
+      (req.purpose === "compile" && this.cfg.kill_switch.compile) ||
+      (req.purpose === "distill" && this.cfg.kill_switch.distill) ||
+      (req.purpose === "extract" && this.cfg.kill_switch.extract) ||
+      (req.purpose === "abstract" && this.cfg.kill_switch.abstract)
+    ) {
+      throw new MemoryError(ErrorCodes.DISABLED, `llm.kill_switch.${req.purpose}=true`, {
         skipped_reason: "kill_switch",
       });
     }
@@ -128,8 +134,8 @@ export class OpenAILLMProvider implements LLMProvider {
     return { text, usage };
   }
 
-  async judgeDistill(_existing: string[], _candidate: string): Promise<DistillDecision> {
-    return { candidate: "skip", confidence: 0, rationale: "openai complete-only (P6.1)" };
+  async judgeDistill(existing: string[], candidate: string): Promise<DistillDecision> {
+    return judgeDistillWithComplete((req) => this.complete(req), existing, candidate);
   }
 
   async generateAbstract(content: string): Promise<string> {
@@ -140,7 +146,7 @@ export class OpenAILLMProvider implements LLMProvider {
     return children.join("\n").slice(0, 200);
   }
 
-  async refineExperience(_ctx: ExperienceContext): Promise<ExperienceResult> {
-    throw new MemoryError(ErrorCodes.DISABLED, "OpenAILLMProvider.refineExperience 未走 complete（P6.1 非目标）");
+  async refineExperience(ctx: ExperienceContext): Promise<ExperienceResult> {
+    return refineExperienceWithComplete((req) => this.complete(req), ctx);
   }
 }

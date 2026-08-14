@@ -8,6 +8,7 @@ import { sha256Hex } from "../util/hash.ts";
 import type { WriteQueue } from "../write/queue.ts";
 import { writeExperience, patchExperienceStatus, mergeExperienceFields } from "../write/experience.ts";
 import { createLLMProvider, isDistillEnabled, type LLMProvider } from "../llm/index.ts";
+import { formatExistingExperienceLine, formatJudgeCandidate } from "../llm/distill-prompt.ts";
 import { appendMemoryDiff } from "./memory-diff.ts";
 import { mapDistillDecision, heuristicAbstract } from "./d17-map.ts";
 import { resolveBrainRoot } from "../repo/layout.ts";
@@ -52,19 +53,28 @@ function buildCandidateText(data: Record<string, unknown>, body: string): string
 async function listExperienceSummaries(
   repoRoot: string,
   brainId: string,
-): Promise<Array<{ id: string; summary: string; path: string }>> {
+): Promise<Array<{ id: string; title: string; trigger: string; snippet: string; path: string; line: string }>> {
   const dir = join(resolveBrainRoot(repoRoot, brainId), "experiences");
   if (!existsSync(dir)) return [];
   const files = (await readdir(dir)).filter((f) => f.endsWith(".md"));
-  const out: Array<{ id: string; summary: string; path: string }> = [];
+  const out: Array<{ id: string; title: string; trigger: string; snippet: string; path: string; line: string }> = [];
   for (const f of files) {
     const rel = `brains/${brainId}/experiences/${f}`;
     const raw = await readFile(join(repoRoot, rel), "utf8");
     const { data, body } = parseFrontmatter(raw);
     if (data.status !== "active") continue;
     const id = f.replace(/\.md$/, "");
-    const summary = `${data.title}: ${String(data.trigger ?? "")} ${body.slice(0, 200)}`;
-    out.push({ id, summary, path: rel });
+    const title = String(data.title ?? "");
+    const trigger = String(data.trigger ?? "");
+    const snippet = body.slice(0, 200);
+    out.push({
+      id,
+      title,
+      trigger,
+      snippet,
+      path: rel,
+      line: formatExistingExperienceLine({ id, title, trigger, snippet }),
+    });
   }
   return out;
 }
@@ -73,7 +83,7 @@ async function prescreenExperiences(
   repoRoot: string,
   brainId: string,
   query: string,
-  existing: Array<{ id: string; summary: string; path: string }>,
+  existing: Array<{ id: string; path: string; line: string }>,
 ): Promise<string[]> {
   if (existing.length === 0) return [];
   const conn = await openPglite(repoRoot);
@@ -85,9 +95,9 @@ async function prescreenExperiences(
       schemaType: "experience",
     });
     const hitPaths = new Set(hits.map((h) => h.path));
-    return existing.filter((e) => hitPaths.has(e.path)).map((e) => e.summary);
+    return existing.filter((e) => hitPaths.has(e.path)).map((e) => e.line);
   } catch {
-    return existing.slice(0, 5).map((e) => e.summary);
+    return existing.slice(0, 5).map((e) => e.line);
   } finally {
     await conn.close();
   }
@@ -116,9 +126,17 @@ async function refineOneSource(
   const sourceHashBefore = sha256Hex(await readFile(abs, "utf8"));
   const raw = await readFile(abs, "utf8");
   const { data, body } = parseFrontmatter(raw);
-  const candidate = buildCandidateText(data, body);
+  const schemaType = String(data.schema_type ?? "");
+  const title = String(data.title ?? "Untitled experience");
+  const candidateBody = buildCandidateText(data, body);
   const existing = await listExperienceSummaries(repoRoot, opts.brainId);
-  const prescreened = await prescreenExperiences(repoRoot, opts.brainId, candidate, existing);
+  const prescreened = await prescreenExperiences(repoRoot, opts.brainId, candidateBody, existing);
+  const candidate = formatJudgeCandidate({
+    path: sourceRel.replace(/^brains\/[^/]+\//, ""),
+    schemaType,
+    title,
+    body: candidateBody,
+  });
 
   const decision = await llm.judgeDistill(prescreened, candidate);
   const mapped = mapDistillDecision(decision);
@@ -143,8 +161,11 @@ async function refineOneSource(
     const expResult = await llm.refineExperience({
       sourcePath: sourceRel,
       title: String(data.title ?? ""),
-      candidate,
+      candidate: candidateBody,
       existingSummaries: prescreened,
+      task: "merge",
+      schemaType,
+      targetExpId: mapped.targetExpId,
     });
     await mergeExperienceFields(repoRoot, expRel, opts.queue, {
       procedure: expResult.procedure,
@@ -171,33 +192,34 @@ async function refineOneSource(
     return { written: false, skipped: true, reason: "noop" };
   }
 
-  const title = String(data.title ?? "Untitled experience");
   const expResult = await llm.refineExperience({
     sourcePath: sourceRel,
     title,
-    candidate,
+    candidate: candidateBody,
     existingSummaries: prescreened,
+    task: "create",
+    schemaType,
   });
 
   let abstract: string;
   if (abstractEnabled) {
     try {
-      abstract = (await llm.generateAbstract(candidate)).trim() || heuristicAbstract(candidate);
+      abstract = (await llm.generateAbstract(candidateBody)).trim() || heuristicAbstract(candidateBody);
     } catch {
-      abstract = heuristicAbstract(candidate);
+      abstract = heuristicAbstract(candidateBody);
     }
   } else {
-    abstract = heuristicAbstract(candidate);
+    abstract = heuristicAbstract(candidateBody);
   }
 
   const expPath = await writeExperience(repoRoot, pack, opts.queue, {
     brainId: opts.brainId,
     title: expResult.title || title,
     trigger: expResult.trigger || title,
-    procedure: expResult.procedure || candidate.slice(0, 500),
+    procedure: expResult.procedure || candidateBody.slice(0, 500),
     boundary: expResult.boundary || "See source",
     sourcePaths: [sourceRel.replace(/^brains\/[^/]+\//, "")],
-    body: expResult.body || candidate,
+    body: expResult.body || candidateBody,
     abstract,
   });
 

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, mkdir, rm, readFile, stat } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -9,6 +10,7 @@ import {
   ErrorCodes,
   parseFrontmatter,
   gitLog,
+  gitInit,
 } from "../src/index.ts";
 
 let dir: string;
@@ -46,8 +48,48 @@ describe("M1 仓库与文件权威", () => {
     expect(logs[0]).toBe("memory: init brain default");
     const yml = await readFile(join(root, "memory.yml"), "utf8");
     expect(yml).toContain("mode: batch");
+    expect(yml).toContain("provider: local");
     const gi = await readFile(join(root, ".gitignore"), "utf8");
     expect(gi).toContain("git-dirty.json");
+  });
+
+  test("M1-01b init git:off 跳过 git，memory.yml git.mode=off", async () => {
+    const root = await initMemoryRepo(dir, {
+      brain: "default",
+      source: "default",
+      force: false,
+      git: "off",
+    });
+    expect(existsSync(join(root, ".git"))).toBe(false);
+    const yml = await readFile(join(root, "memory.yml"), "utf8");
+    expect(yml).toContain("mode: off");
+    expect(yml).toContain("provider: local");
+  });
+
+  test("M1-01c init git:existing 在已有 git 仓内不失败", async () => {
+    await gitInit(dir);
+    const nested = join(dir, "memory");
+    const root = await initMemoryRepo(nested, {
+      brain: "default",
+      source: "default",
+      force: false,
+      git: "existing",
+    });
+    expect(existsSync(join(root, "memory.yml"))).toBe(true);
+    const logs = await gitLog(dir, 5);
+    expect(logs.some((l) => l.includes("memory: init brain default"))).toBe(true);
+  });
+
+  test("M1-01d init git:existing 非 git 目录回退 git init", async () => {
+    const root = await initMemoryRepo(dir, {
+      brain: "default",
+      source: "default",
+      force: false,
+      git: "existing",
+    });
+    expect(existsSync(join(root, ".git"))).toBe(true);
+    const logs = await gitLog(root, 1);
+    expect(logs[0]).toBe("memory: init brain default");
   });
 
   test("M1-02 已 init 再 init 无 force → E_USAGE", async () => {

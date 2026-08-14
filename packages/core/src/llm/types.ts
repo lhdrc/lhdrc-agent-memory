@@ -6,11 +6,18 @@ export type DistillDecision = {
   rationale: string;
 };
 
+export type RefineTask = "create" | "merge" | "synthesize";
+
 export interface ExperienceContext {
   sourcePath: string;
   title: string;
   candidate: string;
   existingSummaries: string[];
+  /** create / merge / 结晶；缺省 create */
+  task?: RefineTask;
+  schemaType?: string;
+  /** merge 时指向已有经验 id */
+  targetExpId?: string;
 }
 
 export interface ExperienceResult {

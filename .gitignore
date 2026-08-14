@@ -9,3 +9,5 @@ evals/receipts/*
 !evals/receipts/.gitkeep
 evals/cache/*
 !evals/cache/.gitkeep
+test4humancli/
+reports/test-run-latest.txt

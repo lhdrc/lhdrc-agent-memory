@@ -163,6 +163,7 @@ export async function crystallizeExperiences(
           title: cluster[0]!.title,
           candidate: joined,
           existingSummaries: cluster.map((e) => e.trigger),
+          task: "synthesize",
         });
         synthesized = {
           title: expResult.title || synthesized.title,
