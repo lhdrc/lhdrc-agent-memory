@@ -9,8 +9,18 @@ Do not invent path, `[[wikilink]]`, `@slug`, or YAML frontmatter.
 Return **only** a JSON object (no markdown fence if possible):
 
 ```json
-{ "items": [] }
+{ "entities": [], "items": [] }
 ```
+
+Optional root-level `entities` proposes people / systems / products to persist as entity files. Only **stable proper names** that will appear in item bodies. Do not create entities for common nouns.
+
+```json
+{ "slug": "alice", "title": "Alice", "aliases": ["爱丽丝"] }
+```
+
+- `slug` must match `[a-z0-9][a-z0-9_-]{0,127}` (ASCII). Illegal slugs are dropped.
+- Omit `entities` or use `[]` if none.
+- The system will write entity files and attach `@slug` in bodies. You still must not output path, `[[wikilink]]`, `@slug`, or YAML frontmatter.
 
 Each item:
 
@@ -25,7 +35,7 @@ Each item:
 }
 ```
 
-- `items` may be `[]`. That is success.
+- `items` may be `[]`. That is success. `{ "items": [] }` with no `entities` is valid.
 - `source_turns` is optional. If present, it is the Conversation numbers this item came from.
 - Write `title` / `body` / `facts` in the **same language as the user turns**. Keep code identifiers unchanged.
 - Prefer user-confirmed conclusions. Do not extract assistant speculation or uncommitted options.

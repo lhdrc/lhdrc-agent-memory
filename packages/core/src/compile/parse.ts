@@ -1,5 +1,6 @@
 import { MemoryError, ErrorCodes } from "../errors.ts";
 import type { Turn, TurnRole } from "../inbox/session.ts";
+import { isSlug } from "../util/slug.ts";
 
 const ROLES = new Set<TurnRole>(["user", "assistant", "system", "tool"]);
 
@@ -171,7 +172,14 @@ export function truncateTurns(turns: Turn[], maxChars: number): { turns: Turn[];
   return { turns: ordered.length ? ordered : [...others, ...kept], truncated };
 }
 
-export function parseCompleteItemsJson(text: string): unknown[] {
+export type ProposedEntity = { slug: string; title: string; aliases: string[] };
+
+export type CompleteExtractJson = {
+  items: unknown[];
+  entities: unknown[];
+};
+
+export function parseCompleteExtractJson(text: string): CompleteExtractJson {
   let s = text.trim();
   const fence = /^```(?:json)?\s*([\s\S]*?)```/im.exec(s);
   if (fence?.[1]) s = fence[1].trim();
@@ -190,5 +198,41 @@ export function parseCompleteItemsJson(text: string): unknown[] {
   if (!parsed || typeof parsed !== "object" || !Array.isArray((parsed as { items?: unknown }).items)) {
     throw new MemoryError(ErrorCodes.LLM, "complete 响应缺少 items 数组");
   }
-  return (parsed as { items: unknown[] }).items;
+  const obj = parsed as { items: unknown[]; entities?: unknown };
+  return {
+    items: obj.items,
+    entities: Array.isArray(obj.entities) ? obj.entities : [],
+  };
+}
+
+export function parseCompleteItemsJson(text: string): unknown[] {
+  return parseCompleteExtractJson(text).items;
+}
+
+export function normalizeProposedEntities(raw: unknown): {
+  accepted: ProposedEntity[];
+  unresolvedTitles: string[];
+} {
+  const accepted: ProposedEntity[] = [];
+  const unresolvedTitles: string[] = [];
+  if (!Array.isArray(raw)) return { accepted, unresolvedTitles };
+  const seen = new Set<string>();
+  for (const row of raw) {
+    if (!row || typeof row !== "object" || Array.isArray(row)) continue;
+    const o = row as Record<string, unknown>;
+    const slug = String(o.slug ?? "").trim();
+    const title = String(o.title ?? "").trim();
+    const aliases = Array.isArray(o.aliases)
+      ? [...new Set(o.aliases.map((a) => String(a).trim()).filter(Boolean))]
+      : [];
+    if (!title && !slug) continue;
+    if (!isSlug(slug)) {
+      unresolvedTitles.push(title || slug);
+      continue;
+    }
+    if (seen.has(slug)) continue;
+    seen.add(slug);
+    accepted.push({ slug, title: title || slug, aliases });
+  }
+  return { accepted, unresolvedTitles };
 }

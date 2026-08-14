@@ -76,6 +76,17 @@ export class EntityRegistryImpl implements EntityRegistry {
   }
 
   async create(input: EntityCreateInput): Promise<Entity> {
+    let created: Entity | undefined;
+    await this.executor.execute(async () => {
+      const r = await this.writeCreateUnlocked(input);
+      created = r.entity;
+      return [r.path];
+    }, `entity create ${input.slug}`);
+    return created!;
+  }
+
+  /** 已在 queue.execute 内：写新 entity 文件，不再持锁（P7.4 compile 同 job）。 */
+  async writeCreateUnlocked(input: EntityCreateInput): Promise<{ entity: Entity; path: string }> {
     if (!isSlug(input.slug)) {
       throw new MemoryError(ErrorCodes.VALIDATION, `非法 slug: ${input.slug}`, { field: "slug" });
     }
@@ -87,7 +98,6 @@ export class EntityRegistryImpl implements EntityRegistry {
     }
     const aliases = [...new Set((input.aliases ?? []).map((a) => a.trim()).filter(Boolean))];
     const externalIds = [...new Set(input.externalIds ?? [])];
-
     for (const a of aliases) {
       if (a === input.slug) continue;
       const conflict = await this.resolveInternal(a, 0);
@@ -97,7 +107,6 @@ export class EntityRegistryImpl implements EntityRegistry {
         });
       }
     }
-
     const now = new Date().toISOString();
     const entity: Entity = {
       slug: input.slug,
@@ -108,8 +117,39 @@ export class EntityRegistryImpl implements EntityRegistry {
       createdAt: now,
       updatedAt: now,
     };
-    await this.executor.execute(async () => [await this.writeEntityFile(entity)], `entity create ${input.slug}`);
-    return entity;
+    const path = await this.writeEntityFile(entity);
+    return { entity, path };
+  }
+
+  /** 已在 queue.execute 内：已有 slug 只 append aliases，不覆写 title。 */
+  async appendAliasesUnlocked(
+    slug: string,
+    aliases: string[],
+  ): Promise<{ entity: Entity; path: string; skipped: string[] } | null> {
+    const entity = await this.readEntityFile(slug);
+    if (!entity || entity.status === "merged") return null;
+    const skipped: string[] = [];
+    const extra: string[] = [];
+    for (const raw of aliases) {
+      const a = raw.trim();
+      if (!a || a === entity.slug || entity.aliases.includes(a)) continue;
+      const conflict = await this.resolveInternal(a, 0);
+      if (conflict && conflict.slug !== entity.slug) {
+        skipped.push(a);
+        continue;
+      }
+      extra.push(a);
+    }
+    if (extra.length === 0) {
+      return skipped.length ? { entity, path: this.entityRel(slug), skipped } : null;
+    }
+    const updated: Entity = {
+      ...entity,
+      aliases: [...entity.aliases, ...extra],
+      updatedAt: new Date().toISOString(),
+    };
+    const path = await this.writeEntityFile(updated);
+    return { entity: updated, path, skipped };
   }
 
   async resolve(aliasOrSlug: string): Promise<Entity> {

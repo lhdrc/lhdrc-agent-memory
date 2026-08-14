@@ -7,7 +7,7 @@
 > **本期产品承诺**：会话摄入必须经 LLM `complete()` 把原文编成短记忆；无 Key 则命令失败并提示，不以启发式冒充。人手 `capture` / BM25 `query` 仍可零 LLM。  
 > **主线状态**：P6.1–P6.4 + P6.5 门控 **done**。Cursor 模板（P6.5 §4）**不做**。  
 > **主线补丁**：[`P6.6-extract-contract.md`](P6.6-extract-contract.md) **done**（类型合同 + prefetch；学 OV 说明书思路，不抄 11 类 / ReAct）。  
-> **明确不做**：MCP/REST（四期）；Idle TTL / token 阈值 / PreCompact；11 类记忆；扩 dream；用 LLM 判断「该不该查」；**P6.5 Cursor 模板不做**。自动 `entity create` 与滑动窗口见 [`../七期/`](../七期/)（F11/F12）。
+> **明确不做**：MCP/REST（四期）；Idle TTL / token 阈值 / PreCompact；11 类记忆；扩 dream；用 LLM 判断「该不该查」；**P6.5 Cursor 模板不做**。自动 `entity create` **仅会话 compile**（七期 P7.4）；人手 capture 只挂已有实体。滑动窗口见 [`../七期/P7.3-sliding-window.md`](../七期/P7.3-sliding-window.md)。
 
 ## 架构选择（已锁定）
 

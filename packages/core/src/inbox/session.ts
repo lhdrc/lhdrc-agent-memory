@@ -47,8 +47,16 @@ export type ExtractedCheckpointItem = {
   path?: string;
 };
 
+export type ExtractedCheckpointEntity = {
+  slug: string;
+  title: string;
+  aliases?: string[];
+  status: "pending" | "written";
+};
+
 export type ExtractedCheckpoint = {
   items: ExtractedCheckpointItem[];
+  entities?: ExtractedCheckpointEntity[];
   truncated?: boolean;
 };
 

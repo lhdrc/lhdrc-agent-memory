@@ -1,6 +1,6 @@
 /**
- * P3.1 关系臂：parseRelationalQuery + links BFS depth≤2。
- * fail-open：解析失败 → 空臂。
+ * P3.1 关系臂 + P7.4 邻接臂：parseRelationalQuery 或实体子串种子，links BFS depth≤2。
+ * fail-open：无种子 → 空臂。
  */
 import type { SqlClient } from "../index/sql.ts";
 import { makeSnippet } from "./query.ts";
@@ -9,6 +9,13 @@ import type { RankedHit } from "./rrf.ts";
 export interface RelationalParse {
   seed: string;
   verb: string | null;
+}
+
+export type GraphMode = "relational" | "adjacency" | "empty";
+
+export interface GraphArmResult {
+  hits: RankedHit[];
+  mode: GraphMode;
 }
 
 const TEMPLATES: Array<{ re: RegExp; seedGroup: number; verb?: string }> = [
@@ -47,37 +54,82 @@ export interface GraphArmOptions {
   depth?: number;
 }
 
-/**
- * 关系臂：解析失败返回 []（fail-open）。
- * BFS 从与 seed 匹配的 to_ref / from_path / title 出发，沿 links 扩 depth≤2。
- */
-export async function graphArm(db: SqlClient, opts: GraphArmOptions): Promise<RankedHit[]> {
+function parseAliasesJson(raw: string | null | undefined): string[] {
+  if (!raw) return [];
   try {
-    const parsed = parseRelationalQuery(opts.query);
-    if (!parsed) return [];
+    const v = JSON.parse(raw) as unknown;
+    return Array.isArray(v) ? v.map((x) => String(x)) : [];
+  } catch {
+    return [];
+  }
+}
 
-    const depth = Math.min(2, Math.max(1, opts.depth ?? 2));
-    const limit = opts.limit ?? 30;
-    const seed = parsed.seed;
+function needleMatchesQuery(queryLower: string, needle: string): boolean {
+  const n = needle.trim();
+  if (n.length < 2) return false;
+  return queryLower.includes(n.toLowerCase());
+}
+
+async function collectAdjacencySeeds(db: SqlClient, brainId: string, query: string): Promise<string[]> {
+  const qLower = query.trim().toLowerCase();
+  if (!qLower) return [];
+  const seeds = new Set<string>();
+
+  try {
+    const ents = await db.query<{ slug: string; title: string; aliases_json: string }>(
+      `SELECT slug, title, aliases_json FROM entity_registry
+       WHERE brain_id = $1 AND status = 'active'`,
+      [brainId],
+    );
+    for (const e of ents.rows) {
+      const names = [e.slug, e.title, ...parseAliasesJson(e.aliases_json)];
+      if (names.some((n) => needleMatchesQuery(qLower, n))) seeds.add(e.slug);
+    }
+  } catch {
+    /* 无表时 fail-open */
+  }
+
+  try {
+    const refs = await db.query<{ to_ref: string }>(
+      `SELECT DISTINCT to_ref FROM links WHERE brain_id = $1`,
+      [brainId],
+    );
+    for (const r of refs.rows) {
+      if (needleMatchesQuery(qLower, r.to_ref)) seeds.add(r.to_ref);
+    }
+  } catch {
+    /* fail-open */
+  }
+
+  return [...seeds];
+}
+
+async function hitsFromSeeds(
+  db: SqlClient,
+  opts: GraphArmOptions,
+  seeds: string[],
+  verb: string | null,
+): Promise<RankedHit[]> {
+  const depth = Math.min(2, Math.max(1, opts.depth ?? 2));
+  const limit = opts.limit ?? 30;
+  const frontier = new Set<string>();
+  const seedRows: Array<{ from_path: string; to_ref: string; type: string }> = [];
+
+  for (const seed of seeds) {
     const seedLower = seed.toLowerCase();
-
-    // 种子：to_ref 命中，或 path/title 含子串
-    const seedRows = await db.query<{ from_path: string; to_ref: string; type: string }>(
+    const rows = await db.query<{ from_path: string; to_ref: string; type: string }>(
       `SELECT from_path, to_ref, type FROM links
        WHERE brain_id = $1
          AND (lower(to_ref) = $2 OR position($3 in lower(to_ref)) > 0
               OR position($3 in lower(from_path)) > 0)`,
       [opts.brainId, seedLower, seedLower],
     );
-
-    const frontier = new Set<string>();
-    for (const r of seedRows.rows) {
+    for (const r of rows.rows) {
+      seedRows.push(r);
       frontier.add(r.from_path);
-      // to_ref 可能是 path
       if (r.to_ref.includes("/")) frontier.add(r.to_ref);
     }
 
-    // 也从 pages title 找种子 path
     const titleSeeds = await db.query<{ path: string }>(
       `SELECT path FROM pages
        WHERE brain_id = $1 AND status = 'active'
@@ -86,75 +138,93 @@ export async function graphArm(db: SqlClient, opts: GraphArmOptions): Promise<Ra
       [opts.brainId, seedLower],
     );
     for (const r of titleSeeds.rows) frontier.add(r.path);
+  }
 
-    if (frontier.size === 0) return [];
+  if (frontier.size === 0) return [];
 
-    const visited = new Set<string>(frontier);
-    let current = [...frontier];
+  const visited = new Set<string>(frontier);
+  let current = [...frontier];
 
-    for (let d = 0; d < depth; d++) {
-      if (current.length === 0) break;
-      const next: string[] = [];
-      for (const path of current) {
-        let sql = `SELECT from_path, to_ref, type FROM links WHERE brain_id = $1 AND (from_path = $2 OR to_ref = $2)`;
-        const params: unknown[] = [opts.brainId, path];
-        if (parsed.verb) {
-          sql += ` AND type = $3`;
-          params.push(parsed.verb);
+  for (let d = 0; d < depth; d++) {
+    if (current.length === 0) break;
+    const next: string[] = [];
+    for (const path of current) {
+      let sql = `SELECT from_path, to_ref, type FROM links WHERE brain_id = $1 AND (from_path = $2 OR to_ref = $2)`;
+      const params: unknown[] = [opts.brainId, path];
+      if (verb) {
+        sql += ` AND type = $3`;
+        params.push(verb);
+      }
+      const edges = await db.query<{ from_path: string; to_ref: string; type: string }>(sql, params);
+      for (const e of edges.rows) {
+        for (const ref of [e.from_path, e.to_ref]) {
+          if (!ref.includes("/") && !ref.endsWith(".md")) continue;
+          if (visited.has(ref)) continue;
+          visited.add(ref);
+          next.push(ref);
         }
-        const edges = await db.query<{ from_path: string; to_ref: string; type: string }>(sql, params);
-        for (const e of edges.rows) {
-          for (const ref of [e.from_path, e.to_ref]) {
-            if (!ref.includes("/") && !ref.endsWith(".md")) continue; // slug-only：不当 path 扩
-            if (visited.has(ref)) continue;
-            visited.add(ref);
-            next.push(ref);
-          }
-          // slug → 链入该 slug 的 from_path 已在 from_path 侧
-          if (!e.to_ref.includes("/")) {
-            if (!visited.has(e.from_path)) {
-              visited.add(e.from_path);
-              next.push(e.from_path);
-            }
+        if (!e.to_ref.includes("/")) {
+          if (!visited.has(e.from_path)) {
+            visited.add(e.from_path);
+            next.push(e.from_path);
           }
         }
       }
-      current = next;
     }
-
-    const paths = [...visited].filter((p) => p.includes("/") || p.endsWith(".md"));
-    if (paths.length === 0) {
-      // 仅有 slug 命中：返回链入页
-      const mentionPages = seedRows.rows.map((r) => r.from_path);
-      paths.push(...new Set(mentionPages));
-    }
-
-    if (paths.length === 0) return [];
-
-    const placeholders = paths.map((_, i) => `$${i + 2}`).join(", ");
-    let pageSql = `SELECT path, title, body_text, source_id FROM pages
-      WHERE brain_id = $1 AND status = 'active' AND path IN (${placeholders})`;
-    const pageParams: unknown[] = [opts.brainId, ...paths];
-    if (opts.sourceId) {
-      pageSql += ` AND source_id = $${pageParams.length + 1}`;
-      pageParams.push(opts.sourceId);
-    }
-    const pages = await db.query<{ path: string; title: string; body_text: string; source_id: string }>(
-      pageSql,
-      pageParams,
-    );
-
-    const hits: RankedHit[] = pages.rows.map((p, i) => ({
-      path: p.path,
-      score: 1 / (i + 1),
-      title: p.title,
-      snippet: makeSnippet(p.body_text, seed),
-      evidence: ["graph"],
-    }));
-
-    hits.sort((a, b) => (b.score ?? 0) - (a.score ?? 0) || a.path.localeCompare(b.path));
-    return hits.slice(0, limit);
-  } catch {
-    return [];
+    current = next;
   }
+
+  const paths = [...visited].filter((p) => p.includes("/") || p.endsWith(".md"));
+  if (paths.length === 0) {
+    paths.push(...new Set(seedRows.map((r) => r.from_path)));
+  }
+  if (paths.length === 0) return [];
+
+  const placeholders = paths.map((_, i) => `$${i + 2}`).join(", ");
+  let pageSql = `SELECT path, title, body_text, source_id FROM pages
+      WHERE brain_id = $1 AND status = 'active' AND path IN (${placeholders})`;
+  const pageParams: unknown[] = [opts.brainId, ...paths];
+  if (opts.sourceId) {
+    pageSql += ` AND source_id = $${pageParams.length + 1}`;
+    pageParams.push(opts.sourceId);
+  }
+  const pages = await db.query<{ path: string; title: string; body_text: string; source_id: string }>(
+    pageSql,
+    pageParams,
+  );
+
+  const snippetSeed = seeds[0] ?? opts.query;
+  const hits: RankedHit[] = pages.rows.map((p, i) => ({
+    path: p.path,
+    score: 1 / (i + 1),
+    title: p.title,
+    snippet: makeSnippet(p.body_text, snippetSeed),
+    evidence: ["graph"],
+  }));
+
+  hits.sort((a, b) => (b.score ?? 0) - (a.score ?? 0) || a.path.localeCompare(b.path));
+  return hits.slice(0, limit);
+}
+
+/**
+ * 关系臂优先；否则邻接臂（entity slug/title/alias 或 links.to_ref 子串命中）。
+ */
+export async function graphArmDetailed(db: SqlClient, opts: GraphArmOptions): Promise<GraphArmResult> {
+  try {
+    const parsed = parseRelationalQuery(opts.query);
+    if (parsed) {
+      const hits = await hitsFromSeeds(db, opts, [parsed.seed], parsed.verb);
+      return { hits, mode: "relational" };
+    }
+    const seeds = await collectAdjacencySeeds(db, opts.brainId, opts.query);
+    if (seeds.length === 0) return { hits: [], mode: "empty" };
+    const hits = await hitsFromSeeds(db, opts, seeds, null);
+    return { hits, mode: hits.length > 0 ? "adjacency" : "empty" };
+  } catch {
+    return { hits: [], mode: "empty" };
+  }
+}
+
+export async function graphArm(db: SqlClient, opts: GraphArmOptions): Promise<RankedHit[]> {
+  return (await graphArmDetailed(db, opts)).hits;
 }

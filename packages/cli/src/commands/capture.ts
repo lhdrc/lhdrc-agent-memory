@@ -8,6 +8,7 @@ import {
   enrichAfterWrite,
   todayUtc,
   assertSourceScope,
+  parseFrontmatter,
 } from "@df-memory/core";
 import { parseArgs } from "../args.ts";
 import { loadContext } from "../context.ts";
@@ -85,7 +86,16 @@ export async function captureCommand(argv: string[]): Promise<number> {
   });
 
   if (o.json) {
-    const out: { path: string; enrich?: typeof enrich } = { path };
+    const out: { path: string; links?: Array<{ to: unknown }>; enrich?: typeof enrich } = { path };
+    try {
+      const raw = await readFile(resolve(ctx.repoRoot, path), "utf8");
+      const links = parseFrontmatter(raw).data.links;
+      if (Array.isArray(links)) {
+        out.links = links.map((l) => ({ to: (l as { to?: unknown }).to }));
+      }
+    } catch {
+      /* 读链失败仍返回 path */
+    }
     if (enrich !== undefined) out.enrich = enrich;
     console.log(JSON.stringify(out));
   } else console.log(path);

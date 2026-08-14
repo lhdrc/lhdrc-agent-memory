@@ -51,7 +51,7 @@
 | 1 | P7.1 LLM complete 全覆盖 | [`P7.1-llm-complete-coverage.md`](P7.1-llm-complete-coverage.md) | P6.1、P2.2、P5.1、P5.2 | **done**：既有 LLM 方法全部经 `complete()`；EnvMock 按 purpose |
 | 2 | P7.2 Distill 真路径 | [`P7.2-distill-live.md`](P7.2-distill-live.md) | P7.1、P2.2、P3.2、P5.6 | **done**：refine / 编译后懒蒸 / 自动 candidate skill / eval:distill |
 | 3 | P7.3 滑动窗口摄入 | [`P7.3-sliding-window.md`](P7.3-sliding-window.md) | P6.2、P6.3、P6.4 | **done**：攒 turns，达上限或会话结束再 compile |
-| 4 | P7.4 图与实体 | [`P7.4-entity-graph.md`](P7.4-entity-graph.md) | P3.1、P6.3、P6.6、P7.1 | 自动建 entity、统一 linkify、query 邻接 |
+| 4 | P7.4 图与实体 | [`P7.4-entity-graph.md`](P7.4-entity-graph.md) | P3.1、P6.3、P6.6、P7.1 | **done**：compile 可建 entity、统一 linkify、query 邻接 |
 | 5 | P7.5 CLI 补齐 | [`P7.5-cli-ops.md`](P7.5-cli-ops.md) | P6.2、P2.2、P3.2 | `inbox retry`；revert merge/skill/noop |
 
 主线 = P7.1–P7.4。P7.5 不阻塞主线完成，但建议同迭代做完。

@@ -203,8 +203,8 @@ export { classifyIntent } from "./retrieve/intent.ts";
 export type { QueryIntent } from "./retrieve/intent.ts";
 export { shouldQueryMemory } from "./retrieve/query-triggers.ts";
 export type { QueryGateHit, QueryGateCtx, ShouldQueryMemoryInput, RecallCommand } from "./retrieve/query-triggers.ts";
-export { graphArm, parseRelationalQuery } from "./retrieve/graph.ts";
-export type { RelationalParse, GraphArmOptions } from "./retrieve/graph.ts";
+export { graphArm, graphArmDetailed, parseRelationalQuery } from "./retrieve/graph.ts";
+export type { RelationalParse, GraphArmOptions, GraphArmResult, GraphMode } from "./retrieve/graph.ts";
 export {
   applyGraphSignals,
   applyGraphSignalsPure,
@@ -326,13 +326,13 @@ export {
   clearFailed,
   countUserAssistant,
 } from "./inbox/session.ts";
-export type { Turn, InboxMeta, InboxStatus, ExtractedCheckpoint } from "./inbox/session.ts";
+export type { Turn, InboxMeta, InboxStatus, ExtractedCheckpoint, ExtractedCheckpointEntity } from "./inbox/session.ts";
 export { readOpenSessionId, writeOpenSessionId, clearOpenSessionId, openPointerPath } from "./inbox/open.ts";
 
 export { compileSession, retrySession, loadSessionExtractPrompt } from "./compile/session.ts";
 export type { CompileResult, CompileSessionOpts } from "./compile/session.ts";
 export { appendSessionTurns, endSession } from "./compile/window.ts";
 export type { AppendResult, AppendSessionTurnsOpts, EndSessionOpts } from "./compile/window.ts";
-export { parseSessionTurns, stripMemoryContext, formatTurnsForPrompt, formatCompileUserPrompt, ALREADY_IN_KB_HEADING, JSON_REPAIR_SUFFIX } from "./compile/parse.ts";
+export { parseSessionTurns, stripMemoryContext, formatTurnsForPrompt, formatCompileUserPrompt, ALREADY_IN_KB_HEADING, JSON_REPAIR_SUFFIX, parseCompleteItemsJson, parseCompleteExtractJson, normalizeProposedEntities } from "./compile/parse.ts";
 export { prefetchExistingMemories } from "./compile/prefetch.ts";
 export { linkifyBody } from "./compile/linkify.ts";

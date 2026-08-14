@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { MemoryError, ErrorCodes } from "../errors.ts";
-import { createEntityRegistry } from "../entity/registry.ts";
+import { createEntityRegistry, EntityRegistryImpl } from "../entity/registry.ts";
 import type { Entity } from "../entity/types.ts";
 import { createLLMProvider, isCompileEnabled } from "../llm/factory.ts";
 import type { LLMProvider } from "../llm/types.ts";
@@ -24,6 +24,7 @@ import {
   writeExtracted,
   type ExtractedCheckpoint,
   type ExtractedCheckpointItem,
+  type ExtractedCheckpointEntity,
   type Turn,
 } from "../inbox/session.ts";
 import { linkifyBody } from "./linkify.ts";
@@ -34,10 +35,12 @@ import {
   formatCompileUserPrompt,
   JSON_REPAIR_SUFFIX,
   numberedTurnCount,
-  parseCompleteItemsJson,
+  parseCompleteExtractJson,
   prefetchQueryText,
   stripTurnsContext,
   truncateTurns,
+  normalizeProposedEntities,
+  type ProposedEntity,
 } from "./parse.ts";
 
 const PROMPT_PATH = join(dirname(fileURLToPath(import.meta.url)), "../../resources/session-extract-v1.md");
@@ -54,6 +57,7 @@ export type CompileResult = {
   skipped_reason?: string;
   truncated?: boolean;
   distill?: { written: number; lazy_omitted?: number; crystallized?: string[]; error?: string };
+  entities_created?: string[];
 };
 
 export type CompileSessionOpts = {
@@ -152,6 +156,27 @@ function toFacts(type: string, createdBy: string, facts: unknown): Fact[] | unde
   return out.length ? out : undefined;
 }
 
+function asLinkifyEntities(existing: Entity[], proposed: ProposedEntity[]): Entity[] {
+  const bySlug = new Map(existing.map((e) => [e.slug, { ...e, aliases: [...(e.aliases ?? [])] }]));
+  for (const p of proposed) {
+    const hit = bySlug.get(p.slug);
+    if (hit) {
+      hit.aliases = [...new Set([...hit.aliases, ...p.aliases])];
+    } else {
+      bySlug.set(p.slug, {
+        slug: p.slug,
+        title: p.title,
+        aliases: [...p.aliases],
+        externalIds: [],
+        status: "active",
+        createdAt: "",
+        updatedAt: "",
+      });
+    }
+  }
+  return [...bySlug.values()];
+}
+
 async function failDisabled(
   opts: CompileSessionOpts,
   sessionId: string | undefined,
@@ -228,6 +253,7 @@ export async function compileSession(opts: CompileSessionOpts): Promise<CompileR
 
   if (!checkpoint) {
     let itemsRaw: unknown[] = [];
+    let entitiesRaw: unknown[] = [];
     if (opts.noExtract) {
       const body = turns
         .filter((t) => t.role === "user" || t.role === "assistant")
@@ -265,7 +291,9 @@ export async function compileSession(opts: CompileSessionOpts): Promise<CompileR
       });
       const prompt = formatCompileUserPrompt({ turns, existing });
       try {
-        itemsRaw = await completeItemsWithRepair(llm, system, prompt);
+        const extracted = await completeItemsWithRepair(llm, system, prompt);
+        itemsRaw = extracted.items;
+        entitiesRaw = extracted.entities;
       } catch (e) {
         const err = e instanceof MemoryError ? e : new MemoryError(ErrorCodes.LLM, e instanceof Error ? e.message : String(e));
         if (!dryRun && sessionId) {
@@ -275,7 +303,14 @@ export async function compileSession(opts: CompileSessionOpts): Promise<CompileR
       }
     }
 
-    if (itemsRaw.length === 0) {
+    const proposed = normalizeProposedEntities(entitiesRaw);
+    result.unresolved.push(...proposed.unresolvedTitles);
+    const existingEntities = await loadEntities(opts.repoRoot, opts.brainId, opts.queue);
+    const linkifyEntities = asLinkifyEntities(existingEntities, proposed.accepted);
+    const existingSlugs = new Set(existingEntities.map((e) => e.slug));
+    result.entities_created = proposed.accepted.filter((e) => !existingSlugs.has(e.slug)).map((e) => e.slug);
+
+    if (itemsRaw.length === 0 && proposed.accepted.length === 0) {
       result.dropped.push({ reason: "empty", excerpt: "" });
       if (!dryRun && sessionId) {
         await writeExtracted(opts.repoRoot, opts.brainId, sessionId, { items: [], truncated });
@@ -284,7 +319,10 @@ export async function compileSession(opts: CompileSessionOpts): Promise<CompileR
       return result;
     }
 
-    const entities = await loadEntities(opts.repoRoot, opts.brainId, opts.queue);
+    if (itemsRaw.length === 0) {
+      result.dropped.push({ reason: "empty", excerpt: "" });
+    }
+
     const seenExact: string[] = [];
     const checkpointItems: ExtractedCheckpointItem[] = [];
 
@@ -312,9 +350,9 @@ export async function compileSession(opts: CompileSessionOpts): Promise<CompileR
       }
 
       const mentions = Array.isArray(raw.mentions) ? raw.mentions.map((m) => String(m).trim()).filter(Boolean) : [];
-      const linked = linkifyBody(body, entities);
+      const linked = linkifyBody(body, linkifyEntities);
       for (const name of mentions) {
-        const hit = entities.find(
+        const hit = linkifyEntities.find(
           (e) =>
             e.status !== "merged" &&
             (e.slug === name || e.title === name || (e.aliases ?? []).includes(name)),
@@ -348,7 +386,7 @@ export async function compileSession(opts: CompileSessionOpts): Promise<CompileR
       checkpointItems.push({
         type,
         title,
-        body: linked.body,
+        body,
         facts: Array.isArray(raw.facts) ? (raw.facts as ExtractedCheckpointItem["facts"]) : undefined,
         mentions,
         status: "pending",
@@ -361,7 +399,13 @@ export async function compileSession(opts: CompileSessionOpts): Promise<CompileR
       });
     }
 
-    checkpoint = { items: checkpointItems, truncated };
+    const checkpointEntities: ExtractedCheckpointEntity[] = proposed.accepted.map((e) => ({
+      slug: e.slug,
+      title: e.title,
+      aliases: e.aliases.length ? e.aliases : undefined,
+      status: "pending",
+    }));
+    checkpoint = { items: checkpointItems, entities: checkpointEntities, truncated };
     if (!dryRun && sessionId) {
       await writeExtracted(opts.repoRoot, opts.brainId, sessionId, checkpoint);
     }
@@ -383,11 +427,52 @@ export async function compileSession(opts: CompileSessionOpts): Promise<CompileR
   }
 
   const writeFn = opts.captureWriteFn ?? captureWrite;
-  const entities = await loadEntities(opts.repoRoot, opts.brainId, opts.queue);
   const linksByTitle = new Map(result.kept.map((k) => [k.title, k.links]));
+  const createdSlugs: string[] = [];
 
   await opts.queue.execute(async () => {
     const written: string[] = [];
+    const reg = new EntityRegistryImpl(opts.repoRoot, opts.brainId, opts.queue);
+    for (const ent of checkpoint!.entities ?? []) {
+      if (ent.status === "written") continue;
+      try {
+        const listed = await reg.list({ includeMerged: true });
+        const hit = listed.find((e) => e.slug === ent.slug);
+        if (hit && hit.status !== "merged") {
+          const patched = await reg.appendAliasesUnlocked(ent.slug, ent.aliases ?? []);
+          if (patched?.path) written.push(patched.path);
+          for (const s of patched?.skipped ?? []) result.unresolved.push(s);
+        } else if (!hit) {
+          const created = await reg.writeCreateUnlocked({
+            slug: ent.slug,
+            title: ent.title,
+            aliases: ent.aliases,
+            createdBy: opts.createdBy,
+          });
+          written.push(created.path);
+          createdSlugs.push(ent.slug);
+        }
+        ent.status = "written";
+      } catch (e) {
+        const msg = e instanceof MemoryError && e.code === ErrorCodes.CONFLICT;
+        if (msg) {
+          try {
+            const patched = await reg.appendAliasesUnlocked(ent.slug, ent.aliases ?? []);
+            if (patched?.path) written.push(patched.path);
+            for (const s of patched?.skipped ?? []) result.unresolved.push(s);
+            ent.status = "written";
+            continue;
+          } catch {
+            /* fall through */
+          }
+        }
+        result.unresolved.push(ent.title);
+        ent.status = "written";
+      }
+    }
+    await writeExtracted(opts.repoRoot, opts.brainId, sessionId!, checkpoint!);
+
+    const entities = await loadEntities(opts.repoRoot, opts.brainId, opts.queue);
     for (const item of checkpoint!.items) {
       if (item.status === "written" && item.path) {
         written.push(item.path);
@@ -420,6 +505,9 @@ export async function compileSession(opts: CompileSessionOpts): Promise<CompileR
     }
     return written;
   }, `compile session ${sessionId}`);
+
+  if (createdSlugs.length) result.entities_created = createdSlugs;
+  else if (!result.entities_created?.length) result.entities_created = undefined;
 
   const keptPaths = checkpoint.items.filter((it) => it.status === "written" && it.path).map((it) => it.path!);
   result.kept = checkpoint.items
@@ -480,17 +568,17 @@ async function completeItemsWithRepair(
   llm: LLMProvider,
   system: string,
   prompt: string,
-): Promise<unknown[]> {
+): Promise<{ items: unknown[]; entities: unknown[] }> {
   const first = await llm.complete({ purpose: "compile", system, prompt });
   try {
-    return parseCompleteItemsJson(first.text);
+    return parseCompleteExtractJson(first.text);
   } catch {
     const repaired = await llm.complete({
       purpose: "compile",
       system,
       prompt: `${prompt}\n\n${JSON_REPAIR_SUFFIX}`,
     });
-    return parseCompleteItemsJson(repaired.text);
+    return parseCompleteExtractJson(repaired.text);
   }
 }
 

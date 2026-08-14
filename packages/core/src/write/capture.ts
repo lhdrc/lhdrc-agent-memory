@@ -3,6 +3,8 @@ import { existsSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { MemoryError, ErrorCodes } from "../errors.ts";
 import { serializeFrontmatter } from "../frontmatter.ts";
+import { createEntityRegistry } from "../entity/registry.ts";
+import { linkifyBody } from "../compile/linkify.ts";
 import type { SchemaPack } from "../schema/loadPack.ts";
 import { mkdirp } from "../util/fs.ts";
 import type { FileMutationExecutor } from "./executor.ts";
@@ -111,7 +113,18 @@ export async function captureWrite(
     }
 
     const n = result.normalized;
-    const body = buildMarkdownBody(n.body);
+    const entities = await createEntityRegistry(repoRoot, opts.brainId).list({ includeMerged: false });
+    const linked = linkifyBody(n.body, entities);
+    const existingLinks = Array.isArray(n.frontmatter.links) ? [...(n.frontmatter.links as Link[])] : [];
+    const seen = new Set(existingLinks.map((l) => `${l.to}|${l.type}`));
+    for (const l of linked.links) {
+      const key = `${l.to}|${l.type}`;
+      if (seen.has(key)) continue;
+      existingLinks.push({ to: l.to, type: l.type, source: "mention" });
+      seen.add(key);
+    }
+    n.frontmatter.links = existingLinks;
+    const body = buildMarkdownBody(linked.body);
     const abs = join(repoRoot, n.path);
     if (existsSync(abs)) {
       if (opts.disambiguate) {

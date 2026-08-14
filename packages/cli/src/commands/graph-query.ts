@@ -2,11 +2,13 @@ import {
   MemoryError,
   ErrorCodes,
   openPglite,
-  graphArm,
+  graphArmDetailed,
   parseRelationalQuery,
 } from "@df-memory/core";
 import { parseArgs } from "../args.ts";
 import { loadContext } from "../context.ts";
+
+const EMPTY_HINT = "未识别为关系句，且查询词未命中实体邻接；可改用 memory query";
 
 export async function graphQueryCommand(argv: string[]): Promise<number> {
   const o = parseArgs(argv, [
@@ -22,19 +24,30 @@ export async function graphQueryCommand(argv: string[]): Promise<number> {
   const parsed = parseRelationalQuery(text);
   const conn = await openPglite(ctx.repoRoot);
   try {
-    const hits = await graphArm(conn.db, {
+    const { hits, mode } = await graphArmDetailed(conn.db, {
       brainId: ctx.brainId,
       query: text,
       limit: o.limit !== undefined ? parseInt(String(o.limit), 10) || 20 : 20,
       sourceId: o.source as string | undefined,
     });
     if (o.json) {
-      console.log(JSON.stringify({ query: text, parsed, results: hits }));
+      const payload: Record<string, unknown> = {
+        query: text,
+        parsed: parsed ?? null,
+        mode,
+        hits,
+        results: hits,
+      };
+      if (mode === "empty") payload.hint = EMPTY_HINT;
+      if (mode === "adjacency") payload.hint = "已按实体邻接检索";
+      console.log(JSON.stringify(payload));
     } else {
-      if (!parsed) {
-        console.log("（未能解析为关系查询；返回空结果，fail-open）");
-      } else {
+      if (mode === "relational" && parsed) {
         console.log(`seed=${parsed.seed}${parsed.verb ? ` verb=${parsed.verb}` : ""}`);
+      } else if (mode === "adjacency") {
+        console.log("已按实体邻接检索");
+      } else {
+        console.log(EMPTY_HINT);
       }
       hits.forEach((h, i) => {
         const display = h.path.replace(new RegExp(`^brains/${ctx.brainId}/`), "");

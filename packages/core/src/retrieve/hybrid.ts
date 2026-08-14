@@ -14,7 +14,7 @@ import {
 } from "./rrf.ts";
 import { semanticArm } from "./semantic.ts";
 import { classifyIntent, type QueryIntent } from "./intent.ts";
-import { graphArm } from "./graph.ts";
+import { graphArmDetailed, type GraphMode } from "./graph.ts";
 import { applyGraphSignals, type SignalExplain } from "./signals.ts";
 import { getSearchCache, setSearchCache, knobsHash, type SearchKnobs } from "./cache.ts";
 import { heuristicExpand } from "./expand.ts";
@@ -56,6 +56,8 @@ export interface QueryExplain {
   hotness?: boolean;
   directory_prefilter?: DirectoryPrefilterExplain | null;
   rerank_scores?: Array<{ path: string; score: number }>;
+  /** P7.4 */
+  graph_mode?: GraphMode;
 }
 
 export interface HybridQueryResult {
@@ -280,13 +282,16 @@ export async function hybridQueryDetailed(
   }
 
   let graphHits: RankedHit[] = [];
+  let graphMode: GraphMode = "empty";
   try {
-    graphHits = await graphArm(db, {
+    const graph = await graphArmDetailed(db, {
       brainId: opts.brainId,
       query: q,
       limit: armLimit,
       sourceId: opts.sourceId,
     });
+    graphHits = graph.hits;
+    graphMode = graph.mode;
     for (const h of graphHits) {
       if (h.title) titles.set(h.path, h.title);
       if (!meta.has(h.path)) {
@@ -295,6 +300,7 @@ export async function hybridQueryDetailed(
     }
   } catch {
     graphHits = [];
+    graphMode = "empty";
   }
 
   const knobs = buildKnobs(opts, intent, mode, limit, semanticAvailable, search);
@@ -320,6 +326,7 @@ export async function hybridQueryDetailed(
             rerank: search.tokenmax.rerank,
             hotness: search.hotness.enabled,
             directory_prefilter: search.directory_prefilter ? null : null,
+            graph_mode: graphMode,
           }
         : undefined;
       return { hits: cached.hits, explain };
@@ -424,6 +431,7 @@ export async function hybridQueryDetailed(
         title_phrase: titlePhrase,
         hotness: search.hotness.enabled,
         directory_prefilter: dirExplain,
+        graph_mode: graphMode,
         ...(rerankScores ? { rerank_scores: rerankScores } : {}),
       }
     : undefined;
