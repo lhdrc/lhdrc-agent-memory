@@ -7,6 +7,8 @@ import {
   ingestJsonl,
   compileSession,
   retrySession,
+  appendSessionTurns,
+  endSession,
   type IngestAdapter,
 } from "@df-memory/core";
 import { genericJsonlAdapter } from "@df-memory/ingest-generic-jsonl";
@@ -26,7 +28,22 @@ const SESSION_ADAPTER = "session";
 
 const HELP = `memory ingest --list-adapters
 memory ingest --adapter <id> --input <file> [--json] [--continue-on-error] [--source <id>]
-memory ingest --adapter session --input <file> [--dry-run] [--json] [--continue-on-error] [--retry <id>] [--source <id>]
+memory ingest --adapter session --input <file> [--dry-run] [--json] [--continue-on-error] [--retry <id>] [--source <id>] [--window] [--session <id>]
+memory ingest --adapter session --end [--session <id>] [--json]
+
+批量摄取。generic-jsonl / df-app 逐行 captureNode。
+session：整场 turns 一次 compileSession（不走逐行 map）。--window 攒 turns。
+
+  --adapter            generic-jsonl | df-app | session
+  --input              JSONL 或 JSON 数组文件（session 时每行是 turn）
+  --window             仅 session：按窗口 append，达上限才 compile
+  --end                仅 session：compile 打开中的窗口
+  --session <id>       仅 session：指定窗口 id
+  --dry-run            仅 session：不写 inbox / sources
+  --retry <sessionId>  仅 session：有 extracted.json 则只补写盘，否则重跑 Extractor
+  --continue-on-error  跳过坏行/坏条，好行仍落盘；有错误时退出码 2
+  --json               输出 paths / errors 或 compile 结果
+  --list-adapters      列出已注册适配器
 
 批量摄取。generic-jsonl / df-app 逐行 captureNode。
 session：整场 turns 一次 compileSession（不走逐行 map）。
@@ -60,6 +77,9 @@ export async function ingestCommand(argv: string[]): Promise<number> {
     { name: "json", type: "boolean" },
     { name: "dry-run", type: "boolean" },
     { name: "retry", type: "string" },
+    { name: "window", type: "boolean" },
+    { name: "end", type: "boolean" },
+    { name: "session", type: "string" },
     { name: "no-extract", type: "boolean" },
     { name: "help", type: "boolean" },
   ]);
@@ -90,6 +110,29 @@ export async function ingestCommand(argv: string[]): Promise<number> {
     const sourceId = (o.source as string) ?? ctx.sourceId;
     const createdBy = defaultCreatedBy();
     const dryRun = Boolean(o["dry-run"]);
+    const windowed = Boolean(o.window);
+    const ending = Boolean(o.end);
+    const sessionId = o.session as string | undefined;
+
+    if (windowed && ending) {
+      throw new MemoryError(ErrorCodes.USAGE, "不能同时 --window 与 --end");
+    }
+    if (ending && retryId) {
+      throw new MemoryError(ErrorCodes.USAGE, "不能同时 --end 与 --retry");
+    }
+    if (ending) {
+      const result = await endSession({
+        repoRoot: ctx.repoRoot,
+        brainId: ctx.brainId,
+        sourceId,
+        createdBy,
+        pack,
+        queue,
+        sessionId,
+      });
+      formatCompileOutput(result, Boolean(o.json), false);
+      return compileExitCode(result);
+    }
 
     if (retryId) {
       const result = await retrySession({
@@ -107,10 +150,36 @@ export async function ingestCommand(argv: string[]): Promise<number> {
     }
 
     if (!input) {
-      throw new MemoryError(ErrorCodes.USAGE, "ingest --adapter session 需要 --input（或 --retry）");
+      throw new MemoryError(ErrorCodes.USAGE, "ingest --adapter session 需要 --input（或 --retry / --end）");
     }
     const text = await readFile(resolve(input), "utf8");
     const turns = parseSessionInput(text);
+    if (windowed) {
+      let last: { session_id: string; buffered_turns: number; buffered_chars: number; compiled?: unknown } | undefined;
+      const compiled: unknown[] = [];
+      for (const t of turns) {
+        const r = await appendSessionTurns({
+          repoRoot: ctx.repoRoot,
+          brainId: ctx.brainId,
+          sourceId,
+          createdBy,
+          pack,
+          queue,
+          turns: [t],
+          sessionId,
+          window: true,
+        });
+        last = r;
+        if (r.compiled) compiled.push(r.compiled);
+      }
+      if (o.json) {
+        console.log(JSON.stringify({ ...last, compiled: last?.compiled ?? null, compiles: compiled }));
+      } else if (last) {
+        console.log(`session_id=${last.session_id}`);
+        for (const c of compiled) formatCompileOutput(c as Parameters<typeof formatCompileOutput>[0], false, false);
+      }
+      return 0;
+    }
     const result = await compileSession({
       repoRoot: ctx.repoRoot,
       brainId: ctx.brainId,

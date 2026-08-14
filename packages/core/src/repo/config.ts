@@ -22,6 +22,8 @@ export interface CompileConfig {
   max_input_chars: number;
   tool_max_chars: number;
   prefetch_topn: number;
+  window_max_turns: number;
+  window_max_chars: number;
 }
 
 export interface RecallConfig {
@@ -37,6 +39,8 @@ export const DEFAULT_COMPILE_CONFIG: CompileConfig = {
   max_input_chars: 32_000,
   tool_max_chars: 2000,
   prefetch_topn: 5,
+  window_max_turns: 20,
+  window_max_chars: 16_000,
 };
 
 export const DEFAULT_RECALL_CONFIG: RecallConfig = {
@@ -171,6 +175,8 @@ function parseCompileConfig(data: Record<string, any>): CompileConfig {
       Number(compile.tool_max_chars ?? inbox.tool_max_chars ?? DEFAULT_COMPILE_CONFIG.tool_max_chars) ||
       DEFAULT_COMPILE_CONFIG.tool_max_chars,
     prefetch_topn: parsePrefetchTopn(compile.prefetch_topn),
+    window_max_turns: parseWindowInt(compile.window_max_turns, DEFAULT_COMPILE_CONFIG.window_max_turns),
+    window_max_chars: parseWindowInt(compile.window_max_chars, DEFAULT_COMPILE_CONFIG.window_max_chars),
   };
 }
 
@@ -178,6 +184,13 @@ function parsePrefetchTopn(raw: unknown): number {
   if (raw == null || raw === "") return DEFAULT_COMPILE_CONFIG.prefetch_topn;
   const n = Number(raw);
   if (!Number.isFinite(n) || n < 0) return DEFAULT_COMPILE_CONFIG.prefetch_topn;
+  return Math.floor(n);
+}
+
+function parseWindowInt(raw: unknown, fallback: number): number {
+  if (raw == null || raw === "") return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return fallback;
   return Math.floor(n);
 }
 

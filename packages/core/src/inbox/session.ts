@@ -1,10 +1,11 @@
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
-import { readdir, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";
+import { appendFile, readdir, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { MemoryError, ErrorCodes } from "../errors.ts";
 import { atomicWriteFile, mkdirp } from "../util/fs.ts";
 import { assertUnderPrefix } from "../repo/layout.ts";
+import { clearOpenIfMatch } from "./open.ts";
 
 /** P6.2：inbox 是原文工作队列，不是 D1 记忆真相；丢 inbox 只丢未 compile 的原文。 */
 
@@ -27,6 +28,8 @@ export type InboxMeta = {
   created_by: string;
   compiled_at?: string;
   kept_paths?: string[];
+  /** P7.3 滑动窗口：打开中可 append */
+  open?: boolean;
 };
 
 export type InboxFailed = {
@@ -183,9 +186,11 @@ export async function markDone(
   meta.status = "done";
   meta.compiled_at = new Date().toISOString();
   meta.kept_paths = keptPaths;
+  meta.open = false;
   await atomicWriteFile(join(dir, "meta.json"), `${JSON.stringify(meta, null, 2)}\n`);
   const failed = join(dir, "failed.json");
   if (existsSync(failed)) await unlink(failed);
+  await clearOpenIfMatch(repoRoot, brainId, sessionId);
 }
 
 export async function markFailed(
@@ -198,10 +203,12 @@ export async function markFailed(
   const { meta, dir } = await loadSession(repoRoot, brainId, sessionId);
   meta.status = "failed";
   meta.compiled_at = new Date().toISOString();
+  meta.open = false;
   if (keptPaths) meta.kept_paths = keptPaths;
   await atomicWriteFile(join(dir, "meta.json"), `${JSON.stringify(meta, null, 2)}\n`);
   const failed: InboxFailed = { skipped: true, error };
   await atomicWriteFile(join(dir, "failed.json"), `${JSON.stringify(failed, null, 2)}\n`);
+  await clearOpenIfMatch(repoRoot, brainId, sessionId);
 }
 
 export async function clearFailed(
@@ -236,4 +243,52 @@ export async function listInbox(repoRoot: string, brainId: string, status?: Inbo
   }
   out.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   return out;
+}
+
+export function countUserAssistant(turns: Turn[]): { turns: number; chars: number } {
+  let n = 0;
+  let chars = 0;
+  for (const t of turns) {
+    if (t.role !== "user" && t.role !== "assistant") continue;
+    n++;
+    chars += t.text.length;
+  }
+  return { turns: n, chars };
+}
+
+export async function appendTurnsToSession(opts: {
+  repoRoot: string;
+  brainId: string;
+  sessionId: string;
+  turns: Turn[];
+  toolMaxChars?: number;
+}): Promise<Turn[]> {
+  const { meta, turns, dir } = await loadSession(opts.repoRoot, opts.brainId, opts.sessionId);
+  if (meta.status !== "pending") {
+    throw new MemoryError(ErrorCodes.CONFLICT, `inbox session 不可 append（status=${meta.status}）: ${opts.sessionId}`);
+  }
+  const maxTool = opts.toolMaxChars ?? 2000;
+  const mapped: Turn[] = opts.turns.map((t) => ({
+    role: t.role,
+    text: t.role === "tool" ? (t.text.length > maxTool ? t.text.slice(0, maxTool) : t.text) : t.text,
+    ...(t.at ? { at: t.at } : {}),
+  }));
+  if (mapped.length > 0) {
+    const extra = mapped.map((t) => JSON.stringify(t)).join("\n") + "\n";
+    await appendFile(join(dir, "messages.jsonl"), extra, "utf8");
+  }
+  meta.open = true;
+  await atomicWriteFile(join(dir, "meta.json"), `${JSON.stringify(meta, null, 2)}\n`);
+  return [...turns, ...mapped];
+}
+
+export async function patchSessionOpen(
+  repoRoot: string,
+  brainId: string,
+  sessionId: string,
+  open: boolean,
+): Promise<void> {
+  const { meta, dir } = await loadSession(repoRoot, brainId, sessionId);
+  meta.open = open;
+  await atomicWriteFile(join(dir, "meta.json"), `${JSON.stringify(meta, null, 2)}\n`);
 }

@@ -78,6 +78,8 @@ compile:
   max_input_chars: 32000
   tool_max_chars: 2000
   prefetch_topn: 5
+  window_max_turns: 20
+  window_max_chars: 16000
 distill:
   lazy_min_sources: 5
   auto_crystallize: true
