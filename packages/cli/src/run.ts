@@ -1,4 +1,4 @@
-import { MemoryError, ErrorCodes, findRepoRoot, loadRepoConfig, flushRepoLedger } from "@df-memory/core";
+import { MemoryError, ErrorCodes, findRepoRoot, loadRepoConfig, flushRepoLedger } from "@lhdrc/core";
 import { initCommand } from "./commands/init.ts";
 import { entityCommand } from "./commands/entity.ts";
 import { captureCommand } from "./commands/capture.ts";

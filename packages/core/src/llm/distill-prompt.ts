@@ -2,11 +2,11 @@
  * P7.1 distill prompt 组装：system 来自 resources；user 由调用方字段拼。
  */
 import { readFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import type { ExperienceContext, RefineTask } from "./types.ts";
+import { packageRootFrom } from "../util/here.ts";
 
-const RESOURCES = join(dirname(fileURLToPath(import.meta.url)), "../../resources");
+const RESOURCES = join(packageRootFrom(import.meta.url), "resources");
 
 let judgePromptCache: string | undefined;
 let refinePromptCache: string | undefined;

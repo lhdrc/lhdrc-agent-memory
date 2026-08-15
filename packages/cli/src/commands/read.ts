@@ -1,4 +1,4 @@
-import { MemoryError, ErrorCodes, readNode, parseMemoryLayer, assertPathScope } from "@df-memory/core";
+import { MemoryError, ErrorCodes, readNode, parseMemoryLayer, assertPathScope } from "@lhdrc/core";
 import { parseArgs } from "../args.ts";
 import { loadContext } from "../context.ts";
 

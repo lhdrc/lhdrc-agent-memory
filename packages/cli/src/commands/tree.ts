@@ -1,4 +1,4 @@
-import { MemoryError, ErrorCodes, listTree, renderTree, resolveNodeRelPath } from "@df-memory/core";
+import { MemoryError, ErrorCodes, listTree, renderTree, resolveNodeRelPath } from "@lhdrc/core";
 import { parseArgs } from "../args.ts";
 import { loadContext } from "../context.ts";
 

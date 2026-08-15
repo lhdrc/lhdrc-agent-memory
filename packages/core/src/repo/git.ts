@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { MemoryError, ErrorCodes } from "../errors.ts";
+import { runCommand } from "../util/proc.ts";
 
 export interface GitResult {
   stdout: string;
@@ -10,18 +11,7 @@ export interface GitResult {
 
 export async function runGit(repoRoot: string, args: string[]): Promise<GitResult> {
   try {
-    const sub = Bun.spawn({
-      cmd: ["git", ...args],
-      cwd: repoRoot,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const [stdout, stderr, exitCode] = await Promise.all([
-      new Response(sub.stdout).text(),
-      new Response(sub.stderr).text(),
-      sub.exited,
-    ]);
-    return { stdout, stderr, exitCode };
+    return await runCommand("git", args, { cwd: repoRoot });
   } catch (e) {
     throw new MemoryError(ErrorCodes.GIT, `git 执行失败: ${args.join(" ")}`, {
       cause: e instanceof Error ? e.message : String(e),

@@ -1,4 +1,4 @@
-import { parseSessionTurns, type Turn } from "@df-memory/core";
+import { parseSessionTurns, type Turn } from "@lhdrc/core";
 
 /** 文件/stdin → Turn[]。compile 仍在 core（P6.4）。 */
 export function parseSessionInput(text: string): Turn[] {

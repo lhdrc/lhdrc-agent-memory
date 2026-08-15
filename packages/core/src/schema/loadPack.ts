@@ -2,10 +2,11 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { MemoryError, ErrorCodes } from "../errors.ts";
+import { packageRootFrom } from "../util/here.ts";
 
 export const DEFAULT_PACK = "problem-tree";
 
-export const PACKS_DIR = join(import.meta.dir, "..", "..", "schema-packs");
+export const PACKS_DIR = join(packageRootFrom(import.meta.url), "schema-packs");
 
 export interface SchemaPack {
   id: string;

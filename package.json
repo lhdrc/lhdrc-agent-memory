@@ -16,7 +16,8 @@
     "eval:distill": "bun run evals/run.ts --distill",
     "eval:report": "bun run evals/run.ts --report",
     "eval:locomo-sample": "bun run evals/run.ts --adapter locomo --fixture",
-    "test:postgres": "bun test packages/core/tests/p57_postgres.test.ts --timeout=120000"
+    "test:postgres": "bun test packages/core/tests/p57_postgres.test.ts --timeout=120000",
+    "build:core": "bun run scripts/build-core.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",

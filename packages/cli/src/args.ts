@@ -1,4 +1,4 @@
-import { MemoryError, ErrorCodes } from "@df-memory/core";
+import { MemoryError, ErrorCodes } from "@lhdrc/core";
 
 export interface ArgSpec {
   name: string;

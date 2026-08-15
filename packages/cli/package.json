@@ -6,7 +6,7 @@
     "memory": "./src/main.ts"
   },
   "dependencies": {
-    "@df-memory/core": "workspace:*",
+    "@lhdrc/core": "workspace:*",
     "@df-memory/ingest-df-app": "workspace:*",
     "@df-memory/ingest-generic-jsonl": "workspace:*",
     "@df-memory/ingest-session": "workspace:*"

@@ -1,4 +1,4 @@
-import { MemoryError, ErrorCodes, loadPack, importPath, loadRepoConfig, enrichAfterWrite } from "@df-memory/core";
+import { MemoryError, ErrorCodes, loadPack, importPath, loadRepoConfig, enrichAfterWrite } from "@lhdrc/core";
 import { parseArgs } from "../args.ts";
 import { loadContext } from "../context.ts";
 import { createQueue } from "../services.ts";

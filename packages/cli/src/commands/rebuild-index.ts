@@ -1,4 +1,4 @@
-import { rebuildIndex } from "@df-memory/core";
+import { rebuildIndex } from "@lhdrc/core";
 import { parseArgs } from "../args.ts";
 import { loadContext } from "../context.ts";
 

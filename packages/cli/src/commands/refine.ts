@@ -5,7 +5,7 @@ import {
   WriteQueue,
   pgliteIndexHooks,
   refineSource,
-} from "@df-memory/core";
+} from "@lhdrc/core";
 import { parseArgs } from "../args.ts";
 import { loadNoSourceContext } from "../context.ts";
 

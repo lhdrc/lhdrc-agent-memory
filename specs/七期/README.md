@@ -72,7 +72,7 @@
 
 | 项 | 含义 |
 |---|---|
-| **agent 每轮对话进 inbox** | 产品要每轮 `appendSessionTurns`。七期只交付 CLI `remember --buffer`。不接 Cursor/MCP/对话运行时。备忘：[`doc.md`](../../doc.md) |
+| **agent 每轮对话进 inbox** | 产品要每轮 `appendSessionTurns`。七期只交付 CLI `remember --buffer`。接入层见 [`四期/P4.2-插件化.md`](../四期/P4.2-插件化.md) **B 档**（A 档不做自动 append）。备忘：[`doc.md`](../../doc.md) |
 
 ## 验收总则
 

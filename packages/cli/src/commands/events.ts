@@ -3,7 +3,7 @@ import {
   ErrorCodes,
   appendLedgerEvent,
   listLedgerEvents,
-} from "@df-memory/core";
+} from "@lhdrc/core";
 import { parseArgs } from "../args.ts";
 import { loadNoSourceContext } from "../context.ts";
 import { createQueue } from "../services.ts";

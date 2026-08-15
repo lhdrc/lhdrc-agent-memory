@@ -10,7 +10,7 @@ import {
   applyExperienceOutcome,
   listSkills,
   appendMemoryDiff,
-} from "@df-memory/core";
+} from "@lhdrc/core";
 import { parseArgs } from "../args.ts";
 import { loadNoSourceContext } from "../context.ts";
 

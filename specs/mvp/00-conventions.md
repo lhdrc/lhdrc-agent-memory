@@ -25,7 +25,7 @@
 ├── package.json                 # workspaces
 ├── packages/
 │   ├── core/                    # 文件权威、校验、实体、写队列、索引、检索
-│   │   ├── package.json         # name: @df-memory/core
+│   │   ├── package.json         # name: @lhdrc/core
 │   │   └── src/
 │   │       ├── repo/            # init、路径、brain 树、git flush 辅助
 │   │       ├── schema/          # schema pack 加载

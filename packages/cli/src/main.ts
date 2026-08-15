@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { MemoryError, isUserError } from "@df-memory/core";
+import { MemoryError, isUserError } from "@lhdrc/core";
 import { run, bestEffortExitFlush } from "./run.ts";
 
 async function main(): Promise<void> {

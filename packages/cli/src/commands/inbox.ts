@@ -1,4 +1,4 @@
-import { listInbox, MemoryError, ErrorCodes, loadPack, endSession, retrySession } from "@df-memory/core";
+import { listInbox, MemoryError, ErrorCodes, loadPack, endSession, retrySession } from "@lhdrc/core";
 import { parseArgs } from "../args.ts";
 import { loadContext } from "../context.ts";
 import { createQueue } from "../services.ts";

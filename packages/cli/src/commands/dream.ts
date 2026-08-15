@@ -1,4 +1,4 @@
-import { loadRepoConfig, WriteQueue, pgliteIndexHooks, runDream, type DreamPhase } from "@df-memory/core";
+import { loadRepoConfig, WriteQueue, pgliteIndexHooks, runDream, type DreamPhase } from "@lhdrc/core";
 import { parseArgs } from "../args.ts";
 import { loadNoSourceContext } from "../context.ts";
 

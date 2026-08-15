@@ -10,7 +10,7 @@ import {
   appendSessionTurns,
   endSession,
   type IngestAdapter,
-} from "@df-memory/core";
+} from "@lhdrc/core";
 import { genericJsonlAdapter } from "@df-memory/ingest-generic-jsonl";
 import { dfAppAdapter } from "@df-memory/ingest-df-app";
 import { parseSessionInput } from "@df-memory/ingest-session";

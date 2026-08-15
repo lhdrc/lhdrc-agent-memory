@@ -1,4 +1,4 @@
-import { MemoryError, ErrorCodes, createEntityRegistry } from "@df-memory/core";
+import { MemoryError, ErrorCodes, createEntityRegistry } from "@lhdrc/core";
 import { parseArgs, type ParsedArgs } from "../args.ts";
 import { loadContext } from "../context.ts";
 import { createQueue } from "../services.ts";

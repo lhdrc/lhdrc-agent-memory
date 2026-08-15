@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { MemoryError, ErrorCodes } from "@df-memory/core";
+import { MemoryError, ErrorCodes } from "@lhdrc/core";
 import { parseArgs } from "../args.ts";
 
 /** 定位 df-memory 仓库根（evals/run.ts），与当前记忆仓 cwd 无关。 */

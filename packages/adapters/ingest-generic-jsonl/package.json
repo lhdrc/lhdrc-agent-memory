@@ -6,6 +6,6 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@df-memory/core": "workspace:*"
+    "@lhdrc/core": "workspace:*"
   }
 }

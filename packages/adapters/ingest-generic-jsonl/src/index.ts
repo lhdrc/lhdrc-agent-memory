@@ -1,4 +1,4 @@
-import { MemoryError, ErrorCodes, type IngestAdapter, type IngestRecord } from "@df-memory/core";
+import { MemoryError, ErrorCodes, type IngestAdapter, type IngestRecord } from "@lhdrc/core";
 
 function str(v: unknown): string {
   return typeof v === "string" ? v : v == null ? "" : String(v);

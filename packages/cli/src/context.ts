@@ -1,5 +1,5 @@
-import { findRepoRoot, loadRepoConfig, resolveEnvDefaults, loadBrainConfig, resolveSourceId, authorize, applyAgentScopeFromId, type AuthContext } from "@df-memory/core";
-import type { BrainConfig, RepoConfig } from "@df-memory/core";
+import { findRepoRoot, loadRepoConfig, resolveEnvDefaults, loadBrainConfig, resolveSourceId, authorize, applyAgentScopeFromId, type AuthContext } from "@lhdrc/core";
+import type { BrainConfig, RepoConfig } from "@lhdrc/core";
 
 export interface CommandContext {
   repoRoot: string;

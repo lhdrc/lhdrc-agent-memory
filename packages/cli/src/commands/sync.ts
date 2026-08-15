@@ -1,4 +1,4 @@
-import { loadRepoConfig, flushRepoLedger } from "@df-memory/core";
+import { loadRepoConfig, flushRepoLedger } from "@lhdrc/core";
 import { parseArgs } from "../args.ts";
 import { loadContext } from "../context.ts";
 

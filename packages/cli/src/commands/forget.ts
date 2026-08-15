@@ -1,4 +1,4 @@
-import { MemoryError, ErrorCodes, forgetNode, purgeNode, assertCanPurge, resolveNodeRelPath } from "@df-memory/core";
+import { MemoryError, ErrorCodes, forgetNode, purgeNode, assertCanPurge, resolveNodeRelPath } from "@lhdrc/core";
 import { parseArgs } from "../args.ts";
 import { loadContext } from "../context.ts";
 import { createQueue } from "../services.ts";

@@ -1,4 +1,4 @@
-import { listMemoryDiffs } from "@df-memory/core";
+import { listMemoryDiffs } from "@lhdrc/core";
 import { parseArgs } from "../args.ts";
 import { loadNoSourceContext } from "../context.ts";
 

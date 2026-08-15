@@ -6,7 +6,7 @@ import {
   createEmbeddingProvider,
   loadRepoConfig,
   loadPack,
-} from "@df-memory/core";
+} from "@lhdrc/core";
 import { parseArgs } from "../args.ts";
 import { loadContext } from "../context.ts";
 

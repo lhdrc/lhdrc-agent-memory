@@ -1,4 +1,4 @@
-import { collectObserverStats } from "@df-memory/core";
+import { collectObserverStats } from "@lhdrc/core";
 import { parseArgs } from "../args.ts";
 import { loadNoSourceContext } from "../context.ts";
 

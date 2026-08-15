@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { MemoryError, ErrorCodes } from "../errors.ts";
 import { loadRepoConfig } from "../repo/config.ts";
+import { readSchemaSql } from "../util/here.ts";
 import type { SqlClient, IndexEngineId } from "./sql.ts";
 import { isKnownIndexEngine, parseIndexEngine } from "./sql.ts";
 import { openPostgresSqlClient } from "./postgres.ts";
@@ -120,7 +121,7 @@ async function migrateEntityRegistry(db: SqlClient): Promise<void> {
 }
 
 export async function ensureSchema(db: SqlClient): Promise<void> {
-  const sql = await Bun.file(join(import.meta.dir, "schema.sql")).text();
+  const sql = await readSchemaSql(import.meta.url);
   await db.exec(sql);
   await migrateEntityRegistry(db);
 }

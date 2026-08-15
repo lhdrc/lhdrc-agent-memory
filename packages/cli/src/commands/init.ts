@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { initMemoryRepo, type GitInitPolicy } from "@df-memory/core";
+import { initMemoryRepo, type GitInitPolicy } from "@lhdrc/core";
 import { parseArgs } from "../args.ts";
 
 function parseGitInitPolicy(raw: string | undefined): GitInitPolicy | undefined {

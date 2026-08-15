@@ -48,4 +48,4 @@ P3.2 成熟公式不变（`eta≥0.7` 且 `support≥2` 且无反例）。
 
 产品要：agent **每一轮**用户/助手话都 `append` 进 inbox（P7.3 的窗口 API）。  
 七期只做 CLI：`remember --buffer` / `--end`。  
-**不**做 Cursor hook、不做「对话系统自动每轮调用」。接入层以后再说。见 [`specs/七期/README.md`](specs/七期/README.md)「以后再说」。
+**不**做 Cursor hook。接入层见 [`specs/四期/P4.2-插件化.md`](specs/四期/P4.2-插件化.md)（A 档只注册工具；B 档才每轮 append）。见 [`specs/七期/README.md`](specs/七期/README.md)「以后再说」。

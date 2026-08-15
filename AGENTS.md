@@ -5,7 +5,7 @@
 ## 项目是什么
 
 **df-memory**：开源、单机、本地部署的记忆模块——「agent 的 git + 知识库」。  
-当前交付焦点：**七期主线已完成**（**P7.1–P7.5 done**）；MVP + 二/三/五期 + **六期主线已落地**；**P6.6 提取合同已落地**；四期（MCP/REST）为**补充期**，未获明确要求前不做。**P6.5 Cursor 模板不做**（搁置）。
+当前交付焦点：**七期主线已完成**（**P7.1–P7.5 done**）；MVP + 二/三/五期 + **六期主线已落地**；**P6.6 提取合同已落地**。四期：**P4.2 插件化 A 进行中**（core Node 兼容已接线；独立仓 `dsh-df-memory`）；**P4.1 MCP/REST 仍后置**。**P6.5 Cursor 模板不做**（搁置）。
 
 > 口号里的「git」指版本化知识仓体验；**实现上热路径以 md 文件为权威**，git 为可选批量账本（08 **D1/D18**）。
 
@@ -14,7 +14,7 @@
 | 优先级 | 路径 | 用途 |
 |---|---|---|
 | 1 | [`specs/mvp/`](specs/mvp/) | **实现规格**——按此编码与验收 |
-| 2 | [`specs/二期/`](specs/二期/) · [`三期/`](specs/三期/) · [`五期/`](specs/五期/) · [`六期/`](specs/六期/) · [`七期/`](specs/七期/) · [`四期/`](specs/四期/)（补充期） | 二/三/五/六/七期主线已做；**P6.5 Cursor 模板不做**；四期 MCP/REST 后置 |
+| 2 | [`specs/二期/`](specs/二期/) · [`三期/`](specs/三期/) · [`五期/`](specs/五期/) · [`六期/`](specs/六期/) · [`七期/`](specs/七期/) · [`四期/`](specs/四期/)（补充期） | 二/三/五/六/七期主线已做；**P6.5 Cursor 模板不做**；**P4.2 插件化 in_progress**；P4.1 MCP/REST 后置 |
 | 3 | [`reports/08-开源记忆模块设计方案.md`](reports/08-开源记忆模块设计方案.md) | 架构与 ADR；与 Spec 冲突时 **先改 Spec/ADR 再改代码** |
 | 4 | [`reports/01`](reports/01-gbrain-调研报告.md)–[`05`](reports/05-四项目对比总结.md) | 调研背景，不直接当接口规格 |
 
@@ -44,6 +44,8 @@
 | **P7.3** | 滑动窗口摄入（攒 turns 再 compile） | **done** |
 | **P7.4** | compile 建 entity + 统一 linkify + query 邻接 | **done** |
 | **P7.5** | `inbox retry`；revert merge/skill/noop | **done** |
+| **P4.2** | DSH 插件化：core Node 兼容 + 独立仓 `apply` 三工具（A）；每轮 inbox 为 B | **in_progress**（A 本仓测例绿；未 npm publish） |
+| **P4.1** | MCP / REST / Claude Code | **后置** |
 
 **未做 backlog：**
 
@@ -52,7 +54,7 @@
 | 优先级 | 项 | 说明 |
 |---|---|---|
 | — | **七期主线** | P7.1–P7.5 **done**。 |
-| P2 | **agent 每轮对话进 inbox** | **以后再说**。产品要每轮 append；七期只做 `remember --buffer`。见 [`doc.md`](doc.md)、[`specs/七期/README.md`](specs/七期/README.md)。 |
+| P2 | **agent 每轮对话进 inbox** | **P4.2 B 档**。产品要每轮 append；A 档只注册工具。见 [`specs/四期/P4.2-插件化.md`](specs/四期/P4.2-插件化.md)。 |
 | P1 | **remember / ingest session 默认 `E_DISABLED`** | **设计如此**（六期）：无 Key 不以启发式冒充 compile。escape：`remember --no-extract`。 |
 | P1 | **schema use 仅 problem-tree** | MVP 范围；七期不做新 pack。 |
 | P1 | **embedding.provider=off 语义臂关闭** | 用户显式关；默认 init 为 `local`。 |
@@ -62,14 +64,14 @@
 
 回归：`bun test packages/core/tests/`；隔离：`bun run test:isolation`；迷你评测：`bun run eval:mini`；蒸馏：`bun run eval:distill`；摘要：`bun run eval:report`。
 
-1. 改行为前先读 / 更新对应 Spec（[`00-conventions.md`](specs/mvp/00-conventions.md) §8、M1/M2/M3、[`二期/`](specs/二期/)、[`三期/`](specs/三期/)、[`五期/`](specs/五期/)、[`六期/`](specs/六期/)、[`七期/`](specs/七期/)）  
+1. 改行为前先读 / 更新对应 Spec（[`00-conventions.md`](specs/mvp/00-conventions.md) §8、M1/M2/M3、[`二期/`](specs/二期/)、[`三期/`](specs/三期/)、[`五期/`](specs/五期/)、[`六期/`](specs/六期/)、[`七期/`](specs/七期/)、[`四期/`](specs/四期/)）  
 2. 写入校验以 [`WRITE_FORMAT.md`](specs/mvp/WRITE_FORMAT.md) 为准（含 experience §9、skill §10）  
-3. **五期 / 六期 / 七期已完成**。会话摄入必须 `complete()`（无 Key → `E_DISABLED`，测试 mock）。入口是 `compileSession`，不是 `capture`。查询门控是确定性打分，不调 LLM。**P6.5 Cursor 模板不做。**  
+3. **五期 / 六期 / 七期已完成**。会话摄入必须 `complete()`（无 Key → `E_DISABLED`，测试 mock）。入口是 `compileSession`，不是 `capture`。查询门控是确定性打分，不调 LLM。**P6.5 Cursor 模板不做。** **P4.2 A**：core 去 Bun 专有 API；DSH 插件在并列仓 `dsh-df-memory/`（`file:` 依赖 core，待 npm 发布）。  
    原文先归档 `.dfmemory/inbox/`。人手 `capture` 仍可零 LLM。  
 4. 与 Spec 冲突时：**先改 Spec/08 ADR，再改代码**  
 5. **不**扩 dream 夜间维护全集（v1 五段维持）  
 
-分期速查：二期 = P2.1a+P2.2（**done**）；三期 = P3.1–P3.3（**done**）；**五期 = P5.1–P5.8（done）**；**六期 = P6.1–P6.4 + 查询门控 + P6.6（done；Cursor 模板不做）**；**七期 = P7.1–P7.5（done）**；四期 = P4.1（MCP/REST，**补充期**）。
+分期速查：二期 = P2.1a+P2.2（**done**）；三期 = P3.1–P3.3（**done**）；**五期 = P5.1–P5.8（done）**；**六期 = P6.1–P6.4 + 查询门控 + P6.6（done；Cursor 模板不做）**；**七期 = P7.1–P7.5（done）**；四期 = **P4.2 插件化（in_progress）**；P4.1 MCP/REST **后置**。
 
 ## 技术栈（已锁定）
 
@@ -77,7 +79,7 @@
 - 权威存储：**md + frontmatter**（文件真相）  
 - 版本账本：git **可选批量 flush**（默认 `git.mode: batch`）  
 - 索引：**PGLite**（`.dfmemory/pglite/`，可丢可 `rebuild-index`）；可选 **Postgres**（`index.engine: postgres` + `DF_MEMORY_DATABASE_URL`，见 `scripts/dev-postgres.md`）  
-- 包：`packages/core`、`packages/cli`（bin: `memory`）、`packages/adapters/*`（摄取插件，D9）  
+- 包：`packages/core`、`packages/cli`（bin: `memory`）、`packages/adapters/*`（摄取插件，D9）；DSH 插件在并列仓 `dsh-df-memory/`（P4.2）  
 - **不实现 Java**；默认 **不强制联网**（`embedding.provider` 默认 `local` 确定性向量；`llm.provider` 默认 `off`）  
 
 ### 热路径写事务（D18）
@@ -148,12 +150,12 @@ bun run test:postgres
 
 ## 明确不要做
 
-- 在 MVP/默认路径引入云向量库、默认云 API；MCP/REST 服务属**四期补充期**（未要求勿做）；**P6.5 Cursor 模板不做**  
+- 在 MVP/默认路径引入云向量库、默认云 API；**P4.1 MCP/REST 后置**（未要求勿做）；**P6.5 Cursor 模板不做**  
 - 把整场 transcript dump 进 `brains/*/sources/` 当 L0；inbox 只允许 `.dfmemory/inbox/`  
 - Entity merge 只 UPDATE PGLite  
 - 用覆盖写破坏 ADD-only  
 - 把 `experiences/`、`skills/` 建在 `brains/{id}/` 之外  
-- 未获要求实现四期（补充期）能力或并行 Java 栈  
+- 未获要求实现四期 P4.1（MCP/REST）或并行 Java 栈；**P4.2 插件化按 Spec 做，不要顺手做 P4.1**  
 - 修改本文件或 Spec 以「绕过」验收，除非用户要求修订规格  
 - 在「索引 / flush 失败」时用 `git checkout` 抹掉已成功的权威 md  
 - 把先验 dirty 与 force commit（如 merge）打进同一条 commit  
@@ -209,6 +211,6 @@ bun run memory -- remember --help
 五期口令见 [`specs/五期/`](specs/五期/) 各 Spec 验收节。  
 六期口令见 [`specs/六期/`](specs/六期/)；会话摄入无 Key 时 `E_DISABLED`（CI 用 mock `complete`）。**P6.5 Cursor 模板不做。** 七期口令见 [`specs/七期/`](specs/七期/)（P7.1–P7.5 已做）。
 
-细节见各 Spec 验收节与 [`specs/mvp/README.md`](specs/mvp/README.md)、[`specs/三期/README.md`](specs/三期/README.md)、[`specs/五期/README.md`](specs/五期/README.md)、[`specs/六期/README.md`](specs/六期/README.md)、[`specs/七期/README.md`](specs/七期/README.md)。
+细节见各 Spec 验收节与 [`specs/mvp/README.md`](specs/mvp/README.md)、[`specs/三期/README.md`](specs/三期/README.md)、[`specs/五期/README.md`](specs/五期/README.md)、[`specs/六期/README.md`](specs/六期/README.md)、[`specs/七期/README.md`](specs/七期/README.md)、[`specs/四期/README.md`](specs/四期/README.md)（P4.2）。
 
 > **多租户提示**：单仓多 brain 时 git 历史对同仓可见，非密码学隔离；鉴权由 `AccessControl` + `brain_id` 过滤保证。
