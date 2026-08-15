@@ -10,6 +10,8 @@ export type {
   CompletePurpose,
   CompleteRequest,
   CompleteResult,
+  ExtractFact,
+  FactExtractMeta,
 } from "./types.ts";
 export { DEFAULT_LLM_CONFIG } from "./types.ts";
 export { NoopLLMProvider } from "./noop.ts";
@@ -33,3 +35,10 @@ export {
   REFINE_TASK_SYNTHESIZE,
 } from "./distill-prompt.ts";
 export { parseJudgeDecision, parseExperienceResult, parseExtractFacts, stripMarkdownFence } from "./parse-complete.ts";
+export {
+  judgeDistillWithComplete,
+  refineExperienceWithComplete,
+  generateAbstractWithComplete,
+  generateOverviewWithComplete,
+  extractFactsWithComplete,
+} from "./distill-complete.ts";

@@ -119,6 +119,12 @@ export {
   parseJudgeDecision,
   parseExperienceResult,
   parseExtractFacts,
+  // P4.2 B 档 bridge：把 complete() 复用为蒸馏/摘要等方法（与 EnvMock 同路径）
+  judgeDistillWithComplete,
+  refineExperienceWithComplete,
+  generateAbstractWithComplete,
+  generateOverviewWithComplete,
+  extractFactsWithComplete,
 } from "./llm/index.ts";
 export type {
   LLMProvider,
@@ -131,6 +137,8 @@ export type {
   CompletePurpose,
   CompleteRequest,
   CompleteResult,
+  ExtractFact,
+  FactExtractMeta,
 } from "./llm/index.ts";
 
 export { refineSource, mapDistillDecision, heuristicAbstract, maybeLazyDistillAfterCompile, countUndistilledL0 } from "./distill/refine.ts";
@@ -313,6 +321,9 @@ export { parseFrontmatter, serializeFrontmatter, hasValidFrontmatter } from "./f
 export type { ParsedMd } from "./frontmatter.ts";
 export { sha256Hex } from "./util/hash.ts";
 export { isSlug, titleToSlug } from "./util/slug.ts";
+export { hereDir, packageRootFrom, readPackageText, readSchemaSql } from "./util/here.ts";
+export { runCommand } from "./util/proc.ts";
+export type { CommandResult } from "./util/proc.ts";
 
 export {
   archiveSession,

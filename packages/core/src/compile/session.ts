@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { MemoryError, ErrorCodes } from "../errors.ts";
+import { packageRootFrom } from "../util/here.ts";
 import { createEntityRegistry, EntityRegistryImpl } from "../entity/registry.ts";
 import type { Entity } from "../entity/types.ts";
 import { createLLMProvider, isCompileEnabled } from "../llm/factory.ts";
@@ -43,7 +43,7 @@ import {
   type ProposedEntity,
 } from "./parse.ts";
 
-const PROMPT_PATH = join(dirname(fileURLToPath(import.meta.url)), "../../resources/session-extract-v1.md");
+const PROMPT_PATH = join(packageRootFrom(import.meta.url), "resources/session-extract-v1.md");
 const ALLOWED_TYPES = new Set(["decision", "lesson", "note"]);
 
 export type CompileDroppedReason = "duplicate" | "noise" | "empty";
@@ -537,6 +537,9 @@ export async function compileSession(opts: CompileSessionOpts): Promise<CompileR
       const distill = await maybeLazyDistillAfterCompile(opts.repoRoot, {
         brainId: opts.brainId,
         queue: opts.queue,
+        // B 档 bridge：注入的 llm 一并用于懒蒸馏（refineSource 在 opts.llm
+        // 存在时跳过 provider 门控）；kill_switch.distill 仍优先。
+        llm: opts.llm && !cfg.llm.kill_switch.distill ? opts.llm : undefined,
       });
       if (distill) {
         result.distill = {
