@@ -3,7 +3,7 @@ import type { EmbeddingProvider, SearchConfig } from "../embed/types.ts";
 import { DEFAULT_SEARCH_CONFIG } from "../embed/types.ts";
 import { readEmbeddingMeta } from "../index/meta.ts";
 import { loadRepoConfig } from "../repo/config.ts";
-import { bm25Query, type QueryHit, type QueryOptions } from "./query.ts";
+import { bm25Query, type QueryHit, type QueryOptions, assertExclusiveSchemaFilters } from "./query.ts";
 import {
   fuseHybridArms,
   resolveFusionWeights,
@@ -96,6 +96,8 @@ function buildKnobs(
     intent,
     sourceId: opts.sourceId,
     schemaType: opts.schemaType,
+    excludeSchemaTypes: opts.excludeSchemaTypes,
+    excludeSidecars: opts.excludeSidecars,
     weightsKey: weightsKey(resolveFusionWeights(intent, semOn)),
     limit,
     semanticAvailable: semOn,
@@ -206,6 +208,8 @@ export async function hybridQueryDetailed(
   const q = opts.query.trim();
   if (!q) return { hits: [] };
 
+  assertExclusiveSchemaFilters(opts);
+
   const limit = opts.limit ?? 10;
   const armLimit = limit * 3;
   const mode: SearchMode = opts.mode ?? "balanced";
@@ -220,7 +224,7 @@ export async function hybridQueryDetailed(
 
   const bm25Groups: QueryHit[][] = [];
   for (const qi of queries) {
-    bm25Groups.push(await bm25Query(db, { ...opts, query: qi, limit: armLimit, schemaType: opts.schemaType }));
+    bm25Groups.push(await bm25Query(db, { ...opts, query: qi, limit: armLimit }));
   }
   const bm25Hits = mergeBm25Groups(bm25Groups);
   const bm25Ranked: RankedHit[] = bm25Hits.map((h) => ({
@@ -265,6 +269,8 @@ export async function hybridQueryDetailed(
             sourceId: opts.sourceId,
             query: q,
             schemaType: opts.schemaType,
+            excludeSchemaTypes: opts.excludeSchemaTypes,
+            excludeSidecars: opts.excludeSidecars,
           });
           semanticAvailable = true;
           for (const h of semanticHits) {
@@ -289,6 +295,9 @@ export async function hybridQueryDetailed(
       query: q,
       limit: armLimit,
       sourceId: opts.sourceId,
+      schemaType: opts.schemaType,
+      excludeSchemaTypes: opts.excludeSchemaTypes,
+      excludeSidecars: opts.excludeSidecars,
     });
     graphHits = graph.hits;
     graphMode = graph.mode;

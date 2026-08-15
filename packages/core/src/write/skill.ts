@@ -179,28 +179,101 @@ export async function applyExperienceOutcome(
   return { path: relPath, eta_score: eta, support };
 }
 
-export async function listSkills(
+export type SkillListItem = {
+  name: string;
+  path: string;
+  status: string;
+  title: string;
+  trigger: string;
+  eta_score: number;
+  support: number;
+};
+
+function skillItemFromFrontmatter(
+  name: string,
+  rel: string,
+  data: Record<string, unknown>,
+): SkillListItem {
+  return {
+    name,
+    path: rel,
+    status: String(data.status ?? "candidate"),
+    title: String(data.title ?? name),
+    trigger: String(data.trigger ?? ""),
+    eta_score: Number(data.eta_score ?? data.eta ?? 0.5),
+    support: Number(data.support ?? 0),
+  };
+}
+
+function filterByStatus(items: SkillListItem[], status?: SkillStatus | "any"): SkillListItem[] {
+  if (!status || status === "any") return items;
+  return items.filter((s) => s.status === status);
+}
+
+async function loadSkillEntries(
   repoRoot: string,
   brainId: string,
-  statusFilter?: SkillStatus,
-): Promise<Array<{ name: string; path: string; status: string; title: string }>> {
+): Promise<Array<{ item: SkillListItem; procedure: string }>> {
   const dir = join(repoRoot, "brains", brainId, "skills");
   if (!existsSync(dir)) return [];
   const names = await readdir(dir);
-  const out: Array<{ name: string; path: string; status: string; title: string }> = [];
+  const out: Array<{ item: SkillListItem; procedure: string }> = [];
   for (const name of names) {
     const rel = skillRelPath(brainId, name);
     const abs = join(repoRoot, rel);
     if (!existsSync(abs)) continue;
     const { data } = parseFrontmatter(await readFile(abs, "utf8"));
-    const status = String(data.status ?? "candidate");
-    if (statusFilter && status !== statusFilter) continue;
     out.push({
-      name,
-      path: rel,
-      status,
-      title: String(data.title ?? name),
+      item: skillItemFromFrontmatter(name, rel, data),
+      procedure: String(data.procedure ?? ""),
     });
   }
-  return out.sort((a, b) => a.name.localeCompare(b.name));
+  return out;
+}
+
+export async function listSkills(
+  repoRoot: string,
+  brainId: string,
+  statusFilter?: SkillStatus,
+): Promise<SkillListItem[]> {
+  const entries = await loadSkillEntries(repoRoot, brainId);
+  return filterByStatus(
+    entries.map((e) => e.item),
+    statusFilter,
+  ).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function findSkills(
+  repoRoot: string,
+  brainId: string,
+  query: string,
+  opts?: { status?: SkillStatus | "any"; limit?: number },
+): Promise<SkillListItem[]> {
+  const status = opts?.status ?? "any";
+  const entries = await loadSkillEntries(repoRoot, brainId);
+  let items = filterByStatus(
+    entries.map((e) => e.item),
+    status,
+  );
+
+  const q = query.trim();
+  if (q) {
+    const needle = q.toLowerCase();
+    items = entries
+      .filter(({ item, procedure }) => {
+        if (status !== "any" && item.status !== status) return false;
+        if (item.title.toLowerCase().includes(needle)) return true;
+        if (item.trigger.toLowerCase().includes(needle)) return true;
+        if (item.name.toLowerCase().includes(needle)) return true;
+        if (procedure.toLowerCase().includes(needle)) return true;
+        return false;
+      })
+      .map((e) => e.item);
+  }
+
+  items.sort((a, b) => a.name.localeCompare(b.name));
+  if (opts?.limit != null && opts.limit >= 0) {
+    items = items.slice(0, opts.limit);
+  }
+  return items;
 }

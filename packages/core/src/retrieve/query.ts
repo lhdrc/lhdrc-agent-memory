@@ -1,6 +1,10 @@
 import type { SqlClient } from "../index/sql.ts";
 import { MemoryError, ErrorCodes } from "../errors.ts";
 import { bigrams } from "./ngrams.ts";
+import { appendPageFilters } from "./filters.ts";
+
+export type { PageFilterOptions } from "./filters.ts";
+export { assertExclusiveSchemaFilters, appendPageFilters } from "./filters.ts";
 
 export interface QueryOptions {
   brainId: string;
@@ -9,6 +13,10 @@ export interface QueryOptions {
   sourceId?: string;
   /** P2.2：按 schema_type 过滤 */
   schemaType?: string;
+  /** P8.2：排除 schema_type（与 schemaType 互斥） */
+  excludeSchemaTypes?: string[];
+  /** P8.2：排除 *.overview.md / *.abstract.md 侧车 */
+  excludeSidecars?: boolean;
 }
 
 export interface QueryHit {
@@ -50,6 +58,9 @@ export async function bm25Query(db: SqlClient, opts: QueryOptions): Promise<Quer
   const { ensureSchema } = await import("../index/engine.ts");
   await ensureSchema(db);
 
+  const pageFilters = appendPageFilters(opts, 5);
+  const filterSql = pageFilters.clauses.length ? ` AND ${pageFilters.clauses.join(" AND ")}` : "";
+
   const sql = `
 SELECT * FROM (
   SELECT path, title,
@@ -67,17 +78,13 @@ SELECT * FROM (
     aliases_json,
     updated_at
   FROM pages
-  WHERE status = 'active' AND brain_id = $4
-    ${opts.sourceId ? `AND source_id = $5` : ""}
-    ${opts.schemaType ? `AND schema_type = $${opts.sourceId ? 6 : 5}` : ""}
+  WHERE status = 'active' AND brain_id = $4${filterSql}
 ) ranked
 WHERE score > 0
 ORDER BY score DESC
 LIMIT ${Math.max(1, Math.floor(limit))}`;
 
-  const params: unknown[] = [q, qng, q, opts.brainId];
-  if (opts.sourceId) params.push(opts.sourceId);
-  if (opts.schemaType) params.push(opts.schemaType);
+  const params: unknown[] = [q, qng, q, opts.brainId, ...pageFilters.params];
 
   let rows: Array<{
     path: string;

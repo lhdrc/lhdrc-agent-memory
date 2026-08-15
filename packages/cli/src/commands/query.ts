@@ -21,6 +21,8 @@ export async function queryCommand(argv: string[]): Promise<number> {
     { name: "limit", type: "string" },
     { name: "source", type: "string" },
     { name: "type", type: "string" },
+    { name: "exclude-type", type: "string[]" },
+    { name: "exclude-sidecars", type: "boolean" },
     { name: "mode", type: "string" },
     { name: "json", type: "boolean" },
     { name: "explain", type: "boolean" },
@@ -28,6 +30,11 @@ export async function queryCommand(argv: string[]): Promise<number> {
   const text = o._.join(" ").trim();
   if (!text) {
     throw new MemoryError(ErrorCodes.USAGE, "query 需要一个查询文本");
+  }
+  const schemaType = o.type as string | undefined;
+  const excludeTypes = o["exclude-type"] as string[] | undefined;
+  if (schemaType && excludeTypes?.length) {
+    throw new MemoryError(ErrorCodes.USAGE, "--type 与 --exclude-type 不能同时指定");
   }
   const ctx = await loadContext(Boolean(o.json) || Boolean(o.explain));
   const cfg = await loadRepoConfig(ctx.repoRoot);
@@ -58,7 +65,9 @@ export async function queryCommand(argv: string[]): Promise<number> {
       query: text,
       limit: o.limit !== undefined ? parseInt(String(o.limit), 10) || 10 : 10,
       sourceId,
-      schemaType: o.type as string | undefined,
+      schemaType,
+      excludeSchemaTypes: excludeTypes?.length ? excludeTypes : undefined,
+      excludeSidecars: Boolean(o["exclude-sidecars"]),
       mode,
       embedder,
       repoRoot: ctx.repoRoot,

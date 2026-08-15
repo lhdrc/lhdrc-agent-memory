@@ -41,8 +41,8 @@ const HELP = `df-memory CLI
   memory inbox list [--json] [--status pending|failed|done]
   memory inbox retry <sessionId> [--json] [--dry-run]
   memory inbox end [--session <id>] [--json]
-  memory query <text> [--limit N] [--source <id>] [--type <schema_type>] [--mode conservative|balanced|tokenmax] [--explain] [--json]
-  memory find <text> [--limit N] [--source <id>] [--type <schema_type>] [--mode conservative|balanced|tokenmax] [--explain] [--json]
+  memory query <text> [--limit N] [--source <id>] [--type <schema_type>] [--exclude-type <schema_type>] [--exclude-sidecars] [--mode conservative|balanced|tokenmax] [--explain] [--json]
+  memory find <text> [--limit N] [--source <id>] [--type <schema_type>] [--exclude-type <schema_type>] [--exclude-sidecars] [--mode conservative|balanced|tokenmax] [--explain] [--json]
   memory think <text> [--json]
   memory eval --mini|--distill|--report|--adapter <id> [--fixture] [--json]
   memory eval fetch --adapter <id> --allow-net

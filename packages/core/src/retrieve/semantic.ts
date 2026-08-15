@@ -1,6 +1,7 @@
 import type { SqlClient } from "../index/sql.ts";
 import { bytesToFloat32, cosineSimilarity } from "../embed/cosine.ts";
 import { makeSnippet } from "./query.ts";
+import { appendPageFilters } from "./filters.ts";
 import type { RankedHit } from "./rrf.ts";
 import { PGVECTOR_WARN } from "../index/postgres.ts";
 
@@ -15,6 +16,9 @@ export interface SemanticArmOptions {
   query?: string;
   /** P2.2 预留：按 schema_type 过滤 */
   schemaType?: string;
+  /** P8.2 */
+  excludeSchemaTypes?: string[];
+  excludeSidecars?: boolean;
 }
 
 /**
@@ -32,15 +36,9 @@ export async function semanticArm(db: SqlClient, opts: SemanticArmOptions): Prom
   await ensureSchema(db);
 
   const params: unknown[] = [opts.brainId];
-  let extraWhere = "";
-  if (opts.sourceId) {
-    params.push(opts.sourceId);
-    extraWhere += ` AND p.source_id = $${params.length}`;
-  }
-  if (opts.schemaType) {
-    params.push(opts.schemaType);
-    extraWhere += ` AND p.schema_type = $${params.length}`;
-  }
+  const pageFilters = appendPageFilters(opts, 2, "p.");
+  const extraWhere = pageFilters.clauses.length ? ` AND ${pageFilters.clauses.join(" AND ")}` : "";
+  params.push(...pageFilters.params);
 
   const sql = `
     SELECT c.path, c.text, c.embedding, p.title

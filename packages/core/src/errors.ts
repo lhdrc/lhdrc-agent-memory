@@ -12,6 +12,8 @@ export const ErrorCodes = {
   LLM: "E_LLM",
   AUTH: "E_AUTH",
   FORBIDDEN: "E_FORBIDDEN",
+  TIMEOUT: "E_TIMEOUT",
+  JOB: "E_JOB",
 } as const;
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];

@@ -13,6 +13,9 @@ export interface SearchKnobs {
   intent: QueryIntent;
   sourceId?: string;
   schemaType?: string;
+  /** P8.2 */
+  excludeSchemaTypes?: string[];
+  excludeSidecars?: boolean;
   /** 融合权重指纹 */
   weightsKey: string;
   limit: number;
@@ -30,6 +33,8 @@ export function knobsHash(knobs: SearchKnobs): string {
       intent: knobs.intent,
       sourceId: knobs.sourceId ?? "",
       schemaType: knobs.schemaType ?? "",
+      excludeSchemaTypes: knobs.excludeSchemaTypes?.slice().sort().join(",") ?? "",
+      excludeSidecars: knobs.excludeSidecars ?? false,
       weightsKey: knobs.weightsKey,
       limit: knobs.limit,
       semanticAvailable: knobs.semanticAvailable,

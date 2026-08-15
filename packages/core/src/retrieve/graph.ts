@@ -4,6 +4,7 @@
  */
 import type { SqlClient } from "../index/sql.ts";
 import { makeSnippet } from "./query.ts";
+import { appendPageFilters } from "./filters.ts";
 import type { RankedHit } from "./rrf.ts";
 
 export interface RelationalParse {
@@ -52,6 +53,10 @@ export interface GraphArmOptions {
   limit?: number;
   sourceId?: string;
   depth?: number;
+  /** P8.2：与 BM25/语义臂一致的 schema_type 过滤 */
+  schemaType?: string;
+  excludeSchemaTypes?: string[];
+  excludeSidecars?: boolean;
 }
 
 function parseAliasesJson(raw: string | null | undefined): string[] {
@@ -184,9 +189,10 @@ async function hitsFromSeeds(
   let pageSql = `SELECT path, title, body_text, source_id FROM pages
       WHERE brain_id = $1 AND status = 'active' AND path IN (${placeholders})`;
   const pageParams: unknown[] = [opts.brainId, ...paths];
-  if (opts.sourceId) {
-    pageSql += ` AND source_id = $${pageParams.length + 1}`;
-    pageParams.push(opts.sourceId);
+  const pageFilters = appendPageFilters(opts, pageParams.length + 1);
+  if (pageFilters.clauses.length) {
+    pageSql += ` AND ${pageFilters.clauses.join(" AND ")}`;
+    pageParams.push(...pageFilters.params);
   }
   const pages = await db.query<{ path: string; title: string; body_text: string; source_id: string }>(
     pageSql,

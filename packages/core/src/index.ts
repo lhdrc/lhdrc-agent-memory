@@ -176,8 +176,8 @@ export type { RebuildIndexOptions } from "./index/rebuild.ts";
 export { pgliteIndexHooks } from "./index/hooks.ts";
 export { readIndexMeta, writeIndexMeta, metaPath, readEmbeddingMeta, writeEmbeddingMeta, embeddingMetaPath } from "./index/meta.ts";
 export type { IndexMeta, EmbeddingMeta } from "./index/meta.ts";
-export { bm25Query, makeSnippet } from "./retrieve/query.ts";
-export type { QueryOptions, QueryHit } from "./retrieve/query.ts";
+export { bm25Query, makeSnippet, appendPageFilters, assertExclusiveSchemaFilters } from "./retrieve/query.ts";
+export type { QueryOptions, QueryHit, PageFilterOptions } from "./retrieve/query.ts";
 export { semanticArm } from "./retrieve/semantic.ts";
 export type { SemanticArmOptions } from "./retrieve/semantic.ts";
 export { hybridQuery, hybridQueryDetailed } from "./retrieve/hybrid.ts";
@@ -234,6 +234,7 @@ export {
   applySkillOutcome,
   applyExperienceOutcome,
   listSkills,
+  findSkills,
   skillRelPath,
   validateSkillWrite,
   isMatureExperience,
@@ -241,7 +242,7 @@ export {
   MATURITY_SUPPORT_MIN,
   SKILL_NAME_RE,
 } from "./write/skill.ts";
-export type { SkillWriteInput, SkillStatus } from "./write/skill.ts";
+export type { SkillWriteInput, SkillStatus, SkillListItem } from "./write/skill.ts";
 export { crystallizeExperiences, maybeAutoCrystallize } from "./crystallize/crystallize.ts";
 export type { CrystallizeOptions, CrystallizeResult } from "./crystallize/crystallize.ts";
 export { runDream } from "./dream/runner.ts";
