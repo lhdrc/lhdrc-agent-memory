@@ -4,6 +4,7 @@ dist/
 .dfmemory/pglite/
 .dfmemory/write.lock
 .dfmemory/inbox/
+.dfmemory/jobs/
 gbrain-文件管理设计.md
 evals/receipts/*
 !evals/receipts/.gitkeep

@@ -73,6 +73,8 @@ CLI 与 core 共用字符串错误码（stderr JSON 可选 `--json`）：
 | `E_INTERNAL` | 500 | 未分类 |
 | `E_DISABLED` | 503 | 能力关闭（llm/embedding provider=off、kill-switch、缺 key、cost cap） |
 | `E_LLM` | 502 | LLM HTTP/解析失败（inbox 标 failed；**不**写 L0） |
+| `E_TIMEOUT` | 504 | 异步任务超过 `compile.job_timeout_ms`（八期 P8.1） |
+| `E_JOB` | 500 | 任务文件损坏 / 状态非法 / `task_id` 不存在（八期 P8.1） |
 
 退出码：成功 `0`；用户错误 `2`；系统错误 `1`。
 
@@ -130,6 +132,7 @@ created_at: "2026-08-06T00:00:00Z"
 ├── write.lock          # 跨进程写锁
 ├── pglite/             # PGLite 数据目录（gitignore）
 ├── inbox/              # 六期：会话原文队列（gitignore；非 L0）
+├── jobs/               # 八期：异步 compile / remember 任务状态（gitignore；非 L0）
 ├── index-meta.json     # { schemaVersion, lastSyncAt, fileCount }
 ├── git-dirty.json      # 可选：待 flush 路径集合（实现可换内存+落盘）
 └── logs/               # 可选
@@ -141,6 +144,7 @@ created_at: "2026-08-06T00:00:00Z"
 .dfmemory/pglite/
 .dfmemory/write.lock
 .dfmemory/inbox/
+.dfmemory/jobs/
 .dfmemory/index-meta.json
 .dfmemory/git-dirty.json
 ```

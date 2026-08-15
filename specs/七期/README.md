@@ -5,7 +5,7 @@
 > **来源**：[`AGENTS.md`](../../AGENTS.md) CLI 审计 backlog（2026-08）；六期所称 F11/F12（滑动窗口、compile 自动建 entity）。  
 > **原则**：不破坏 D1/D17/D18；`complete()` 仍是唯一补全入口；`provider=off` 不以启发式冒充会话编译或蒸馏产品。  
 > **本期产品承诺**：配好 `llm.provider=openai` + key 后，`refine` / dream 3 / skill 结晶 / `capture --extract` / `layers refresh` **真打模型**；会话可按窗口攒 turns 再 compile；compile 成功后未蒸 L0 够数则懒蒸馏，成熟则自动结晶 **candidate** skill；compile/capture 统一挂链，模型可建 entity；普通 `query` 能用邻接。  
-> **明确不做**：MCP/REST（四期）；P6.5 Cursor 模板；Idle TTL / PreCompact / 守护进程；扩 dream 九段；11 类记忆；新 schema pack；把 `remember` 默认改成启发式（无 Key 仍 `E_DISABLED`）；**agent 每轮自动把对话推进 inbox**（API 七期有，接入层以后再说）。
+> **明确不做**：MCP/REST（四期）；P6.5 Cursor 模板；Idle TTL / PreCompact / 守护进程；扩 dream 九段；11 类记忆；新 schema pack；把 `remember` 默认改成启发式（无 Key 仍 `E_DISABLED`）；**agent 每轮自动把对话推进 inbox**（API 七期有，接入层见八期 P8.1）。
 
 ## 写入时机（本期冻结）
 
@@ -35,7 +35,7 @@
 | P2 EnvMock 只 mock `complete` | **P7.1** |
 | P2 skill 结晶 LLM 静默降级 | **P7.2** |
 | （产品）自动结晶 skill | **P7.2**：蒸馏后成熟 → candidate，不 activate |
-| （产品）agent 每轮进 inbox | **以后再说**：P7.3 只提供 `--buffer`；不接 Cursor/agent 每轮自动 append |
+| （产品）agent 每轮进 inbox | **八期 P8.1**：P7.3 只提供 `--buffer`；挂钩 + 异步 compile 见八期 |
 | P2 changes 多为 refine noop | **P7.2** 真 judge 后自然消失；noop 仅当模型判 skip |
 | P1 remember / session 默认 `E_DISABLED` | **不做**：六期产品承诺；escape 仍是 `remember --no-extract` |
 | P1 embedding `off` 关语义臂 | **不做**：用户显式关 |
@@ -72,7 +72,7 @@
 
 | 项 | 含义 |
 |---|---|
-| **agent 每轮对话进 inbox** | 产品要每轮 `appendSessionTurns`。七期只交付 CLI `remember --buffer`。接入层见 [`四期/P4.2-插件化.md`](../四期/P4.2-插件化.md) **B 档**（A 档不做自动 append）。备忘：[`doc.md`](../../doc.md) |
+| **agent 每轮对话进 inbox** | 七期只交付 CLI `remember --buffer`。接入层见 [`八期/P8.1-session-hook-async.md`](../八期/P8.1-session-hook-async.md)（自 P4.2 B 迁入）。 |
 
 ## 验收总则
 
@@ -81,4 +81,4 @@ LLM 路径：CI 用 **mock `complete`**（含 purpose 覆盖）；无 Key 的正
 
 ## 七期完成标志
 
-P7.1–P7.4 口令全绿 → **七期主线完成**。P7.5 口令绿 → 同期收口。访问面仍属四期。Cursor 模板仍不做。
+P7.1–P7.4 口令全绿 → **七期主线完成**。P7.5 口令绿 → 同期收口。下一期 [`../八期/`](../八期/)。P4.2 A 仍属四期；B 档见八期 P8.1。Cursor 模板仍不做。
