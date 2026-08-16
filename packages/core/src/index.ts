@@ -170,6 +170,7 @@ export {
 export { openPglite, openIndex, ensureSchema, clearBrainIndex } from "./index/engine.ts";
 export type { IndexConnection, SqlClient, IndexEngineId } from "./index/engine.ts";
 export { syncPage, syncEntity, syncAll, chunkText } from "./index/sync.ts";
+export { semanticContentHash, pickSemanticFrontmatter } from "./index/content-hash.ts";
 export type { SyncOptions } from "./index/sync.ts";
 export { rebuildIndex } from "./index/rebuild.ts";
 export type { RebuildIndexOptions } from "./index/rebuild.ts";

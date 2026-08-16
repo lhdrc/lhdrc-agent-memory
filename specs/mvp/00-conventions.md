@@ -16,7 +16,8 @@
 | YAML | `yaml` 包 | brain.yml / memory.yml / schema pack |
 | CLI 解析 | Bun 原生 + 轻量解析（如 `citty` 或自研） | 二进制入口名 `memory` |
 
-**禁止**：引入云向量库、引入必须联网的默认依赖、在 MVP 调用任何 LLM API。
+**禁止**：引入云向量库作为默认索引；MVP 测例不得出网。  
+**九期 ADR**：`init` 默认 `embedding.provider: openai`；hermetic CI 必须 `local` 哈希或 mock（[`九期/P9.2-embedding-providers.md`](../九期/P9.2-embedding-providers.md)）。无 Key 时语义臂 fail-open，不阻塞 BM25+图。
 
 ## 2. Monorepo 布局（MVP 最小）
 
@@ -52,7 +53,7 @@
 | `slug`（实体） | `[a-z0-9][a-z0-9_-]{0,127}`，小写 |
 | 记忆节点相对 path | 相对 `brains/{brainId}/sources/{sourceId}/`，禁止 `..` |
 | 绝对仓内 path | 必须以 `brains/{brainId}/` 开头（租户内容） |
-| 内容 hash | SHA-256 hex；MVP 可用整文件 UTF-8 字节；演进应对齐 08 §5.3（剔除 `captured_at` 等易变 frontmatter） |
+| 内容 hash | SHA-256 hex；**P9.1**：只吃语义白名单（title/body/schema_type/links/facts/…），剔除 `created_at` / `captured_at` / `updated_at` / `created_by`（见 [`九期/P9.1-content-hash.md`](../九期/P9.1-content-hash.md)） |
 
 路径越界判定：解析后的绝对路径若不在允许前缀内 → `E_PATH_ESCAPE`。
 

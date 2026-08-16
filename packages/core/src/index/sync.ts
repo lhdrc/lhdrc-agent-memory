@@ -5,7 +5,7 @@ import type { SqlClient } from "./sql.ts";
 import { MemoryError, ErrorCodes } from "../errors.ts";
 import { parseFrontmatter } from "../frontmatter.ts";
 import { fileToEntity } from "../entity/files.ts";
-import { sha256Hex } from "../util/hash.ts";
+import { semanticContentHash } from "./content-hash.ts";
 import { bigrams } from "../retrieve/ngrams.ts";
 import { resolveBrainRoot } from "../repo/layout.ts";
 import type { EmbeddingProvider } from "../embed/types.ts";
@@ -87,7 +87,7 @@ export async function syncPage(
   if (isDerivedLayerFile(relPath)) {
     return;
   }
-  const hash = sha256Hex(raw);
+  const hash = semanticContentHash(raw);
   const { data, body } = parseFrontmatter(raw);
   const brainId = brainIdFromPath(relPath);
   const existing = await db.query<{ content_hash: string }>(`SELECT content_hash FROM pages WHERE path = $1`, [relPath]);
@@ -172,7 +172,7 @@ export async function syncEntity(db: SqlClient, repoRoot: string, relPath: strin
     return;
   }
   const entity = fileToEntity(raw);
-  const hash = sha256Hex(raw);
+  const hash = semanticContentHash(raw);
   const canonical = entity.status === "merged" ? (entity.redirect ?? entity.slug) : entity.slug;
   const aliasesJson = JSON.stringify([...new Set([entity.slug, ...entity.aliases])]);
   const updatedAt = new Date().toISOString();
