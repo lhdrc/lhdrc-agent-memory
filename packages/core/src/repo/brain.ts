@@ -118,16 +118,21 @@ export async function createBrain(
 
 export async function listBrains(
   repoRoot: string,
-): Promise<Array<{ id: string; name: string; schema_pack: string }>> {
+): Promise<Array<{ id: string; name: string; schema_pack: string; sources: string[] }>> {
   const root = join(repoRoot, "brains");
   if (!existsSync(root)) return [];
   const entries = await readdir(root, { withFileTypes: true });
-  const out: Array<{ id: string; name: string; schema_pack: string }> = [];
+  const out: Array<{ id: string; name: string; schema_pack: string; sources: string[] }> = [];
   for (const e of entries) {
     if (!e.isDirectory() || e.name.startsWith(".")) continue;
     try {
       const cfg = await loadBrainConfig(repoRoot, e.name);
-      out.push({ id: cfg.id, name: cfg.name, schema_pack: cfg.schema_pack });
+      out.push({
+        id: cfg.id,
+        name: cfg.name,
+        schema_pack: cfg.schema_pack,
+        sources: Object.keys(cfg.sources ?? {}),
+      });
     } catch {
       /* skip broken */
     }
