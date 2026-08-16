@@ -1,0 +1,8 @@
+{"role":"user","text":"你好，今天先看重试配置。"}
+{"role":"assistant","text":"好的，我先翻一下现有设置。"}
+{"role":"user","text":"我们决定重试改为固定 3 次，不再用指数退避。"}
+{"role":"assistant","text":"记下了，我去改配置。"}
+{"role":"user","text":"对了午饭吃什么？随便吧，继续。"}
+{"role":"assistant","text":"好的，继续。"}
+{"role":"user","text":"另外超时改成 30 秒，这个也定了。"}
+{"role":"assistant","text":"收到。"}

@@ -1,0 +1,20 @@
+{
+  "contract": "session-extract-v1 Split-only (pre-P8.4)",
+  "note": "闲聊（午饭/好的/继续）本就不进 note；两个互不依赖的决策在旧合同下也必须拆条。P8.4 不得把它们合成一条。",
+  "items": [
+    {
+      "type": "decision",
+      "title": "重试改为固定3次",
+      "body": "重试策略改为固定 3 次，不再使用指数退避。",
+      "mentions": [],
+      "source_turns": [3]
+    },
+    {
+      "type": "decision",
+      "title": "超时改成30秒",
+      "body": "超时改为 30 秒。",
+      "mentions": [],
+      "source_turns": [7]
+    }
+  ]
+}

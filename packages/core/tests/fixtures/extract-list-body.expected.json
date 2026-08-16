@@ -1,0 +1,12 @@
+{
+  "contract": "session-extract-v1 + Granularity (P8.4)",
+  "items": [
+    {
+      "type": "note",
+      "title": "初始化检查清单",
+      "body": "初始化需：写入 memory.yml；embedding.provider 设为 local；git.mode 用 batch；.gitignore 忽略 pglite；创建 brains/default；跑一次 rebuild-index。",
+      "mentions": [],
+      "source_turns": [1]
+    }
+  ]
+}

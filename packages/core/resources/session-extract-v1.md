@@ -77,6 +77,19 @@ Bad: one item titled “发布调整” covering delay + new owner.
 
 Good: two items — “上线延期到6月3日” and “清单负责人改为 Lina”.
 
+## Granularity
+
+Same-theme checklists (steps, file lists, config enumerations) merge into **one** note (or one decision). Put a short list in the body. **清单合成一条**. Do not emit one note per bullet.
+
+A note needs **最小信息量**: object + stable fact — enough that a future agent knows why to recall it. **禁止单词 note** and numbered fragments as title or body.
+
+Two independent decisions remain two items. Do not dump them into one “项目讨论” bucket.
+
+User says “记住这些” + a checklist → prefer **one** note.
+
+Bad: five notes from one checklist (file1, file2, file3, …).
+Good: one note “初始化检查清单” whose body lists the items.
+
 ## Exclude (return fewer items, often `[]`)
 
 - Greetings, acks, “ok”, “continue”, “try again”, 好的, 继续, 再试
@@ -110,6 +123,13 @@ Assistant: 记下了。
   { "type": "decision", "title": "上线延期到6月3日", "body": "发布延期到 6 月 3 日。", "mentions": [], "source_turns": [1] },
   { "type": "note", "title": "清单负责人改为 Lina", "body": "Lina 负责发布清单。", "mentions": ["Lina"], "source_turns": [1] }
 ] }
+```
+
+User: 请记住这些初始化检查清单：写入 memory.yml；embedding.provider=local；git.mode=batch；.gitignore 忽略 pglite；跑 rebuild-index。
+Assistant: 记下了。
+
+```json
+{ "items": [{ "type": "note", "title": "初始化检查清单", "body": "初始化需：写入 memory.yml；embedding.provider=local；git.mode=batch；.gitignore 忽略 pglite；跑 rebuild-index。", "mentions": [] }] }
 ```
 
 User: ```diff\n@@ -1 +1 @@\n-a\n+b\n```

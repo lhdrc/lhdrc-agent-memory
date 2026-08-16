@@ -1,0 +1,12 @@
+{
+  "contract": "session-extract-v1 Split-only (pre-P8.4)",
+  "note": "旧 Split「独立事实→多条」会把同一清单拆成 5–7 条空心 note。此文件冻结该碎裂形状，不是新合同期望。",
+  "items": [
+    { "type": "note", "title": "写入 memory.yml", "body": "初始化时写入 memory.yml。", "mentions": [], "source_turns": [1] },
+    { "type": "note", "title": "embedding.provider 设为 local", "body": "embedding.provider 设为 local。", "mentions": [], "source_turns": [1] },
+    { "type": "note", "title": "git.mode 用 batch", "body": "git.mode 用 batch。", "mentions": [], "source_turns": [1] },
+    { "type": "note", "title": ".gitignore 忽略 pglite", "body": ".gitignore 忽略 pglite。", "mentions": [], "source_turns": [1] },
+    { "type": "note", "title": "创建 brains/default", "body": "创建 brains/default。", "mentions": [], "source_turns": [1] },
+    { "type": "note", "title": "跑一次 rebuild-index", "body": "跑一次 rebuild-index。", "mentions": [], "source_turns": [1] }
+  ]
+}

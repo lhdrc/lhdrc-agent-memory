@@ -14,7 +14,7 @@
 6. 五期完成后读 [`六期/README.md`](六期/README.md)，按 **P6.1→P6.4 + P6.5 门控**（主线已落地；P6.6 提取合同已落地；Cursor 模板不做）  
 7. 六期完成后读 [`七期/README.md`](七期/README.md)，按 **P7.1→P7.5**（**done**）  
 8. **补充期**：读 [`四期/README.md`](四期/README.md)。**P4.2 A** 已接线；**B 档实现迁 [`八期/P8.1`](八期/P8.1-session-hook-async.md)**；**P4.1** MCP/REST 仍后置  
-9. 七期完成后读 [`八期/README.md`](八期/README.md)，按 **P8.1→P8.3**（主线；P8.4 建议同期；P8.5 不阻塞）
+9. 七期完成后读 [`八期/README.md`](八期/README.md)，按 **P8.1→P8.3**（主线；**P8.4 done**；P8.5 不阻塞）
 
 ## 目录
 
