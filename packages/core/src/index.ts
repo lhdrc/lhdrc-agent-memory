@@ -7,6 +7,8 @@ export { findRepoRoot, loadRepoConfig, resolveEnvDefaults } from "./repo/config.
 export type { RepoConfig, WriteConfig, LayersConfig, CompileConfig, RecallConfig, DistillConfig } from "./repo/config.ts";
 export { DEFAULT_COMPILE_CONFIG, DEFAULT_RECALL_CONFIG, DEFAULT_DISTILL_CONFIG } from "./repo/config.ts";
 export { loadBrainConfig, resolveSourceId, createBrain, listBrains, hasSharedSkillsMount } from "./repo/brain.ts";
+export { resolveSourceIdFull } from "./repo/source-resolve.ts";
+export type { ResolveSourceIdFullInput } from "./repo/source-resolve.ts";
 export type { BrainConfig, BrainMount, CreateBrainOptions } from "./repo/brain.ts";
 export {
   resolveBrainRoot,
@@ -303,13 +305,18 @@ export {
 
 export {
   createEmbeddingProvider,
+  resolveEmbedder,
+  hasOpenAiEmbedKey,
   cosineSimilarity,
   float32ToBytes,
   bytesToFloat32,
   NoopEmbedding,
+  LocalHashEmbedding,
   OnnxLocalEmbedding,
   OpenAIEmbedding,
+  OnnxEmbedding,
 } from "./embed/index.ts";
+export type { ResolveEmbedderResult, ResolveEmbedderOptions } from "./embed/index.ts";
 export { DEFAULT_SEARCH_CONFIG } from "./embed/index.ts";
 export type {
   EmbeddingProvider,

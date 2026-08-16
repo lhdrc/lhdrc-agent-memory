@@ -48,7 +48,7 @@ describe("M1 仓库与文件权威", () => {
     expect(logs[0]).toBe("memory: init brain default");
     const yml = await readFile(join(root, "memory.yml"), "utf8");
     expect(yml).toContain("mode: batch");
-    expect(yml).toContain("provider: local");
+    expect(yml).toContain("provider: openai");
     const gi = await readFile(join(root, ".gitignore"), "utf8");
     expect(gi).toContain("git-dirty.json");
   });
@@ -63,7 +63,7 @@ describe("M1 仓库与文件权威", () => {
     expect(existsSync(join(root, ".git"))).toBe(false);
     const yml = await readFile(join(root, "memory.yml"), "utf8");
     expect(yml).toContain("mode: off");
-    expect(yml).toContain("provider: local");
+    expect(yml).toContain("provider: openai");
   });
 
   test("M1-01c init git:existing 在已有 git 仓内不失败", async () => {

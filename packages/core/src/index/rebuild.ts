@@ -1,5 +1,5 @@
 import { MemoryError, ErrorCodes } from "../errors.ts";
-import { createEmbeddingProvider } from "../embed/factory.ts";
+import { resolveEmbedder } from "../embed/factory.ts";
 import { loadRepoConfig } from "../repo/config.ts";
 import { listBrains } from "../repo/brain.ts";
 import { openIndex, ensureSchema, clearBrainIndex } from "./engine.ts";
@@ -30,8 +30,9 @@ export async function rebuildIndex(
   const shouldEmbed = opts?.embeddings === true || cfg.embedding.provider !== "off";
   let syncOpts: SyncOptions | undefined;
   if (shouldEmbed && cfg.embedding.provider !== "off") {
+    const resolved = resolveEmbedder(cfg.embedding, { strict: opts?.embeddings === true });
     syncOpts = {
-      embedder: createEmbeddingProvider(cfg.embedding),
+      embedder: resolved.embedder,
       embeddingModel: cfg.embedding.model,
     };
   }

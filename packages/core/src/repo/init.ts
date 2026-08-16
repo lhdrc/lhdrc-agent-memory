@@ -43,10 +43,11 @@ writer:
   lock_file: .dfmemory/write.lock
   lock_timeout_ms: 30000
 embedding:
-  provider: local
-  model: hashed-bigram-384
-  # openai model unused unless provider=openai
+  provider: openai
+  model: text-embedding-3-small
+  dims: 1536
   openai_api_key_env: OPENAI_API_KEY
+  onnx_model_path: ""
 search:
   mode: balanced
   tokenmax:

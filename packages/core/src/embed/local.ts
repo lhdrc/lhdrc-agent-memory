@@ -38,15 +38,21 @@ function embedOne(text: string, dims: number): number[] {
   return l2Normalize(vec);
 }
 
-export class OnnxLocalEmbedding implements EmbeddingProvider {
+/** 确定性 bigram 哈希嵌入（非真 ONNX 模型）。 */
+export class LocalHashEmbedding implements EmbeddingProvider {
   readonly id = "local";
   readonly dims: number;
+  readonly fallbackFrom?: string;
 
-  constructor(dims = DEFAULT_DIMS) {
+  constructor(dims = DEFAULT_DIMS, fallbackFrom?: string) {
     this.dims = dims;
+    this.fallbackFrom = fallbackFrom;
   }
 
   async embed(texts: string[]): Promise<number[][]> {
     return texts.map((t) => embedOne(t, this.dims));
   }
 }
+
+/** @deprecated 旧名；实为哈希嵌入，不是 ONNX。 */
+export { LocalHashEmbedding as OnnxLocalEmbedding };

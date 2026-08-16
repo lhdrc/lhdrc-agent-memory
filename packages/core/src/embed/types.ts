@@ -1,16 +1,19 @@
 export interface EmbeddingProvider {
   readonly id: string;
   readonly dims: number;
+  /** P9.2：fail-open 降级时记录来源 provider（openai/onnx） */
+  readonly fallbackFrom?: string;
   embed(texts: string[]): Promise<number[][]>;
 }
 
-export type EmbeddingProviderId = "off" | "local" | "openai";
+export type EmbeddingProviderId = "off" | "local" | "openai" | "onnx";
 
 export interface EmbeddingConfig {
   provider: EmbeddingProviderId;
   model: string;
   dims?: number;
   openai_api_key_env: string;
+  onnx_model_path?: string;
 }
 
 export type TokenmaxRerank = "off" | "local";

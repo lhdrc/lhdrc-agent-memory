@@ -55,7 +55,7 @@ describe("P2.1a 中文检索门禁", () => {
       });
       const pack = await loadPack("problem-tree");
       const cfg = await loadRepoConfig(repoRoot);
-      expect(cfg.embedding.provider).toBe("local");
+      expect(cfg.embedding.provider).toBe("openai");
 
       const queue = new WriteQueue(repoRoot, cfg, pgliteIndexHooks);
       for (const c of cases) {

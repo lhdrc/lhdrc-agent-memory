@@ -100,8 +100,8 @@ const DEFAULT_FORCE_COMMIT_ON = ["entity_merge", "schema_use", "purge"];
 
 function parseEmbeddingProvider(raw: unknown): EmbeddingProviderId {
   const v = String(raw ?? "off");
-  if (v === "off" || v === "local" || v === "openai") return v;
-  return "off";
+  if (v === "off" || v === "local" || v === "openai" || v === "onnx") return v;
+  throw new MemoryError(ErrorCodes.USAGE, `未知 embedding.provider: ${v}`);
 }
 
 function parseSearchMode(raw: unknown): SearchConfig["mode"] {
@@ -266,6 +266,7 @@ export async function loadRepoConfig(repoRoot: string): Promise<RepoConfig> {
       model: String(data.embedding?.model ?? "text-embedding-3-small"),
       dims: data.embedding?.dims != null ? Number(data.embedding.dims) || undefined : undefined,
       openai_api_key_env: String(data.embedding?.openai_api_key_env ?? "OPENAI_API_KEY"),
+      onnx_model_path: data.embedding?.onnx_model_path != null ? String(data.embedding.onnx_model_path) : "",
     },
     search: parseSearchConfig(data),
     llm: parseLLMConfig(data),

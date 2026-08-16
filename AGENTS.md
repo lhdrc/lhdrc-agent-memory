@@ -52,14 +52,14 @@
 | **P4.2** | DSH 插件化 A：core Node 兼容 + 三工具；B 迁 P8.1 | **in_progress**（A 本仓测例绿；未 npm publish） |
 | **P4.1** | MCP / REST / Claude Code | **不做** |
 | **P9.1** | content_hash 语义归一化 | **done**（P91-01–05：时间戳不进 hash，语义变才重切块） |
-| **P9.2** | embedding 三档（默认 openai；CI 用 local） | **ready** |
+| **P9.2** | embedding 三档（默认 openai；CI 用 local） | **done**（P92-01–07：init openai；无 Key fail-open 哈希；onnx 缺权重不冒充成功） |
 | **P9.3** | RRF rescale + floor + cosine re-score + hotness 乘法 | **ready** |
-| **P9.4** | source 解析 7 层 | **ready** |
+| **P9.4** | source 解析 7 层 | **done**（P94-01–09） |
 | **P9.5** | facts 量纲 + `memory trend` | **ready** |
 | **P9.6** | skill outcome + 启动注经验 | **ready** |
 | **P9.7** | Iron Law back-link + `[Source:]` | **ready** |
 | **P9.8** | 写路径默认异步（JobRunner 入 core） | **ready** |
-| **P9.9** | 蒸馏读 pack `merge_op` | **ready** |
+| **P9.9** | 蒸馏读 pack `merge_op` | **done**（P99-01–05：append/patch/immutable；L0 仍 ADD-only） |
 
 **未做 backlog：**
 
@@ -71,7 +71,7 @@
 | — | **八期关账** | P81-17 真机 `next` 当步生效待补验。 |
 | P1 | **remember 无 Key → `E_DISABLED`** | 设计如此；escape：`remember --no-extract`。 |
 | P1 | **schema pack 仅 problem-tree** | 明确裁剪。 |
-| P1 | **embedding** | **九期 Spec**：init 默认 `openai`；CI `local` 哈希；`onnx` 真本地模型。代码未改前仍是 `local`。 |
+| P1 | **embedding** | **P9.2**：init 默认 `openai`；CI `local` 哈希；`onnx` 真本地模型。无 Key 语义臂 fail-open。 |
 | P2 | **import 默认不 enrich** | P5.1：仅当 `llm.extract` 或 `dedupe_cosine>0` 才 post-import enrich。 |
 
 回归：`bun test packages/core/tests/`；隔离：`bun run test:isolation`；迷你评测：`bun run eval:mini`；蒸馏：`bun run eval:distill`；摘要：`bun run eval:report`。
@@ -103,7 +103,7 @@
 - 版本账本：git **可选批量 flush**（默认 `git.mode: batch`）  
 - 索引：**PGLite**（`.dfmemory/pglite/`，可丢可 `rebuild-index`）；可选 **Postgres**（`index.engine: postgres` + `DF_MEMORY_DATABASE_URL`，见 `scripts/dev-postgres.md`）  
 - 包：`packages/core`、`packages/cli`（bin: `memory`）、`packages/adapters/*`（摄取插件，D9）；DSH 插件在并列仓 `dsh-df-memory/`（P4.2）  
-- **不实现 Java**；默认 **不强制联网**（`embedding.provider` 默认 `local` 确定性向量；`llm.provider` 默认 `off`）  
+- **不实现 Java**；默认 **不强制联网**（`embedding.provider` init 默认 `openai`；hermetic CI / 测例用 `local` 哈希；`llm.provider` 默认 `off`）  
 
 ### 热路径写事务（D18）
 

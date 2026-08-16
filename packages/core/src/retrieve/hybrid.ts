@@ -59,6 +59,8 @@ export interface QueryExplain {
   rerank_scores?: Array<{ path: string; score: number }>;
   /** P7.4 */
   graph_mode?: GraphMode;
+  /** P9.2：openai/onnx 缺依赖时 fail-open 哈希 */
+  embedding_fallback?: "local";
 }
 
 export interface HybridQueryResult {
@@ -342,6 +344,7 @@ export async function hybridQueryDetailed(
             hotness: search.hotness.enabled,
             directory_prefilter: search.directory_prefilter ? null : null,
             graph_mode: graphMode,
+            ...(embedder?.fallbackFrom ? { embedding_fallback: "local" as const } : {}),
           }
         : undefined;
       return { hits: await withAnnotations(opts, cached.hits), explain };
@@ -448,6 +451,7 @@ export async function hybridQueryDetailed(
         directory_prefilter: dirExplain,
         graph_mode: graphMode,
         ...(rerankScores ? { rerank_scores: rerankScores } : {}),
+        ...(embedder?.fallbackFrom ? { embedding_fallback: "local" as const } : {}),
       }
     : undefined;
 
