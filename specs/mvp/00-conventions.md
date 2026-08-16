@@ -104,6 +104,10 @@ index:
 writer:
   lock_file: .dfmemory/write.lock
   lock_timeout_ms: 30000
+compile:
+  window_max_turns: 20
+  window_max_chars: 16000
+  job_timeout_ms: 120000        # 八期 P8.1：异步 compile / remember 任务超时
 ```
 
 ### 5.2 `brains/{id}/brain.yml`

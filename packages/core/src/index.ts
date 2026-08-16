@@ -181,6 +181,8 @@ export type { QueryOptions, QueryHit, PageFilterOptions } from "./retrieve/query
 export { semanticArm } from "./retrieve/semantic.ts";
 export type { SemanticArmOptions } from "./retrieve/semantic.ts";
 export { hybridQuery, hybridQueryDetailed } from "./retrieve/hybrid.ts";
+export { annotateHits, inferSchemaTypeFromPath } from "./retrieve/annotate.ts";
+export type { AnnotatedHit } from "./retrieve/annotate.ts";
 export { thinkQuery } from "./retrieve/think.ts";
 export type { ThinkResult, ThinkHit } from "./retrieve/think.ts";
 export type { HybridQueryOptions, HybridQueryResult, QueryExplain } from "./retrieve/hybrid.ts";
@@ -191,6 +193,8 @@ export {
   titlePathBoostNorm,
   resolveFusionWeights,
   weightsKey,
+  layerTieBreakKey,
+  TIE_BREAK_EPS,
   RRF_K,
   WEIGHTS_BALANCED_GRAPH,
   WEIGHTS_RELATION,

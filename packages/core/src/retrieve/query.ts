@@ -29,6 +29,11 @@ export interface QueryHit {
   abstract?: string;
   /** P5.3 内部：用于 hotness */
   updatedAt?: string;
+  /** P8.2：层标注（annotateHits / 路径推断） */
+  schema_type?: string;
+  eta_score?: number;
+  support?: number;
+  source_paths?: string[];
 }
 
 export function makeSnippet(text: string, query: string): string {

@@ -21,6 +21,7 @@ import { heuristicExpand } from "./expand.ts";
 import { localRerank, localRerankScore, type RerankStatus } from "./rerank.ts";
 import { applyHotness } from "./hotness.ts";
 import { applyDirectoryPrefilter, type DirectoryPrefilterExplain } from "./prefilter.ts";
+import { annotateHits } from "./annotate.ts";
 
 export interface HybridQueryOptions extends QueryOptions {
   mode?: SearchMode;
@@ -201,6 +202,11 @@ export async function hybridQuery(db: SqlClient, opts: HybridQueryOptions): Prom
   return result.hits;
 }
 
+async function withAnnotations(opts: HybridQueryOptions, hits: QueryHit[]): Promise<QueryHit[]> {
+  if (!opts.repoRoot) return hits;
+  return annotateHits(opts.repoRoot, hits, { query: opts.query });
+}
+
 export async function hybridQueryDetailed(
   db: SqlClient,
   opts: HybridQueryOptions,
@@ -338,7 +344,7 @@ export async function hybridQueryDetailed(
             graph_mode: graphMode,
           }
         : undefined;
-      return { hits: cached.hits, explain };
+      return { hits: await withAnnotations(opts, cached.hits), explain };
     }
   }
 
@@ -445,5 +451,5 @@ export async function hybridQueryDetailed(
       }
     : undefined;
 
-  return { hits, explain };
+  return { hits: await withAnnotations(opts, hits), explain };
 }

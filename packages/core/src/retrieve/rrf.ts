@@ -132,6 +132,20 @@ export function armRrfScores(hits: RankedHit[], k = RRF_K): Map<string, number> 
 }
 
 /**
+ * P82-08 层排序键：skill > experience > L0(note/decision/lesson) > 其它。
+ * 仅当最终分并列（分差 < TIE_BREAK_EPS）时用于 tie-break；**不**进入 RRF 权重公式。
+ */
+export const TIE_BREAK_EPS = 0.01;
+
+export function layerTieBreakKey(path: string): number {
+  const p = path.replace(/\\/g, "/");
+  if (p.includes("/skills/")) return 0;
+  if (p.includes("/experiences/")) return 1;
+  if (/\/sources\/[^/]+\/(notes|decisions|lessons)\//.test(p)) return 2;
+  return 3;
+}
+
+/**
  * 标题/路径 boost ∈ [0,1]：
  * 标题命中 0.7，路径命中 0.3，可叠加 cap 1。
  */
@@ -266,7 +280,15 @@ export function fuseHybridArms(
     });
   }
 
-  fused.sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));
+  fused.sort((a, b) => {
+    const d = b.score - a.score;
+    // P82-08：仅并列（分差 < ε）时按层偏好 tie-break，不改变相关度顺序
+    if (Math.abs(d) < TIE_BREAK_EPS) {
+      const t = layerTieBreakKey(a.path) - layerTieBreakKey(b.path);
+      if (t !== 0) return t;
+    }
+    return d || a.path.localeCompare(b.path);
+  });
   const seen = new Set<string>();
   const out: FusedHit[] = [];
   for (const h of fused) {

@@ -5,7 +5,7 @@
 ## 项目是什么
 
 **df-memory**：开源、单机、本地部署的记忆模块——「agent 的 git + 知识库」。  
-当前交付焦点：**八期主线（in_progress）**——Agent 记忆闭环（P8.1–P8.3）；七期 **P7.1–P7.5 done**。四期：**P4.2 A** 已接线（未 npm publish）；**B 档迁八期 P8.1**；**P4.1 MCP/REST 仍后置**。**P6.5 Cursor 模板不做**（搁置）。
+当前交付焦点：**八期主线（in_progress）**——Agent 记忆闭环（P8.1–P8.3；**P8.2/P8.3 done**；P8.1 测例全绿，仅剩 P81-17 真机 next 生效补验）；七期 **P7.1–P7.5 done**。四期：**P4.2 A** 已接线（未 npm publish）；**B 档迁八期 P8.1**；**P4.1 MCP/REST 仍后置**。**P6.5 Cursor 模板不做**（搁置）。
 
 > 口号里的「git」指版本化知识仓体验；**实现上热路径以 md 文件为权威**，git 为可选批量账本（08 **D1/D18**）。
 
@@ -44,9 +44,9 @@
 | **P7.3** | 滑动窗口摄入（攒 turns 再 compile） | **done** |
 | **P7.4** | compile 建 entity + 统一 linkify + query 邻接 | **done** |
 | **P7.5** | `inbox retry`；revert merge/skill/noop | **done** |
-| **P8.1** | 会话挂钩 + remember 异步（统一 job；承接 P4.2 B） | **in_progress**（本仓 deferCompile/`bindOpen` 绿；插件挂钩 P81-10/11/12/18 + 异步 remember 绿；P81-17 真机未补） |
-| **P8.2** | 检索分层标注 / 溯源 / 图臂 schemaType | **in_progress**（本仓 exclude + 图臂 type 绿；标注/插件默认排除未做） |
-| **P8.3** | Skill 查找与按需注入（不混默认 query） | **in_progress**（本仓 `findSkills` 绿；插件 `memory_skill` / 注入未做） |
+| **P8.1** | 会话挂钩 + remember 异步（统一 job；承接 P4.2 B） | **in_progress**（本仓 deferCompile/`bindOpen` + `job_timeout_ms` + init gitignore 绿；插件 P81-10–18 除真机 next 生效外全绿：15 串行、16 崩溃恢复、17 门控注入 fail-open、卸载 flush、超时不写 L0 均已补测） |
+| **P8.2** | 检索分层标注 / 溯源 / 图臂 schemaType | **done**（P82-01–09 全绿：本仓 exclude + 图臂 type + `annotateHits` + tie-break；插件默认排除 + 标注透传 + prompt 策略） |
+| **P8.3** | Skill 查找与按需注入（不混默认 query） | **done**（本仓 `findSkills` 绿；插件 `memory_skill` list/find/read/inject + 宿主 `ctx.skills.register` A 通道 + 预算/幂等/ACL + P83-10–17 绿） |
 | **P8.4** | 提取粒度（note 合并同类；不破 P6.6） | **draft** |
 | **P8.5** | 工具 per-call `brain` | **draft**（不阻塞主线） |
 | **P4.2** | DSH 插件化 A：core Node 兼容 + 三工具；B 迁 P8.1 | **in_progress**（A 本仓测例绿；未 npm publish） |
@@ -58,8 +58,8 @@
 
 | 优先级 | 项 | 说明 |
 |---|---|---|
-| — | **八期主线** | P8.1 挂钩已接（插件仓）；下一步 **P8.2 插件默认排除 skill + P8.3 `memory_skill` 查找面**。见 [`specs/八期/README.md`](specs/八期/README.md)。 |
-| P1 | **agent 每轮对话进 inbox** | **插件已接**：`session/event` + dispose 去重 `endSession`；`autoBuffer` 默认 true。P81-17 门控注入测例未补。 |
+| — | **八期主线** | P8.1 挂钩已接（插件仓），P81-10–18 测例全绿（仅 P81-17 真机 next 生效待补）；**P8.2 全绿**；**P8.3 全绿**（`memory_skill` + 宿主 A 通道注入）。下一步 **P8.4 提取粒度 / P8.5 per-call brain（draft）**。见 [`specs/八期/README.md`](specs/八期/README.md)。 |
+| P1 | **agent 每轮对话进 inbox** | **插件已接**：`session/event` + dispose 去重 `endSession`；`autoBuffer` 默认 true。P81-17 门控注入测例已补（真机 waterfall 当步生效待补验）。 |
 | P1 | **remember / ingest session 默认 `E_DISABLED`** | **设计如此**（六期）：无 Key 不以启发式冒充 compile。escape：`remember --no-extract`。 |
 | P1 | **schema use 仅 problem-tree** | MVP 范围；七期不做新 pack。 |
 | P1 | **embedding.provider=off 语义臂关闭** | 用户显式关；默认 init 为 `local`。 |
@@ -71,7 +71,7 @@
 
 1. 改行为前先读 / 更新对应 Spec（[`00-conventions.md`](specs/mvp/00-conventions.md) §8、M1/M2/M3、[`二期/`](specs/二期/)、[`三期/`](specs/三期/)、[`五期/`](specs/五期/)、[`六期/`](specs/六期/)、[`七期/`](specs/七期/)、[`八期/`](specs/八期/)、[`四期/`](specs/四期/)）  
 2. 写入校验以 [`WRITE_FORMAT.md`](specs/mvp/WRITE_FORMAT.md) 为准（含 experience §9、skill §10）  
-3. **五期 / 六期 / 七期已完成**。**八期 in_progress**：本仓 P8.1–P8.3 的 core 切片已绿；挂钩与异步 remember 在并列仓 `dsh-df-memory/`（`file:` 指本仓 core）。下一步插件：默认 query 排除 skill + `memory_skill` 查找。会话摄入必须 `complete()`（无 Key → `E_DISABLED`）。**P6.5 Cursor 模板不做。** **P4.2 B 迁 P8.1。**  
+3. **五期 / 六期 / 七期已完成**。**八期 in_progress**：本仓 P8.1–P8.3 的 core 切片已绿（含 P8.2 `annotateHits` + tie-break；P8.1 `deferCompile`/`bindOpen`/`job_timeout_ms`/init gitignore）；挂钩与异步 remember 在并列仓 `dsh-df-memory/`（`file:` 指本仓 core）。**P8.2 全绿**（插件默认排除 skill/侧车 + hit 标注透传 + prompt 策略）；**P8.3 全绿**（插件 `memory_skill` list/find/read/inject，注入走宿主 `ctx.skills.register` A 通道，预算/幂等/ACL 已验）。P8.1 插件 P81-10–18 测例全绿（串行 queue、崩溃恢复、门控注入 fail-open、卸载先 flush 后关 host、超时 abort 不写 L0）；仅 P81-17 真机 `next` 当步生效待补验。下一步 **P8.4 提取粒度 / P8.5 per-call brain（draft）**。会话摄入必须 `complete()`（无 Key → `E_DISABLED`）。**P6.5 Cursor 模板不做。** **P4.2 B 迁 P8.1。**  
    原文先归档 `.dfmemory/inbox/`。人手 `capture` 仍可零 LLM。  
 4. 与 Spec 冲突时：**先改 Spec/08 ADR，再改代码**  
 5. **不**扩 dream 夜间维护全集（v1 五段维持）  
@@ -87,7 +87,7 @@
 - skill 不混默认 `memory_query`（P8.3）；不从会话直接抽 `SKILL.md`。  
 - 懒蒸默认 5→3 **不改**（仓配置即可）。  
 
-分期速查：二期 = P2.1a+P2.2（**done**）；三期 = P3.1–P3.3（**done**）；**五期 = P5.1–P5.8（done）**；**六期 = P6.1–P6.4 + 查询门控 + P6.6（done；Cursor 模板不做）**；**七期 = P7.1–P7.5（done）**；**八期 = P8.1 挂钩已接 / 下一步插件 skill 面**；四期 = **P4.2 A in_progress / B 迁 P8.1**；P4.1 MCP/REST **后置**。
+分期速查：二期 = P2.1a+P2.2（**done**）；三期 = P3.1–P3.3（**done**）；**五期 = P5.1–P5.8（done）**；**六期 = P6.1–P6.4 + 查询门控 + P6.6（done；Cursor 模板不做）**；**七期 = P7.1–P7.5（done）**；**八期 = P8.2/P8.3 done，P8.1 测例全绿（真机 next 待补），下一步 P8.4/P8.5（draft）**；四期 = **P4.2 A in_progress / B 迁 P8.1**；P4.1 MCP/REST **后置**。
 
 ## 技术栈（已锁定）
 

@@ -137,4 +137,28 @@ describe("P8.1 deferCompile", () => {
     },
     T,
   );
+
+    test(
+      "P8.1 compile.job_timeout_ms 默认 120000 且可配置",
+      async () => {
+        const dir = await mkdtemp(join(tmpdir(), "dfmem-p81-timeoutcfg-"));
+        const repoRoot = await initMemoryRepo(dir, { brain: "default", source: "default", force: false });
+        expect((await loadRepoConfig(repoRoot)).compile.job_timeout_ms).toBe(120_000);
+        await patchMemoryYml(repoRoot, { compile: { job_timeout_ms: 3000 } });
+        expect((await loadRepoConfig(repoRoot)).compile.job_timeout_ms).toBe(3000);
+      },
+      T,
+    );
+
+    test(
+      "init 模板 .gitignore 忽略 .dfmemory/jobs/",
+      async () => {
+        const dir = await mkdtemp(join(tmpdir(), "dfmem-p81-gitignore-"));
+        const repoRoot = await initMemoryRepo(dir, { brain: "default", source: "default", force: false });
+        const gitignore = await readFile(join(repoRoot, ".gitignore"), "utf8");
+        expect(gitignore).toContain(".dfmemory/jobs/");
+      },
+      T,
+    );
+
 });

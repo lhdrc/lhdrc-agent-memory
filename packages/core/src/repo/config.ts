@@ -24,6 +24,8 @@ export interface CompileConfig {
   prefetch_topn: number;
   window_max_turns: number;
   window_max_chars: number;
+  /** P8.1：异步 compile / remember 任务超时（毫秒）。 */
+  job_timeout_ms: number;
 }
 
 export interface RecallConfig {
@@ -41,6 +43,7 @@ export const DEFAULT_COMPILE_CONFIG: CompileConfig = {
   prefetch_topn: 5,
   window_max_turns: 20,
   window_max_chars: 16_000,
+  job_timeout_ms: 120_000,
 };
 
 export const DEFAULT_RECALL_CONFIG: RecallConfig = {
@@ -177,6 +180,9 @@ function parseCompileConfig(data: Record<string, any>): CompileConfig {
     prefetch_topn: parsePrefetchTopn(compile.prefetch_topn),
     window_max_turns: parseWindowInt(compile.window_max_turns, DEFAULT_COMPILE_CONFIG.window_max_turns),
     window_max_chars: parseWindowInt(compile.window_max_chars, DEFAULT_COMPILE_CONFIG.window_max_chars),
+      job_timeout_ms:
+        Number(compile.job_timeout_ms ?? DEFAULT_COMPILE_CONFIG.job_timeout_ms) ||
+        DEFAULT_COMPILE_CONFIG.job_timeout_ms,
   };
 }
 

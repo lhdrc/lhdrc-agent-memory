@@ -80,6 +80,7 @@ compile:
   prefetch_topn: 5
   window_max_turns: 20
   window_max_chars: 16000
+  job_timeout_ms: 120000
 distill:
   lazy_min_sources: 5
   auto_crystallize: true
@@ -141,7 +142,7 @@ export async function initMemoryRepo(dir: string, opts: InitOptions): Promise<st
     await writeFile(join(abs, "memory.yml"), memoryYml(opts.brain, pack.id, gitMode));
     await writeFile(
       join(abs, ".gitignore"),
-      ".dfmemory/pglite/\n.dfmemory/write.lock\n.dfmemory/index-meta.json\n.dfmemory/embedding-meta.json\n.dfmemory/git-dirty.json\n.dfmemory/costs.jsonl\n.dfmemory/inbox/\n",
+      ".dfmemory/pglite/\n.dfmemory/write.lock\n.dfmemory/index-meta.json\n.dfmemory/embedding-meta.json\n.dfmemory/git-dirty.json\n.dfmemory/costs.jsonl\n.dfmemory/inbox/\n.dfmemory/jobs/\n",
     );
 
     await mkdir(join(abs, ".dfmemory", "logs"), { recursive: true });
