@@ -114,8 +114,11 @@ function parseSearchConfig(data: Record<string, any>): SearchConfig {
   const search = data.search ?? {};
   const tm = search.tokenmax ?? {};
   const hot = search.hotness ?? {};
+  const fusion = search.fusion ?? {};
   const rerankRaw = String(tm.rerank ?? DEFAULT_SEARCH_CONFIG.tokenmax.rerank);
-  const rerank = rerankRaw === "local" ? "local" : "off";
+  const rerank =
+    rerankRaw === "local" || rerankRaw === "model" ? rerankRaw : "off";
+  const alpha = Number(hot.alpha ?? DEFAULT_SEARCH_CONFIG.hotness.alpha);
   return {
     mode: parseSearchMode(search.mode),
     tokenmax: {
@@ -124,9 +127,17 @@ function parseSearchConfig(data: Record<string, any>): SearchConfig {
       rerank,
       rerank_top_n: Number(tm.rerank_top_n ?? DEFAULT_SEARCH_CONFIG.tokenmax.rerank_top_n) || 20,
     },
+    fusion: {
+      rrf_k: Number(fusion.rrf_k ?? DEFAULT_SEARCH_CONFIG.fusion.rrf_k) || 60,
+      rescale: fusion.rescale !== false,
+      per_arm_min: Number(fusion.per_arm_min ?? DEFAULT_SEARCH_CONFIG.fusion.per_arm_min),
+      fused_min: Number(fusion.fused_min ?? DEFAULT_SEARCH_CONFIG.fusion.fused_min),
+      cosine_lambda: Number(fusion.cosine_lambda ?? DEFAULT_SEARCH_CONFIG.fusion.cosine_lambda),
+    },
     hotness: {
       enabled: hot.enabled !== false,
       half_life_days: Number(hot.half_life_days ?? DEFAULT_SEARCH_CONFIG.hotness.half_life_days) || 30,
+      alpha: Number.isFinite(alpha) ? alpha : 0.15,
     },
     directory_prefilter: search.directory_prefilter === true,
     entity_boost: search.entity_boost !== false,

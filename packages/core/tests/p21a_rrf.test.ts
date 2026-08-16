@@ -7,6 +7,7 @@ import {
   WEIGHTS_NO_SEMANTIC,
   WEIGHTS_RELATION_NO_SEM,
   RRF_K,
+  rescaleRrf,
 } from "../src/retrieve/rrf.ts";
 
 describe("P2.1a RRF 融合（冻结公式）", () => {
@@ -34,7 +35,7 @@ describe("P2.1a RRF 融合（冻结公式）", () => {
     expect(out[0]!.evidence).toContain("keyword");
     expect(out[0]!.evidence).toContain("semantic");
     const expected =
-      0.45 * (1 / (RRF_K + 1)) + 0.45 * (1 / (RRF_K + 1)) + 0.1 * 0.7;
+      0.45 * rescaleRrf(1 / (RRF_K + 1)) + 0.45 * rescaleRrf(1 / (RRF_K + 1)) + 0.1 * 0.7;
     expect(out[0]!.score).toBeCloseTo(expected, 10);
   });
 
@@ -64,8 +65,8 @@ describe("P2.1a RRF 融合（冻结公式）", () => {
 
   test("无 graphHits：balanced 仍用 P2.1a 0.45/0.45/0.10", () => {
     const titles = new Map([["p1", "网关"]]);
-    const b = 1 / (RRF_K + 1);
-    const s = 1 / (RRF_K + 1);
+    const b = rescaleRrf(1 / (RRF_K + 1));
+    const s = rescaleRrf(1 / (RRF_K + 1));
     const tp = titlePathBoostNorm("网关", "p1", "支付网关超时");
     const out = fuseHybridArms([{ path: "p1" }], [{ path: "p1" }], {
       mode: "balanced",
@@ -78,8 +79,8 @@ describe("P2.1a RRF 融合（冻结公式）", () => {
 
   test("graph + semanticOff + general：08 无语义 0.55/0.30/0.10/0.05", () => {
     const titles = new Map([["p1", "支付"]]);
-    const b = 1 / (RRF_K + 1);
-    const g = 1 / (RRF_K + 1);
+    const b = rescaleRrf(1 / (RRF_K + 1));
+    const g = rescaleRrf(1 / (RRF_K + 1));
     const tp = titlePathBoostNorm("支付", "p1", "支付");
     const out = fuseHybridArms([{ path: "p1" }], [], {
       mode: "balanced",
@@ -95,8 +96,8 @@ describe("P2.1a RRF 融合（冻结公式）", () => {
 
   test("relation + semanticOff：wGraph 0.55", () => {
     const titles = new Map([["p1", "x"]]);
-    const b = 1 / (RRF_K + 1);
-    const g = 1 / (RRF_K + 1);
+    const b = rescaleRrf(1 / (RRF_K + 1));
+    const g = rescaleRrf(1 / (RRF_K + 1));
     const out = fuseHybridArms([{ path: "p1" }], [], {
       mode: "balanced",
       query: "zzz",

@@ -1,17 +1,10 @@
 import type { SqlClient } from "../index/sql.ts";
 import type { EmbeddingProvider, SearchConfig } from "../embed/types.ts";
-import { DEFAULT_SEARCH_CONFIG } from "../embed/types.ts";
+import { DEFAULT_SEARCH_CONFIG, DEFAULT_FUSION_CONFIG } from "../embed/types.ts";
 import { readEmbeddingMeta } from "../index/meta.ts";
 import { loadRepoConfig } from "../repo/config.ts";
 import { bm25Query, type QueryHit, type QueryOptions, assertExclusiveSchemaFilters } from "./query.ts";
-import {
-  fuseHybridArms,
-  resolveFusionWeights,
-  weightsKey,
-  type RankedHit,
-  type SearchMode,
-  type FusedHit,
-} from "./rrf.ts";
+import { fuseHybridArms, resolveFusionWeights, weightsKey, sortWithTieBreak, type RankedHit, type SearchMode, type FusedHit } from "./rrf.ts";
 import { semanticArm } from "./semantic.ts";
 import { classifyIntent, type QueryIntent } from "./intent.ts";
 import { graphArmDetailed, type GraphMode } from "./graph.ts";
@@ -61,6 +54,14 @@ export interface QueryExplain {
   graph_mode?: GraphMode;
   /** P9.2：openai/onnx 缺依赖时 fail-open 哈希 */
   embedding_fallback?: "local";
+  /** P9.3 */
+  fusion?: {
+    rescale: boolean;
+    per_arm_min: number;
+    fused_min: number;
+    cosine: "applied" | "skipped";
+  };
+  hotness_detail?: { alpha: number; mode: "multiply" };
 }
 
 export interface HybridQueryResult {
@@ -261,6 +262,7 @@ export async function hybridQueryDetailed(
 
   let semanticHits: RankedHit[] = [];
   let semanticAvailable = false;
+  let queryVec: number[] | undefined;
 
   if (semanticWanted && embedder) {
     const stale =
@@ -268,7 +270,8 @@ export async function hybridQueryDetailed(
       embeddingMetaMismatch(await readEmbeddingMeta(opts.repoRoot), embedder);
     if (!stale) {
       try {
-        const [queryVec] = await embedder.embed([q]);
+        const [qv] = await embedder.embed([q]);
+        queryVec = qv;
         if (queryVec && queryVec.length > 0) {
           semanticHits = await semanticArm(db, {
             brainId: opts.brainId,
@@ -291,6 +294,7 @@ export async function hybridQueryDetailed(
       } catch {
         semanticHits = [];
         semanticAvailable = false;
+        queryVec = undefined;
       }
     }
   }
@@ -365,7 +369,23 @@ export async function hybridQueryDetailed(
     graphHits,
     entityBoosts: entityPack.boosts,
     intent,
+    fusion: search.fusion ?? DEFAULT_FUSION_CONFIG,
   });
+
+  const fusionCfg = search.fusion ?? DEFAULT_FUSION_CONFIG;
+  const cosineLambda = fusionCfg.cosine_lambda;
+  let cosineStatus: "applied" | "skipped" = "skipped";
+  if (embedder && embedder.id !== "off" && queryVec && queryVec.length > 0 && cosineLambda > 0) {
+    const cosByPath = new Map<string, number>();
+    for (const h of semanticHits) {
+      if (typeof h.score === "number") cosByPath.set(h.path, h.score);
+    }
+    fused = fused.map((h) => {
+      const cos = Math.max(0, cosByPath.get(h.path) ?? 0);
+      return { ...h, score: (1 - cosineLambda) * h.score + cosineLambda * cos };
+    });
+    cosineStatus = "applied";
+  }
 
   let signalExplain: SignalExplain = { hub: [], crossSource: [], diversified: [] };
   try {
@@ -377,8 +397,9 @@ export async function hybridQueryDetailed(
   }
 
   if (search.hotness.enabled) {
-    fused = applyHotness(fused, updatedAt, search.hotness.half_life_days);
+    fused = applyHotness(fused, updatedAt, search.hotness.half_life_days, search.hotness.alpha ?? 0.15);
   }
+  fused = sortWithTieBreak(fused);
 
   let dirExplain: DirectoryPrefilterExplain | null = null;
   if (search.directory_prefilter) {
@@ -405,12 +426,17 @@ export async function hybridQueryDetailed(
 
   let rerankStatus: RerankStatus = search.tokenmax.rerank;
   let rerankScores: Array<{ path: string; score: number }> | undefined;
-  if (search.tokenmax.rerank === "local" || opts.rerankFn) {
+  const wantModel = search.tokenmax.rerank === "model" && mode === "tokenmax";
+  const wantLocal = search.tokenmax.rerank === "local" || wantModel;
+  if (wantLocal || opts.rerankFn) {
     try {
-      if (opts.rerankFn) {
+      if (wantModel && opts.rerankFn) {
+        hits = await opts.rerankFn(q, hits);
+        rerankStatus = "model";
+      } else if (opts.rerankFn && search.tokenmax.rerank !== "off") {
         hits = await opts.rerankFn(q, hits);
         rerankStatus = "local";
-      } else {
+      } else if (wantLocal) {
         rerankScores = hits.slice(0, search.tokenmax.rerank_top_n).map((h) => ({
           path: h.path,
           score: localRerankScore(q, h.title, h.snippet),
@@ -419,7 +445,16 @@ export async function hybridQueryDetailed(
         rerankStatus = "local";
       }
     } catch {
-      rerankStatus = "skipped";
+      if (wantModel) {
+        try {
+          hits = localRerank(q, hits, search.tokenmax.rerank_top_n);
+          rerankStatus = "local";
+        } catch {
+          rerankStatus = "skipped";
+        }
+      } else {
+        rerankStatus = "skipped";
+      }
     }
   }
 
@@ -450,8 +485,15 @@ export async function hybridQueryDetailed(
         hotness: search.hotness.enabled,
         directory_prefilter: dirExplain,
         graph_mode: graphMode,
-        ...(rerankScores ? { rerank_scores: rerankScores } : {}),
         ...(embedder?.fallbackFrom ? { embedding_fallback: "local" as const } : {}),
+        fusion: {
+          rescale: fusionCfg.rescale,
+          per_arm_min: fusionCfg.per_arm_min,
+          fused_min: fusionCfg.fused_min,
+          cosine: cosineStatus,
+        },
+        hotness_detail: { alpha: search.hotness.alpha ?? 0.15, mode: "multiply" },
+        ...(rerankScores ? { rerank_scores: rerankScores } : {}),
       }
     : undefined;
 

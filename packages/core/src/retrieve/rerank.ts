@@ -28,4 +28,4 @@ export function localRerank(query: string, hits: QueryHit[], topN: number): Quer
   return [...scored.map((x) => x.hit), ...rest];
 }
 
-export type RerankStatus = "local" | "off" | "skipped";
+export type RerankStatus = "local" | "off" | "model" | "skipped";

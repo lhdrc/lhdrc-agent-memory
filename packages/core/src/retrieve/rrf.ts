@@ -3,7 +3,13 @@
  * 权威：specs/二期/P2.1a-hybrid-retrieval.md §5；specs/三期/P3.1-graph-signals.md §7
  */
 
+import type { FusionConfig } from "../embed/types.ts";
+import { DEFAULT_FUSION_CONFIG } from "../embed/types.ts";
+
 export const RRF_K = 60;
+
+/** P9.3：rescale 后分差阈值；避免几乎总触发层并列。 */
+export const TIE_BREAK_EPS = 0.002;
 
 export type SearchMode = "conservative" | "balanced" | "tokenmax";
 
@@ -131,12 +137,35 @@ export function armRrfScores(hits: RankedHit[], k = RRF_K): Map<string, number> 
   return scores;
 }
 
+/** P9.3：rrf' = rrf * (k+1)，rank1 → 1.0 */
+export function rescaleRrf(raw: number, k = RRF_K): number {
+  return raw * (k + 1);
+}
+
+function rescaleArm(scores: Map<string, number>, k: number, perArmMin: number, rescale: boolean): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const [path, raw] of scores) {
+    const v = rescale ? rescaleRrf(raw, k) : raw;
+    out.set(path, v < perArmMin ? 0 : v);
+  }
+  return out;
+}
+
+export function sortWithTieBreak<T extends { path: string; score: number }>(hits: T[]): T[] {
+  return [...hits].sort((a, b) => {
+    const d = b.score - a.score;
+    if (Math.abs(d) < TIE_BREAK_EPS) {
+      const t = layerTieBreakKey(a.path) - layerTieBreakKey(b.path);
+      if (t !== 0) return t;
+    }
+    return d || a.path.localeCompare(b.path);
+  });
+}
+
 /**
  * P82-08 层排序键：skill > experience > L0(note/decision/lesson) > 其它。
  * 仅当最终分并列（分差 < TIE_BREAK_EPS）时用于 tie-break；**不**进入 RRF 权重公式。
  */
-export const TIE_BREAK_EPS = 0.01;
-
 export function layerTieBreakKey(path: string): number {
   const p = path.replace(/\\/g, "/");
   if (p.includes("/skills/")) return 0;
@@ -178,6 +207,8 @@ export interface FuseOptions {
   intent?: IntentForWeights;
   /** 显式权重（测试夹具） */
   weights?: FusionWeights;
+  /** P9.3 rescale / floor；缺省用 DEFAULT_FUSION_CONFIG */
+  fusion?: FusionConfig;
 }
 
 /**
@@ -202,11 +233,15 @@ export function fuseHybridArms(
     opts.mode !== "conservative" &&
     semanticHits.length > 0;
 
-  const rrfBm25 = armRrfScores(bm25Hits);
-  const rrfSem = semanticOn ? armRrfScores(semanticHits) : new Map<string, number>();
+  const fusion = opts.fusion ?? DEFAULT_FUSION_CONFIG;
+  const k = fusion.rrf_k || RRF_K;
+  const rrfBm25 = rescaleArm(armRrfScores(bm25Hits, k), k, fusion.per_arm_min, fusion.rescale);
+  const rrfSem = semanticOn
+    ? rescaleArm(armRrfScores(semanticHits, k), k, fusion.per_arm_min, fusion.rescale)
+    : new Map<string, number>();
   const rrfGraph =
     useGraphFormula && opts.graphHits && opts.graphHits.length > 0
-      ? armRrfScores(opts.graphHits)
+      ? rescaleArm(armRrfScores(opts.graphHits, k), k, fusion.per_arm_min, fusion.rescale)
       : new Map<string, number>();
 
   const paths = new Set<string>([...rrfBm25.keys(), ...rrfSem.keys(), ...rrfGraph.keys()]);
@@ -257,6 +292,8 @@ export function fuseHybridArms(
         weights.wEntity * entity;
     }
 
+    if (score < fusion.fused_min) continue;
+
     const evidence = new Set<string>();
     if (b > 0) evidence.add("keyword");
     if (s > 0) evidence.add("semantic");
@@ -280,18 +317,10 @@ export function fuseHybridArms(
     });
   }
 
-  fused.sort((a, b) => {
-    const d = b.score - a.score;
-    // P82-08：仅并列（分差 < ε）时按层偏好 tie-break，不改变相关度顺序
-    if (Math.abs(d) < TIE_BREAK_EPS) {
-      const t = layerTieBreakKey(a.path) - layerTieBreakKey(b.path);
-      if (t !== 0) return t;
-    }
-    return d || a.path.localeCompare(b.path);
-  });
+  const ranked = sortWithTieBreak(fused);
   const seen = new Set<string>();
   const out: FusedHit[] = [];
-  for (const h of fused) {
+  for (const h of ranked) {
     if (seen.has(h.path)) continue;
     seen.add(h.path);
     out.push(h);

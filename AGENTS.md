@@ -53,7 +53,7 @@
 | **P4.1** | MCP / REST / Claude Code | **不做** |
 | **P9.1** | content_hash 语义归一化 | **done**（P91-01–05：时间戳不进 hash，语义变才重切块） |
 | **P9.2** | embedding 三档（默认 openai；CI 用 local） | **done**（P92-01–07：init openai；无 Key fail-open 哈希；onnx 缺权重不冒充成功） |
-| **P9.3** | RRF rescale + floor + cosine re-score + hotness 乘法 | **ready** |
+| **P9.3** | RRF rescale + floor + cosine re-score + hotness 乘法 | **done**（P93-01–10：rrf'、floor、cosine、α=0.15 乘法；P82-08 EPS=0.002） |
 | **P9.4** | source 解析 7 层 | **done**（P94-01–09） |
 | **P9.5** | facts 量纲 + `memory trend` | **ready** |
 | **P9.6** | skill outcome + 启动注经验 | **ready** |
@@ -67,7 +67,7 @@
 
 | 优先级 | 项 | 说明 |
 |---|---|---|
-| — | **九期主线** | **P9.1 done**。接下来 P9.2–P9.3 + P9.8；其余 P9.4–P9.7、P9.9 可并行。编码前读对应 Spec。 |
+| — | **九期主线** | **P9.1–P9.3 done**。接下来 P9.8；其余 P9.5–P9.7 可并行。 |
 | — | **八期关账** | P81-17 真机 `next` 当步生效待补验。 |
 | P1 | **remember 无 Key → `E_DISABLED`** | 设计如此；escape：`remember --no-extract`。 |
 | P1 | **schema pack 仅 problem-tree** | 明确裁剪。 |

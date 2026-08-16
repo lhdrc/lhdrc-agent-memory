@@ -364,19 +364,28 @@ describe("P8.2 tie-break (P82-08 optional)", () => {
   });
 
   test(
-    "分差 <0.01 并列时 experience 排在 note 前（path 字母序相反时仍生效）",
+    "分差 <0.002 并列时 L0 排在 entity 前（path 字母序相反时仍生效）",
     () => {
-      // 两个 hit 同分（bm25/semantic 对称）；字母序上 entity 更前，但 tie-break 应让 note 前
       const entity = "brains/default/entities/aaa.md";
       const note = "brains/default/sources/aaa/notes/zzz.md";
-      expect(entity.localeCompare(note)).toBeLessThan(0); // 无 tie-break 时 entity 本应在前
-      const fused = fuseTwo(
-        [{ path: entity }, { path: note }],
-        [{ path: note }, { path: entity }],
+      expect(entity.localeCompare(note)).toBeLessThan(0);
+      // 互补臂 + 等权 → rescale 后仍严格同分，才走层 tie-break
+      const fused = fuseHybridArms(
+        [{ path: entity }],
+        [{ path: note }],
+        {
+          mode: "balanced",
+          query: "重试",
+          titles: new Map<string, string>(),
+          limit: 10,
+          semanticAvailable: true,
+          graphHits: [],
+          weights: { wKw: 0.5, wSem: 0.5, wGraph: 0, wTitle: 0, wEntity: 0 },
+        },
       );
       expect(fused.length).toBe(2);
       expect(Math.abs(fused[0]!.score - fused[1]!.score)).toBeLessThan(TIE_BREAK_EPS);
-      expect(fused[0]!.path).toBe(note); // L0 优先于其它
+      expect(fused[0]!.path).toBe(note);
     },
     T,
   );

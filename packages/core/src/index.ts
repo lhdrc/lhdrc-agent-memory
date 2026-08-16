@@ -197,6 +197,8 @@ export {
   resolveFusionWeights,
   weightsKey,
   layerTieBreakKey,
+  sortWithTieBreak,
+  rescaleRrf,
   TIE_BREAK_EPS,
   RRF_K,
   WEIGHTS_BALANCED_GRAPH,
@@ -317,7 +319,7 @@ export {
   OnnxEmbedding,
 } from "./embed/index.ts";
 export type { ResolveEmbedderResult, ResolveEmbedderOptions } from "./embed/index.ts";
-export { DEFAULT_SEARCH_CONFIG } from "./embed/index.ts";
+export { DEFAULT_SEARCH_CONFIG, DEFAULT_FUSION_CONFIG } from "./embed/index.ts";
 export type {
   EmbeddingProvider,
   EmbeddingConfig,
@@ -325,6 +327,7 @@ export type {
   SearchConfig,
   TokenmaxConfig,
   HotnessConfig,
+  FusionConfig,
 } from "./embed/index.ts";
 export { heuristicExpand } from "./retrieve/expand.ts";
 export { localRerank, localRerankScore } from "./retrieve/rerank.ts";

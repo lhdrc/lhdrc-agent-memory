@@ -7,17 +7,19 @@ export function hotnessBoost(updatedAt: string | undefined, halfLifeDays: number
   return Math.exp((-Math.LN2 * ageDays) / hl);
 }
 
-export const HOTNESS_WEIGHT = 0.45;
+export const DEFAULT_HOTNESS_ALPHA = 0.15;
 
 export function applyHotness<T extends { path: string; score: number }>(
   hits: T[],
   updatedAt: Map<string, string>,
   halfLifeDays: number,
+  alpha = DEFAULT_HOTNESS_ALPHA,
 ): T[] {
+  const a = Number.isFinite(alpha) ? alpha : DEFAULT_HOTNESS_ALPHA;
   return hits
     .map((h) => ({
       ...h,
-      score: h.score + HOTNESS_WEIGHT * hotnessBoost(updatedAt.get(h.path), halfLifeDays),
+      score: h.score * (1 + a * hotnessBoost(updatedAt.get(h.path), halfLifeDays)),
     }))
-    .sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));
+    .sort((x, y) => y.score - x.score || x.path.localeCompare(y.path));
 }

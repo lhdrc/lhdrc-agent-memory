@@ -55,9 +55,16 @@ search:
     expand_n: 2
     rerank: off
     rerank_top_n: 20
+  fusion:
+    rrf_k: 60
+    rescale: true
+    per_arm_min: 0.70
+    fused_min: 0.05
+    cosine_lambda: 0.3
   hotness:
     enabled: true
     half_life_days: 30
+    alpha: 0.15
   directory_prefilter: false
   entity_boost: true
   alias_hop: true

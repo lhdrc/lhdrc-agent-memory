@@ -21,6 +21,7 @@ import {
   fuseHybridArms,
   WEIGHTS_BALANCED_GRAPH,
   RRF_K,
+  rescaleRrf,
   type SearchKnobs,
   type FusedHit,
 } from "../src/index.ts";
@@ -177,7 +178,7 @@ describe("P3.1 links sync + graph + cache + signals", () => {
       weights: WEIGHTS_BALANCED_GRAPH,
     });
     expect(out[0]!.path).toBe("p1");
-    expect(out[0]!.rrfGraph).toBeCloseTo(1 / (RRF_K + 1), 10);
+    expect(out[0]!.rrfGraph).toBeCloseTo(rescaleRrf(1 / (RRF_K + 1)), 10);
     expect(out[0]!.evidence).toContain("graph");
   });
 

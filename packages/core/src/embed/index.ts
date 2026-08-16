@@ -5,9 +5,10 @@ export type {
   SearchConfig,
   TokenmaxConfig,
   HotnessConfig,
+  FusionConfig,
   TokenmaxRerank,
 } from "./types.ts";
-export { DEFAULT_SEARCH_CONFIG } from "./types.ts";
+export { DEFAULT_SEARCH_CONFIG, DEFAULT_FUSION_CONFIG } from "./types.ts";
 export { cosineSimilarity, float32ToBytes, bytesToFloat32 } from "./cosine.ts";
 export { NoopEmbedding } from "./noop.ts";
 export { LocalHashEmbedding, OnnxLocalEmbedding } from "./local.ts";
