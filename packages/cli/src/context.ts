@@ -1,4 +1,4 @@
-import { findRepoRoot, loadRepoConfig, resolveEnvDefaults, loadBrainConfig, resolveSourceId, authorize, applyAgentScopeFromId, type AuthContext } from "@lhdrc/core";
+import { findRepoRoot, loadRepoConfig, resolveEnvDefaults, loadBrainConfig, resolveSourceIdFull, authorize, applyAgentScopeFromId, type AuthContext } from "@lhdrc/core";
 import type { BrainConfig, RepoConfig } from "@lhdrc/core";
 
 export interface CommandContext {
@@ -27,7 +27,13 @@ export async function loadContext(json: boolean): Promise<CommandContext> {
   const { brain } = resolveEnvDefaults(cfg);
   const brainId = brain ?? cfg.brain_id;
   const brainCfg = await loadBrainConfig(repoRoot, brainId);
-  const sourceId = process.env.DF_MEMORY_SOURCE ?? resolveSourceId(brainCfg);
+  const sourceId = await resolveSourceIdFull({
+    repoRoot,
+    brainId,
+    flag: undefined,
+    cwd: process.cwd(),
+    brain: brainCfg,
+  });
   const auth = await withAgentScope(
     repoRoot,
     brainId,
