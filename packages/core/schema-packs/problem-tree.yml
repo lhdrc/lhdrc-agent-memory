@@ -19,6 +19,7 @@ merge_op:
   requirement: immutable
   decision: append
   lesson: append
+  experience: append
   note: patch
 
 # 相对 sources/{sourceId}/

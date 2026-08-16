@@ -3,10 +3,15 @@ import { readdir, readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { parseFrontmatter } from "../frontmatter.ts";
 import { loadRepoConfig } from "../repo/config.ts";
-import { loadPack } from "../schema/loadPack.ts";
+import { loadPack, type SchemaPack } from "../schema/loadPack.ts";
 import { sha256Hex } from "../util/hash.ts";
 import type { FileMutationExecutor } from "../write/executor.ts";
-import { writeExperience, patchExperienceStatus, mergeExperienceFields } from "../write/experience.ts";
+import {
+  writeExperience,
+  patchExperienceStatus,
+  mergeExperienceFields,
+  resolveExperienceMergeOp,
+} from "../write/experience.ts";
 import { createLLMProvider, isDistillEnabled, type LLMProvider } from "../llm/index.ts";
 import { formatExistingExperienceLine, formatJudgeCandidate } from "../llm/distill-prompt.ts";
 import { appendMemoryDiff } from "./memory-diff.ts";
@@ -26,6 +31,8 @@ export interface RefineSourceOptions {
   queue: FileMutationExecutor;
   /** 测试注入 FakeLLM */
   llm?: LLMProvider;
+  /** 测试覆盖 schema pack（默认 loadRepoConfig → loadPack） */
+  pack?: SchemaPack;
   createdBy?: string;
 }
 
@@ -165,6 +172,51 @@ async function refineOneSource(
   if (mapped.op === "experience_merge") {
     const expRel = `brains/${opts.brainId}/experiences/${mapped.targetExpId}.md`;
     const expAbs = join(repoRoot, expRel);
+    const mergeOp = resolveExperienceMergeOp(pack);
+    const expResult = await llm.refineExperience({
+      sourcePath: sourceRel,
+      title: String(data.title ?? ""),
+      candidate: candidateBody,
+      existingSummaries: prescreened,
+      task: "merge",
+      schemaType,
+      targetExpId: mapped.targetExpId,
+    });
+
+    if (mergeOp === "immutable") {
+      let abstract: string;
+      if (abstractEnabled) {
+        try {
+          abstract = (await llm.generateAbstract(candidateBody)).trim() || heuristicAbstract(candidateBody);
+        } catch {
+          abstract = heuristicAbstract(candidateBody);
+        }
+      } else {
+        abstract = heuristicAbstract(candidateBody);
+      }
+
+      const expPath = await writeExperience(repoRoot, pack, opts.queue, {
+        brainId: opts.brainId,
+        title: expResult.title || title,
+        trigger: expResult.trigger || title,
+        procedure: expResult.procedure || candidateBody.slice(0, 500),
+        boundary: expResult.boundary || "See source",
+        sourcePaths: [sourceRel.replace(/^brains\/[^/]+\//, "")],
+        body: expResult.body || candidateBody,
+        abstract,
+      });
+
+      await appendMemoryDiff(repoRoot, opts.brainId, {
+        op: "experience_create",
+        paths_written: [expPath],
+        paths_readonly_refs: [sourceRel],
+        decision: decision as unknown as Record<string, unknown>,
+        revert: { action: "archive_path", path: expPath },
+      });
+      await assertSourceUnchanged(abs, sourceHashBefore, sourceRel);
+      return { written: true, path: expPath };
+    }
+
     let snapshot: { procedure?: string; boundary?: string; body?: string; status?: string } | undefined;
     try {
       const before = parseFrontmatter(await readFile(expAbs, "utf8"));
@@ -177,19 +229,15 @@ async function refineOneSource(
     } catch {
       snapshot = undefined;
     }
-    const expResult = await llm.refineExperience({
-      sourcePath: sourceRel,
-      title: String(data.title ?? ""),
-      candidate: candidateBody,
-      existingSummaries: prescreened,
-      task: "merge",
-      schemaType,
-      targetExpId: mapped.targetExpId,
-    });
-    await mergeExperienceFields(repoRoot, expRel, opts.queue, {
+
+    const mergePatch = {
       procedure: expResult.procedure,
       boundary: expResult.boundary,
       bodyAppend: expResult.body,
+      ...(mergeOp === "patch" && expResult.trigger ? { trigger: expResult.trigger } : {}),
+    };
+    await mergeExperienceFields(repoRoot, expRel, opts.queue, mergePatch, {
+      mode: mergeOp === "patch" ? "patch" : "append",
     });
     await appendMemoryDiff(repoRoot, opts.brainId, {
       op: "experience_merge",
@@ -294,7 +342,7 @@ async function walkSources(dirAbs: string, baseRel: string, out: string[]): Prom
 /** 蒸馏入口：只读 sources，写入 experiences/ + memory_diff。 */
 export async function refineSource(repoRoot: string, opts: RefineSourceOptions): Promise<RefineResult> {
   const cfg = await loadRepoConfig(repoRoot);
-  const pack = await loadPack(cfg.schema_pack);
+  const pack = opts.pack ?? (await loadPack(cfg.schema_pack));
   const llm = opts.llm ?? createLLMProvider(cfg.llm);
   const abstractEnabled = !cfg.llm.kill_switch.abstract;
 
