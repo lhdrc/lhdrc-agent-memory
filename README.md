@@ -4,6 +4,8 @@
 
 ![License](https://img.shields.io/badge/license-MIT-blue) ![Version](https://img.shields.io/badge/version-0.1.0-green) ![Language](https://img.shields.io/badge/TypeScript-strict-blue)
 
+![记忆从文档汇入项目脑](docs/images/hero.png)
+
 ## 简介
 
 Agent 的上下文关了就空。一个人定过的决策、踩过的坑，换个会话、换个人，等于没发生过。
