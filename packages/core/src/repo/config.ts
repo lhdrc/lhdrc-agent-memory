@@ -65,9 +65,29 @@ export interface DistillConfig {
   auto_crystallize: boolean;
 }
 
+export interface IronLawConfig {
+  backlink: boolean;
+  source_suffix: boolean;
+}
+
+export const DEFAULT_IRON_LAW_CONFIG: IronLawConfig = {
+  backlink: true,
+  source_suffix: true,
+};
+
 export const DEFAULT_DISTILL_CONFIG: DistillConfig = {
   lazy_min_sources: 5,
   auto_crystallize: true,
+};
+
+export interface TrendConfig {
+  threshold: number;
+  direction: "higher_is_better" | "lower_is_better";
+}
+
+export const DEFAULT_TREND_CONFIG: TrendConfig = {
+  threshold: 0.1,
+  direction: "higher_is_better",
 };
 
 export interface RepoConfig {
@@ -92,6 +112,8 @@ export interface RepoConfig {
   compile: CompileConfig;
   recall: RecallConfig;
   distill: DistillConfig;
+  trend: TrendConfig;
+  iron_law: IronLawConfig;
   cost: CostConfig;
   auth: AuthConfig;
 }
@@ -169,12 +191,31 @@ function parseLLMConfig(data: Record<string, any>): LLMConfig {
   };
 }
 
+function parseIronLawConfig(data: Record<string, any>): IronLawConfig {
+  const il = data.iron_law ?? {};
+  return {
+    backlink: il.backlink !== false,
+    source_suffix: il.source_suffix !== false,
+  };
+}
+
 function parseDistillConfig(data: Record<string, any>): DistillConfig {
   const d = data.distill ?? {};
   const lazy = Number(d.lazy_min_sources);
   return {
     lazy_min_sources: Number.isFinite(lazy) ? lazy : DEFAULT_DISTILL_CONFIG.lazy_min_sources,
     auto_crystallize: d.auto_crystallize !== false,
+  };
+}
+
+function parseTrendConfig(data: Record<string, any>): TrendConfig {
+  const trend = data.trend ?? {};
+  const threshold = Number(trend.threshold ?? DEFAULT_TREND_CONFIG.threshold);
+  const dirRaw = String(trend.direction ?? DEFAULT_TREND_CONFIG.direction);
+  const direction = dirRaw === "lower_is_better" ? "lower_is_better" : "higher_is_better";
+  return {
+    threshold: Number.isFinite(threshold) ? threshold : DEFAULT_TREND_CONFIG.threshold,
+    direction,
   };
 }
 
@@ -284,6 +325,8 @@ export async function loadRepoConfig(repoRoot: string): Promise<RepoConfig> {
     compile: parseCompileConfig(data),
     recall: parseRecallConfig(data),
     distill: parseDistillConfig(data),
+    trend: parseTrendConfig(data),
+    iron_law: parseIronLawConfig(data),
     cost: {
       daily_token_cap: Number(data.cost?.daily_token_cap ?? 0) || 0,
       log: String(data.cost?.log ?? ".dfmemory/costs.jsonl"),

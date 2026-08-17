@@ -9,6 +9,11 @@ export interface Fact {
   event_type: string;
   attributed_to: string;
   at: string;
+  /** P9.5：可选量纲；1–64 字符 */
+  metric?: string;
+  value?: number;
+  unit?: string;
+  period?: string;
 }
 
 export type NodeStatus = "active" | "archived" | "stale";

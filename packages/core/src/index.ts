@@ -4,8 +4,8 @@ export type { ErrorCode } from "./errors.ts";
 export { initMemoryRepo, memoryYml, brainYml, sourceMarker } from "./repo/init.ts";
 export type { InitOptions, GitInitPolicy } from "./repo/init.ts";
 export { findRepoRoot, loadRepoConfig, resolveEnvDefaults } from "./repo/config.ts";
-export type { RepoConfig, WriteConfig, LayersConfig, CompileConfig, RecallConfig, DistillConfig } from "./repo/config.ts";
-export { DEFAULT_COMPILE_CONFIG, DEFAULT_RECALL_CONFIG, DEFAULT_DISTILL_CONFIG } from "./repo/config.ts";
+export type { RepoConfig, WriteConfig, LayersConfig, CompileConfig, RecallConfig, DistillConfig, TrendConfig, IronLawConfig } from "./repo/config.ts";
+export { DEFAULT_COMPILE_CONFIG, DEFAULT_RECALL_CONFIG, DEFAULT_DISTILL_CONFIG, DEFAULT_TREND_CONFIG, DEFAULT_IRON_LAW_CONFIG } from "./repo/config.ts";
 export { loadBrainConfig, resolveSourceId, createBrain, listBrains, hasSharedSkillsMount } from "./repo/brain.ts";
 export { resolveSourceIdFull } from "./repo/source-resolve.ts";
 export type { ResolveSourceIdFullInput } from "./repo/source-resolve.ts";
@@ -332,6 +332,8 @@ export type {
 export { heuristicExpand } from "./retrieve/expand.ts";
 export { localRerank, localRerankScore } from "./retrieve/rerank.ts";
 export { hotnessBoost } from "./retrieve/hotness.ts";
+export { queryTrend, normalizeMetric } from "./retrieve/trend.ts";
+export type { TrendPoint, TrendResult, QueryTrendOptions } from "./retrieve/trend.ts";
 
 export { parseFrontmatter, serializeFrontmatter, hasValidFrontmatter } from "./frontmatter.ts";
 export type { ParsedMd } from "./frontmatter.ts";

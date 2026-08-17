@@ -92,6 +92,9 @@ compile:
 distill:
   lazy_min_sources: 5
   auto_crystallize: true
+trend:
+  threshold: 0.10
+  direction: higher_is_better
 recall:
   threshold: 3
   min_query_chars: 4
@@ -103,6 +106,9 @@ layers:
   auto: false
   overview_max_chars: 4000
   dir_aggregate: true
+iron_law:
+  backlink: true
+  source_suffix: true
 cost:
   daily_token_cap: 0
   log: .dfmemory/costs.jsonl

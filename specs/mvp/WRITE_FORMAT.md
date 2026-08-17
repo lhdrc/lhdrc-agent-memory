@@ -23,6 +23,10 @@ type CreateNodeRequest = {
     event_type: string;
     attributed_to: string;
     at: string;                 // YYYY-MM-DD 或 ISO-8601
+    metric?: string;            // P9.5：量纲 slug，1–64
+    value?: number;             // 有 value 必须有 metric
+    unit?: string;
+    period?: string;            // 如 2026-Q1 / 2026-08-16
   }>;
   createdBy: string;            // 如 "cli:user" / "agent:claude"
   status?: "active" | "archived" | "stale";  // 默认 active；forget 另走 API
@@ -41,7 +45,10 @@ type CreateNodeRequest = {
 | `created_at` | 系统生成 ISO-8601 UTC（调用方不可伪造覆盖，可忽略传入） | — |
 | `status` | ∈ `active\|archived\|stale`，L0 capture 仅允许 `active` | `field=status` |
 | `body` | UTF-8；长度 ≤ `max_body_chars`（默认 200_000） | `field=body` |
-| `facts[].text` | 非空，≤2000 | `field=facts` |
+| `facts[].text` | 非空，≤2000；P9.7 落盘后可追加 ` [Source: {path}]`（已有 `[Source:` 则跳过） | `field=facts` |
+| `facts[].metric` | 可选；trim 后 1–64 | `field=facts` |
+| `facts[].value` | 可选；须为有限数；有 value 必须有 metric | `field=facts` |
+| `facts[].unit` / `facts[].period` | 可选字符串 | — |
 | `links[].to` | 非空相对/逻辑 path | `field=links` |
 | `links[].type` | ∈ pack 或核心允许集合（见下） | `field=links.type` |
 
@@ -72,6 +79,10 @@ facts:
     event_type: ...
     attributed_to: ...
     at: ...
+    metric: ...       # 可选
+    value: ...        # 可选
+    unit: ...         # 可选
+    period: ...       # 可选
 ---
 ## 摘要
 <首段或调用方提供的摘要；可空则留空标题>

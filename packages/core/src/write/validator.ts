@@ -63,6 +63,20 @@ export class WriteValidator {
       if (!f.text?.trim() || f.text.length > 2000) {
         errors.push({ field: "facts", message: "facts[].text 非空且 ≤2000" });
       }
+      const hasValue = f.value !== undefined && f.value !== null;
+      const hasMetric = typeof f.metric === "string" && f.metric.trim().length > 0;
+      if (hasValue && !hasMetric) {
+        errors.push({ field: "facts", message: "facts[].value 需要 metric" });
+      }
+      if (hasValue && !Number.isFinite(Number(f.value))) {
+        errors.push({ field: "facts", message: "facts[].value 须为有限数字" });
+      }
+      if (hasMetric) {
+        const m = f.metric!.trim();
+        if (m.length > 64) {
+          errors.push({ field: "facts", message: "facts[].metric 长度 1–64" });
+        }
+      }
     }
     for (const l of req.links ?? []) {
       if (!l.to?.trim()) errors.push({ field: "links", message: "links[].to 非空" });

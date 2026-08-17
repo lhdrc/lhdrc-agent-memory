@@ -77,6 +77,22 @@ facts 带量纲       → memory trend 能答「是否在恶化」
 
 P9.3 的 cosine 在 P9.2 前也能跑（哈希档）；但测例分「哈希拉开有限 / API mock 拉开」。
 
+## 3.1 进度（2026-08-17）
+
+| Spec | 状态 | 备注 |
+|---|---|---|
+| P9.1 hash | **done** | 已 commit |
+| P9.2 embedding | **done** | 已 commit |
+| P9.3 融合 | **done** | 已 commit |
+| P9.4 source | **done** | 已 commit |
+| P9.5 趋势 | **done** | 已 commit |
+| P9.6 agent | **in_progress** | 本仓 helper + 插件 `memory_skill_outcome`/boot inject；两边未 commit |
+| P9.7 Iron Law | **in_progress** | 工作区有 `applyIronLaw`+`p97_iron_law`；未 commit |
+| P9.8 异步写 | **in_progress** | JobRunner 已迁 core、CLI 默认入队；**P98 未全绿**，勿标 done |
+| P9.9 merge_op | **done** | 已 commit |
+
+关账顺序：P9.7 单独 commit → P9.6（本仓+`dsh-df-memory`）→ 修绿后 commit P9.8。
+
 ## 4. 仓库边界
 
 | 改动 | 仓库 |

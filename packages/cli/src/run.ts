@@ -26,6 +26,7 @@ import { eventsCommand } from "./commands/events.ts";
 import { ingestCommand } from "./commands/ingest.ts";
 import { rememberCommand } from "./commands/remember.ts";
 import { inboxCommand } from "./commands/inbox.ts";
+import { trendCommand } from "./commands/trend.ts";
 
 const HELP = `df-memory CLI
 
@@ -63,6 +64,7 @@ const HELP = `df-memory CLI
   memory skill <crystallize|activate|outcome|list|experience-outcome>
   memory dream [--fix] [--phases 1,2,3]
   memory observer [--json]
+  memory trend <metric> [--threshold 0.1] [--json]
 
 说明:
   单仓多 brain 时 git 历史对同仓可见，非密码学隔离。
@@ -94,6 +96,7 @@ const COMMANDS: Record<string, Command> = {
   skill: skillCommand,
   dream: dreamCommand,
   observer: observerCommand,
+  trend: trendCommand,
   layers: layersCommand,
   events: eventsCommand,
   ingest: ingestCommand,

@@ -5,7 +5,7 @@
 ## 项目是什么
 
 **df-memory**：开源、单机、本地部署的记忆模块——「agent 的 git + 知识库」。  
-当前交付焦点：**九期编码中**——检索量纲 + 写入合同（[`specs/九期/`](specs/九期/)）；**P9.1 done**。八期 **P8.2–P8.5 done**，P8.1 测例全绿（仅 P81-17 真机 next 关账）。七期 **P7.1–P7.5 done**。四期：**P4.2 A** 已接线（未 npm publish）；**B 档迁 P8.1**；**P4.1 MCP/REST 不做**。**P6.5 Cursor 模板不做**。
+当前交付焦点：**九期编码中**——检索量纲 + 写入合同（[`specs/九期/`](specs/九期/)）；**P9.1–P9.5、P9.9 已 commit**；**P9.6–P9.8 工作区未关账**。八期 **P8.2–P8.5 done**，P8.1 测例全绿（仅 P81-17 真机 next 关账）。七期 **P7.1–P7.5 done**。四期：**P4.2 A** 已接线（未 npm publish）；**B 档迁 P8.1**；**P4.1 MCP/REST 不做**。**P6.5 Cursor 模板不做**。
 
 > 口号里的「git」指版本化知识仓体验；**实现上热路径以 md 文件为权威**，git 为可选批量账本（08 **D1/D18**）。
 
@@ -14,7 +14,7 @@
 | 优先级 | 路径 | 用途 |
 |---|---|---|
 | 1 | [`specs/mvp/`](specs/mvp/) | **实现规格**——按此编码与验收 |
-| 2 | [`specs/二期/`](specs/二期/) · [`三期/`](specs/三期/) · [`五期/`](specs/五期/) · [`六期/`](specs/六期/) · [`七期/`](specs/七期/) · [`八期/`](specs/八期/) · [`九期/`](specs/九期/) · [`四期/`](specs/四期/) | 二–七期主线已做；**八期 P8.2–P8.5 done / P8.1 真机关账**；**九期 P9.1 done，其余编码中**；P6.5 Cursor 模板不做；P4.2 A 已接线；P4.1 MCP **不做** |
+| 2 | [`specs/二期/`](specs/二期/) · [`三期/`](specs/三期/) · [`五期/`](specs/五期/) · [`六期/`](specs/六期/) · [`七期/`](specs/七期/) · [`八期/`](specs/八期/) · [`九期/`](specs/九期/) · [`四期/`](specs/四期/) | 二–七期主线已做；**八期 P8.2–P8.5 done / P8.1 真机关账**；**九期 P9.1–P9.5、P9.9 done；P9.6–P9.8 未关账**；P6.5 Cursor 模板不做；P4.2 A 已接线；P4.1 MCP **不做** |
 | 3 | [`reports/08-开源记忆模块设计方案.md`](reports/08-开源记忆模块设计方案.md) | 架构与 ADR；与 Spec 冲突时 **先改 Spec/ADR 再改代码** |
 | 4 | [`reports/01`](reports/01-gbrain-调研报告.md)–[`05`](reports/05-四项目对比总结.md) | 调研背景，不直接当接口规格 |
 
@@ -51,15 +51,15 @@
 | **P8.5** | 工具 per-call `brain` | **done**（P85-01–06 插件绿：query/remember/job 按 brain 隔离；非法/不存在拒绝；list 含 sources/`is_default`；本仓 `assertBrainScope`） |
 | **P4.2** | DSH 插件化 A：core Node 兼容 + 三工具；B 迁 P8.1 | **in_progress**（A 本仓测例绿；未 npm publish） |
 | **P4.1** | MCP / REST / Claude Code | **不做** |
-| **P9.1** | content_hash 语义归一化 | **done**（P91-01–05：时间戳不进 hash，语义变才重切块） |
-| **P9.2** | embedding 三档（默认 openai；CI 用 local） | **done**（P92-01–07：init openai；无 Key fail-open 哈希；onnx 缺权重不冒充成功） |
-| **P9.3** | RRF rescale + floor + cosine re-score + hotness 乘法 | **done**（P93-01–10：rrf'、floor、cosine、α=0.15 乘法；P82-08 EPS=0.002） |
-| **P9.4** | source 解析 7 层 | **done**（P94-01–09） |
-| **P9.5** | facts 量纲 + `memory trend` | **ready** |
-| **P9.6** | skill outcome + 启动注经验 | **ready** |
-| **P9.7** | Iron Law back-link + `[Source:]` | **ready** |
-| **P9.8** | 写路径默认异步（JobRunner 入 core） | **ready** |
-| **P9.9** | 蒸馏读 pack `merge_op` | **done**（P99-01–05：append/patch/immutable；L0 仍 ADD-only） |
+| **P9.1** | content_hash 语义归一化 | **done**（已 commit；P91-01–05：时间戳不进 hash，语义变才重切块） |
+| **P9.2** | embedding 三档（默认 openai；CI 用 local） | **done**（已 commit；P92-01–07：init openai；无 Key fail-open 哈希；onnx 缺权重不冒充成功） |
+| **P9.3** | RRF rescale + floor + cosine re-score + hotness 乘法 | **done**（已 commit；P93-01–10：rrf'、floor、cosine、α=0.15 乘法；P82-08 EPS=0.002） |
+| **P9.4** | source 解析 7 层 | **done**（已 commit；P94-01–09） |
+| **P9.5** | facts 量纲 + `memory trend` | **done**（P95-01–07：可选 metric/value/unit/period；扫 md 趋势；无 facts 表） |
+| **P9.6** | skill outcome + 启动注经验 | **in_progress**（本仓 `listBootExperiences` + `p96_outcome`；插件仓 `memory_skill_outcome` + session-start 注入。**两边均未 commit**） |
+| **P9.7** | Iron Law back-link + `[Source:]` | **in_progress**（工作区：`applyIronLaw` 挂 captureWrite；实体 back-link 直写文件避嵌套锁。**未 commit**） |
+| **P9.8** | 写路径默认异步（JobRunner 入 core） | **in_progress**（JobRunner 已迁 `packages/core/src/jobs/`；CLI `capture`/`remember`/`ingest session` 默认入队 + `--wait`；插件 `jobs.ts` 再导出 core。**P98 未全绿关账**，勿当 done） |
+| **P9.9** | 蒸馏读 pack `merge_op` | **done**（已 commit；P99-01–05：append/patch/immutable；L0 仍 ADD-only） |
 
 **未做 backlog：**
 
@@ -67,7 +67,8 @@
 
 | 优先级 | 项 | 说明 |
 |---|---|---|
-| — | **九期主线** | **P9.1–P9.3 done**。接下来 P9.8；其余 P9.5–P9.7 可并行。 |
+| — | **九期关账** | **已 commit**：P9.1–P9.5、P9.9。**下一步**：P9.7 → P9.6（含插件仓）→ P9.8。 |
+| — | **P9.8 阻塞** | P98-01–06、P98-08 与 P64 `--wait`（P98-07）已绿。待单独 commit。 |
 | — | **八期关账** | P81-17 真机 `next` 当步生效待补验。 |
 | P1 | **remember 无 Key → `E_DISABLED`** | 设计如此；escape：`remember --no-extract`。 |
 | P1 | **schema pack 仅 problem-tree** | 明确裁剪。 |
@@ -78,8 +79,8 @@
 
 1. 改行为前先读 / 更新对应 Spec（[`00-conventions.md`](specs/mvp/00-conventions.md) §8、M1/M2/M3、[`二期/`](specs/二期/)、[`三期/`](specs/三期/)、[`五期/`](specs/五期/)、[`六期/`](specs/六期/)、[`七期/`](specs/七期/)、[`八期/`](specs/八期/)、[`九期/`](specs/九期/)、[`四期/`](specs/四期/)）  
 2. 写入校验以 [`WRITE_FORMAT.md`](specs/mvp/WRITE_FORMAT.md) 为准（含 experience §9、skill §10）  
-3. **五–八期主线已完成（P8.1 真机 next 除外）**。**九期 P9.1 done，其余编码中**：见 [`specs/九期/`](specs/九期/)。会话摄入必须 `complete()`（无 Key → `E_DISABLED`）。**P6.5 Cursor 模板不做。** **P4.1 MCP 不做。**  
-   原文先归档 `.dfmemory/inbox/`。人手 `capture` 仍可零 LLM（九期默认入队，验收用 `--wait`）。  
+3. **五–八期主线已完成（P8.1 真机 next 除外）**。**九期 P9.1–P9.5、P9.9 done；P9.6–P9.8 未关账**：见 [`specs/九期/`](specs/九期/)。会话摄入必须 `complete()`（无 Key → `E_DISABLED`）。**P6.5 Cursor 模板不做。** **P4.1 MCP 不做。**  
+   原文先归档 `.dfmemory/inbox/`。人手 `capture` 仍可零 LLM。**HEAD 上 capture/remember 仍同步**；工作区 P9.8 已改默认入队，关账后口令加 `--wait` 或先 `job status`。  
 4. 与 Spec 冲突时：**先改 Spec/08 ADR，再改代码**  
 5. **不**扩 dream 夜间维护全集（v1 五段维持）  
 
@@ -94,7 +95,7 @@
 - skill 不混默认 `memory_query`（P8.3）；不从会话直接抽 `SKILL.md`。  
 - 懒蒸默认 5→3 **不改**（仓配置即可）。  
 
-分期速查：二期 = P2.1a+P2.2（**done**）；三期 = P3.1–P3.3（**done**）；**五期 = P5.1–P5.8（done）**；**六期 = P6.1–P6.4 + 查询门控 + P6.6（done；Cursor 模板不做）**；**七期 = P7.1–P7.5（done）**；**八期 = P8.2–P8.5 done，P8.1 真机 next 待补**；**九期 = P9.1 done，P9.2–P9.9 编码中**；四期 = **P4.2 A in_progress / B 迁 P8.1**；P4.1 MCP **不做**。
+分期速查：二期 = P2.1a+P2.2（**done**）；三期 = P3.1–P3.3（**done**）；**五期 = P5.1–P5.8（done）**；**六期 = P6.1–P6.4 + 查询门控 + P6.6（done；Cursor 模板不做）**；**七期 = P7.1–P7.5（done）**；**八期 = P8.2–P8.5 done，P8.1 真机 next 待补**；**九期 = P9.1–P9.5、P9.9 done；P9.6–P9.8 未关账**；四期 = **P4.2 A in_progress / B 迁 P8.1**；P4.1 MCP **不做**。
 
 ## 技术栈（已锁定）
 
@@ -231,6 +232,7 @@ bun run memory -- graph-query "随便写点" --json
 bun run memory -- remember --help
 ```
 
+九期口令见 [`specs/九期/`](specs/九期/)（P9.8 关账后 capture/remember/ingest session 加 `--wait`；另有 `memory trend` / `memory job status`）。  
 五期口令见 [`specs/五期/`](specs/五期/) 各 Spec 验收节。  
 六期口令见 [`specs/六期/`](specs/六期/)；会话摄入无 Key 时 `E_DISABLED`（CI 用 mock `complete`）。**P6.5 Cursor 模板不做。** 七期口令见 [`specs/七期/`](specs/七期/)（P7.1–P7.5 已做）。八期口令见 [`specs/八期/`](specs/八期/)（P8.2–P8.5 done；P8.1 真机 next 待补）。
 
