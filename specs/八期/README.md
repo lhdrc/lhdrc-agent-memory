@@ -53,7 +53,7 @@ pre-step          → shouldQueryMemory；命中则检索并 inject（知识层�
 | 1 | B 档从四期迁出 | 实现与验收以 P8.1 为准；P4.2 §9 只保留指针 |
 | 2 | 一套任务，两种触发 | 窗口 flush 与 `memory_remember` 共用 job；禁止 DSH jobs 与自建队列并行两套 |
 | 3 | 先自建 job 文件 | `.dfmemory/jobs/` 为权威状态；`ctx.get("jobs")` 若契约匹配可适配，**不**阻塞选型 |
-| 4 | CLI remember 仍同步 | 八期只改插件默认；`memory remember` 无 `--buffer` 仍立刻 compile（P6.4） |
+| 4 | CLI remember 仍同步 | **八期如此**；**九期 P9.8 废止**：CLI 默认入队，`--wait` 才同步 |
 | 5 | 知识层 ≠ 规则层 | `memory_query` 默认可剥离 skill；skill 走独立查找 + 注入 |
 | 6 | 标注不改召回骨架 | 三臂 RRF + 按需 `memory_read` 不动；分层只做标注/可选排除侧车/图臂 type |
 | 7 | 粒度改 prompt 不改类型 | 仍只产出 `decision \| lesson \| note`；P6.6 合同（`source_turns`、禁 path/wikilink/frontmatter、JSON 修复）保持 |
@@ -79,7 +79,7 @@ P8.2 与 P8.4 可与 P8.1 **并行**（P8.2 图臂/排除是 core；P8.4 是 pro
 | `excludeSchemaTypes` / 图臂 `schemaType` / 侧车过滤 / `listSkills` 增字段 | 本仓 `packages/core` |
 | `session-extract-v1.md` 粒度条款 | 本仓 `packages/core/resources/` |
 | 挂钩、job 队列、工具异步、skill 工具、prompt 策略 | 并列仓 `dsh-df-memory/` |
-| CLI `remember` 默认同步 | **不改** |
+| CLI `remember` 默认同步 | **八期不改**；**九期 P9.8 废止**（默认入队，`--wait` 同步） |
 
 涉及 core 的项必须先改本目录 Spec，再改代码（AGENTS.md）。
 

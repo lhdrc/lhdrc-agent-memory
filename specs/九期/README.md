@@ -88,10 +88,10 @@ P9.3 的 cosine 在 P9.2 前也能跑（哈希档）；但测例分「哈希拉�
 | P9.5 趋势 | **done** | 已 commit |
 | P9.6 agent | **done** | 本仓 helper + 插件 `memory_skill_outcome`/boot inject |
 | P9.7 Iron Law | **done** | 已 commit |
-| P9.8 异步写 | **in_progress** | JobRunner 已迁 core、CLI 默认入队；**P98 未全绿**，勿标 done |
+| P9.8 异步写 | **done** | JobRunner 在 core；CLI 默认入队 |
 | P9.9 merge_op | **done** | 已 commit |
 
-关账顺序：P9.8 单独 commit。
+关账顺序：九期主线已关。
 
 ## 4. 仓库边界
 
@@ -115,4 +115,4 @@ P9.3 的 cosine 在 P9.2 前也能跑（哈希档）；但测例分「哈希拉�
 
 ## 九期完成标志
 
-P9.1–P9.3 与 P9.8 DoD 勾选 → **九期主线完成**。P9.4–P9.7、P9.9 建议同迭代，不阻塞主线标完。
+P9.1–P9.9 DoD 勾选 → **九期完成**。

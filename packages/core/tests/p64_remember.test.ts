@@ -115,7 +115,7 @@ describe("P6.4 remember / session ingest", () => {
       const dir = await mkdtemp(join(tmpdir(), "dfmem-p64-02-"));
       const repoRoot = await initMemoryRepo(dir, { brain: "default", source: "default", force: false });
       await enableMock(repoRoot);
-      const r = await runCli(repoRoot, ["remember", "--body", "我们决定改用固定重试", "--json"], mockEnv());
+      const r = await runCli(repoRoot, ["remember", "--wait", "--body", "我们决定改用固定重试", "--json"], mockEnv());
       expect(r.exit).toBe(0);
       const parsed = JSON.parse(r.out) as { kept: Array<{ path?: string }> };
       expect(parsed.kept.length).toBeGreaterThanOrEqual(1);
@@ -130,7 +130,7 @@ describe("P6.4 remember / session ingest", () => {
       const dir = await mkdtemp(join(tmpdir(), "dfmem-p64-02b-"));
       const repoRoot = await initMemoryRepo(dir, { brain: "default", source: "default", force: false });
       const before = await listSourceMd(repoRoot);
-      const r = await runCli(repoRoot, ["remember", "--body", "我们决定 x"]);
+      const r = await runCli(repoRoot, ["remember", "--wait", "--body", "我们决定 x"]);
       expect(r.exit).toBe(1);
       expect(r.err).toContain("E_DISABLED");
       expect((await listSourceMd(repoRoot)).length).toBe(before.length);
@@ -158,7 +158,7 @@ describe("P6.4 remember / session ingest", () => {
       await enableMock(repoRoot);
       const r = await runCli(
         repoRoot,
-        ["ingest", "--adapter", "session", "--input", decisionFx, "--json"],
+        ["ingest", "--adapter", "session", "--input", decisionFx, "--wait", "--json"],
         mockEnv(),
       );
       expect(r.exit).toBe(0);
@@ -193,7 +193,7 @@ describe("P6.4 remember / session ingest", () => {
       await enableMock(repoRoot);
       const r = await runCli(
         repoRoot,
-        ["ingest", "--adapter", "session", "--input", decisionFx, "--json"],
+        ["ingest", "--adapter", "session", "--input", decisionFx, "--wait", "--json"],
         mockEnv(),
       );
       const parsed = JSON.parse(r.out) as { kept: unknown[] };
@@ -208,7 +208,7 @@ describe("P6.4 remember / session ingest", () => {
       const dir = await mkdtemp(join(tmpdir(), "dfmem-p64-07-"));
       const repoRoot = await initMemoryRepo(dir, { brain: "default", source: "default", force: false });
       await enableMock(repoRoot);
-      const fail = await runCli(repoRoot, ["ingest", "--adapter", "session", "--input", decisionFx, "--json"], {
+      const fail = await runCli(repoRoot, ["ingest", "--adapter", "session", "--input", decisionFx, "--wait", "--json"], {
         OPENAI_API_KEY: "sk-test",
         DF_MEMORY_MOCK_COMPLETE_FAIL: "1",
       });
@@ -242,7 +242,7 @@ describe("P6.4 remember / session ingest", () => {
           { type: "note", title: "第二篇", body: "第二篇正文。", mentions: [] },
         ],
       });
-      const first = await runCli(repoRoot, ["remember", "--body", "两篇", "--json"], {
+      const first = await runCli(repoRoot, ["remember", "--wait", "--body", "两篇", "--json"], {
         OPENAI_API_KEY: "sk-test",
         DF_MEMORY_MOCK_COMPLETE: two,
         DF_MEMORY_MOCK_COMPLETE_LOG: log,
@@ -326,7 +326,7 @@ describe("P6.4 remember / session ingest", () => {
       const dir = await mkdtemp(join(tmpdir(), "dfmem-p64-10-"));
       const repoRoot = await initMemoryRepo(dir, { brain: "default", source: "default", force: false });
       await enableMock(repoRoot);
-      const r = await runCli(repoRoot, ["remember", "--body", "我们决定 x"], mockEnv());
+      const r = await runCli(repoRoot, ["remember", "--wait", "--body", "我们决定 x"], mockEnv());
       expect(r.exit).toBe(0);
       expect(r.out).toContain("session_id=");
     },
@@ -339,7 +339,7 @@ describe("P6.4 remember / session ingest", () => {
       const dir = await mkdtemp(join(tmpdir(), "dfmem-p64-11-"));
       const repoRoot = await initMemoryRepo(dir, { brain: "default", source: "default", force: false });
       await enableMock(repoRoot);
-      await runCli(repoRoot, ["ingest", "--adapter", "session", "--input", decisionFx], {
+      await runCli(repoRoot, ["ingest", "--adapter", "session", "--input", decisionFx, "--wait"], {
         OPENAI_API_KEY: "sk-test",
         DF_MEMORY_MOCK_COMPLETE_FAIL: "1",
       });

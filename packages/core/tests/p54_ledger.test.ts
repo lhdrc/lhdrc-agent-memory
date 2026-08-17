@@ -49,7 +49,7 @@ async function runCli(
 
 async function capturePath(title: string): Promise<string> {
   const cap = await runCli([
-    "capture",
+    "capture", "--wait",
     "--title",
     title,
     "--type",

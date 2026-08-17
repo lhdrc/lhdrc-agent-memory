@@ -369,3 +369,23 @@ export type { AppendResult, AppendSessionTurnsOpts, EndSessionOpts } from "./com
 export { parseSessionTurns, stripMemoryContext, formatTurnsForPrompt, formatCompileUserPrompt, ALREADY_IN_KB_HEADING, JSON_REPAIR_SUFFIX, parseCompleteItemsJson, parseCompleteExtractJson, normalizeProposedEntities } from "./compile/parse.ts";
 export { prefetchExistingMemories } from "./compile/prefetch.ts";
 export { linkifyBody } from "./compile/linkify.ts";
+
+export {
+  acceptRememberJob,
+  acceptCaptureJob,
+  getJobRunner,
+  readJob,
+  recoverCrashedJobs,
+  compileResultToToolBody,
+  DEFAULT_JOB_TIMEOUT_MS,
+  JOB_TIMEOUT_MS,
+  JobRunner,
+} from "./jobs/runner.ts";
+export type {
+  MemoryJob,
+  MemoryJobKind,
+  MemoryJobStatus,
+  RunCompileOpts,
+  RunCaptureOpts,
+  JobAbortToken,
+} from "./jobs/runner.ts";

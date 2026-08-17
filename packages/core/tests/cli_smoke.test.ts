@@ -41,7 +41,7 @@ describe("CLI 冒烟", () => {
     "init + capture + query 端到端",
     async () => {
       const cap = await runCli([
-        "capture",
+        "capture", "--wait",
         "--title",
         "CLI重试",
         "--type",
@@ -62,7 +62,7 @@ describe("CLI 冒烟", () => {
   test(
     "query --json 输出合法 JSON",
     async () => {
-      await runCli(["capture", "--title", "JSON测试", "--type", "note", "--body", "body"]);
+      await runCli(["capture", "--wait", "--title", "JSON测试", "--type", "note", "--body", "body"]);
       const q = await runCli(["query", "JSON", "--json"]);
       expect(q.exit).toBe(0);
       const parsed = JSON.parse(q.out) as { results: unknown[] };
@@ -74,7 +74,7 @@ describe("CLI 冒烟", () => {
   test(
     "graph-query 不崩溃",
     async () => {
-      await runCli(["capture", "--title", "支付", "--type", "note", "--body", "提到 [[支付]] 模块"]);
+      await runCli(["capture", "--wait", "--title", "支付", "--type", "note", "--body", "提到 [[支付]] 模块"]);
       const g = await runCli(["graph-query", "谁提到了支付"]);
       expect(g.exit).toBe(0);
     },
@@ -84,7 +84,7 @@ describe("CLI 冒烟", () => {
   test(
     "forget --purge 返回 E_USAGE",
     async () => {
-      const cap = await runCli(["capture", "--title", "待删", "--type", "note", "--body", "x"]);
+      const cap = await runCli(["capture", "--wait", "--title", "待删", "--type", "note", "--body", "x"]);
       const path = cap.out.split("\n").pop() ?? cap.out;
       const f = await runCli(["forget", path, "--purge"]);
       expect(f.exit).toBe(2);
@@ -103,7 +103,7 @@ describe("CLI 冒烟", () => {
       const cap = await runCli([
         "--brain",
         "team-b",
-        "capture",
+        "capture", "--wait",
         "--title",
         "B仓笔记",
         "--type",
@@ -124,7 +124,7 @@ describe("CLI 冒烟", () => {
   test(
     "rebuild-index + sync --commit",
     async () => {
-      await runCli(["capture", "--title", "索引", "--type", "note", "--body", "rebuild test"]);
+      await runCli(["capture", "--wait", "--title", "索引", "--type", "note", "--body", "rebuild test"]);
       const rb = await runCli(["rebuild-index"]);
       expect(rb.exit).toBe(0);
 
@@ -137,7 +137,7 @@ describe("CLI 冒烟", () => {
   test(
     "observer --json 输出 stats 结构",
     async () => {
-      await runCli(["capture", "--title", "obs", "--type", "note", "--body", "x"]);
+      await runCli(["capture", "--wait", "--title", "obs", "--type", "note", "--body", "x"]);
       await runCli(["query", "obs"]);
       const o = await runCli(["observer", "--json"]);
       expect(o.exit).toBe(0);
@@ -163,7 +163,7 @@ describe("CLI 冒烟", () => {
   test(
     "缺参数 capture → E_USAGE exit 2",
     async () => {
-      const r = await runCli(["capture", "--title", "无类型"]);
+      const r = await runCli(["capture", "--wait", "--title", "无类型"]);
       expect(r.exit).toBe(2);
       expect(r.err).toMatch(/E_USAGE|E_VALIDATION/);
     },

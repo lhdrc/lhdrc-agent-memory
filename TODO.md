@@ -22,7 +22,7 @@
 ## 九期（2026-08-16 会话锁定）
 
 > 先改 Spec/08 再改代码。P8.1 真机 `next` 是八期关账，不进九期 DoD。hotness **α 默认 0.15**（P9.3；禁止沿用加法 0.45）。规格：[`specs/九期/`](specs/九期/)。  
-> **进度 2026-08-17**：已 commit P9.1–P9.7、P9.9。未关账：P9.8 JobRunner。
+> **进度 2026-08-17**：P9.1–P9.9 **done**。
 
 | # | 锁定做法 | Spec |
 |---|---|---|
@@ -44,7 +44,7 @@
 | # | 事项 | 对照 | 状态 |
 |---|---|---|---|
 | 1 | inbox 会话挂钩 | 08 D6/§10；原 P4.2 B | **P8.1 in_progress**（仅 P81-17 真机 `next`） |
-| 2 | memory_remember 异步 | 08 §6「写入不阻塞」 | **P8.1** 插件默认异步；**#41** 将 CLI 也改为默认入队 |
+| 2 | memory_remember 异步 | 08 §6「写入不阻塞」 | **P9.8 done**（CLI 默认入队；插件共用 core JobRunner） |
 | 3 | per-call brain | 08 D2 多 brain | **P8.5 done** |
 | 4 | 抽取粒度 | 08 §6.3 prompt 即规格 | **P8.4 done** |
 | 5 | 懒蒸默认 5→3 | 仓配置已有 | **不做 Spec** |
@@ -83,7 +83,7 @@
 | 38 | df-app skill → mcphub 同步 | 08 §9.3 | **不做** |
 | 39 | Idle TTL / token 守护进程 | 六期 README 裁掉 | **明确不做** |
 | 40 | 多模态记忆 | 08 §1 非目标 | **明确不做** |
-| 41 | L0 `capture` 热路径仍同步 | 08 §2 / §6.1 | **做 D**：写路径默认入队；同步须 `--wait`；复用 P8.1 JobRunner |
+| 41 | L0 `capture` 热路径仍同步 | 08 §2 / §6.1 | **P9.8 done**：写路径默认入队；同步须 `--wait`；JobRunner 在 core |
 | 42 | pack `merge_op` 未驱动节点更新 | 08 §6.2 / §13 `updateNode` | **做 B**：蒸馏/经验合并读 merge_op；L0 仍 ADD-only |
 | 43 | df-app 摄取仅 fixture | 08 D9 | **不做**（fixture 留样例；生产摄入 = DSH） |
 

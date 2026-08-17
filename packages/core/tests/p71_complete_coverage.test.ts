@@ -203,7 +203,7 @@ describe("P7.1 extract / layers coverage", () => {
       const cap = await runCli(
         repoRoot,
         [
-          "capture",
+          "capture", "--wait",
           "--title",
           "重试策略",
           "--type",

@@ -4,11 +4,11 @@ import {
   MemoryError,
   ErrorCodes,
   loadPack,
-  captureNode,
-  enrichAfterWrite,
   todayUtc,
   assertSourceScope,
   parseFrontmatter,
+  acceptCaptureJob,
+  getJobRunner,
 } from "@lhdrc/core";
 import { parseArgs } from "../args.ts";
 import { loadContext } from "../context.ts";
@@ -21,6 +21,27 @@ function defaultCreatedBy(): string {
 function envExtractEnabled(): boolean {
   const v = process.env.DF_MEMORY_EXTRACT;
   return v === "1" || v === "true";
+}
+
+async function printCaptureDone(
+  repoRoot: string,
+  path: string,
+  json: boolean,
+  extra?: Record<string, unknown>,
+): Promise<void> {
+  if (json) {
+    const out: Record<string, unknown> = { path, ...extra };
+    try {
+      const raw = await readFile(resolve(repoRoot, path), "utf8");
+      const links = parseFrontmatter(raw).data.links;
+      if (Array.isArray(links)) {
+        out.links = links.map((l) => ({ to: (l as { to?: unknown }).to }));
+      }
+    } catch {
+      /* 读链失败仍返回 path */
+    }
+    console.log(JSON.stringify(out));
+  } else console.log(path);
 }
 
 export async function captureCommand(argv: string[]): Promise<number> {
@@ -38,6 +59,7 @@ export async function captureCommand(argv: string[]): Promise<number> {
     { name: "extract", type: "boolean" },
     { name: "no-dedupe", type: "boolean" },
     { name: "json", type: "boolean" },
+    { name: "wait", type: "boolean" },
   ]);
   if (!o.title || !o.type) {
     throw new MemoryError(ErrorCodes.USAGE, "capture 需要 --title 与 --type");
@@ -63,41 +85,50 @@ export async function captureCommand(argv: string[]): Promise<number> {
 
   const pack = await loadPack();
   const queue = await createQueue(ctx.repoRoot);
-  const path = await captureNode(ctx.repoRoot, pack, queue, {
-    brainId: ctx.brainId,
-    sourceId,
-    schemaType: type,
-    title: String(o.title),
-    body,
-    issue: o.issue as string | undefined,
-    tags: (o.tag as string[]) ?? undefined,
-    aliases: (o.alias as string[]) ?? undefined,
-    facts,
-    createdBy,
-  });
-
-  const enrich = await enrichAfterWrite({
+  const job = await acceptCaptureJob({
     repoRoot: ctx.repoRoot,
     brainId: ctx.brainId,
-    path,
+    pack,
     queue,
     extract: Boolean(o.extract) || envExtractEnabled(),
     noDedupe: Boolean(o["no-dedupe"]),
+    capture: {
+      brainId: ctx.brainId,
+      sourceId,
+      schemaType: type,
+      title: String(o.title),
+      body,
+      issue: o.issue as string | undefined,
+      tags: (o.tag as string[]) ?? undefined,
+      aliases: (o.alias as string[]) ?? undefined,
+      facts,
+      createdBy,
+    },
   });
 
-  if (o.json) {
-    const out: { path: string; links?: Array<{ to: unknown }>; enrich?: typeof enrich } = { path };
-    try {
-      const raw = await readFile(resolve(ctx.repoRoot, path), "utf8");
-      const links = parseFrontmatter(raw).data.links;
-      if (Array.isArray(links)) {
-        out.links = links.map((l) => ({ to: (l as { to?: unknown }).to }));
-      }
-    } catch {
-      /* 读链失败仍返回 path */
+  if (!o.wait) {
+    if (o.json) {
+      console.log(JSON.stringify({ accepted: true, task_id: job.task_id, status: "pending" }));
+    } else {
+      console.log(`accepted=true task_id=${job.task_id}`);
     }
-    if (enrich !== undefined) out.enrich = enrich;
-    console.log(JSON.stringify(out));
-  } else console.log(path);
+    return 0;
+  }
+
+  const done = await getJobRunner(ctx.repoRoot, ctx.brainId).wait(job.task_id, job.timeoutMs);
+  if (done.status === "failed") {
+    throw new MemoryError(
+      (done.error?.code as typeof ErrorCodes.JOB) ?? ErrorCodes.JOB,
+      done.error?.message ?? "capture job failed",
+    );
+  }
+  const path = String((done.output as { kept?: Array<{ path?: string }> } | undefined)?.kept?.[0]?.path ?? "");
+  if (!path) {
+    throw new MemoryError(ErrorCodes.JOB, "capture job done but path missing");
+  }
+  await printCaptureDone(ctx.repoRoot, path, Boolean(o.json), {
+    task_id: done.task_id,
+    status: "done",
+  });
   return 0;
 }

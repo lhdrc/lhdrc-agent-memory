@@ -393,7 +393,7 @@ describe("P7.2 distill live", () => {
       });
       const r = await runCli(
         repoRoot,
-        ["remember", "--body", "我们决定重试改为固定3次", "--json"],
+        ["remember", "--wait", "--body", "我们决定重试改为固定3次", "--json"],
         {
           DF_MEMORY_MOCK_COMPLETE_COMPILE: COMPILE_ONE,
           DF_MEMORY_MOCK_COMPLETE_DISTILL: DISTILL_JSONL,
@@ -417,7 +417,7 @@ describe("P7.2 distill live", () => {
       });
       const r = await runCli(
         repoRoot,
-        ["remember", "--body", "我们决定重试改为固定3次", "--json"],
+        ["remember", "--wait", "--body", "我们决定重试改为固定3次", "--json"],
         {
           DF_MEMORY_MOCK_COMPLETE_COMPILE: COMPILE_ONE,
           DF_MEMORY_MOCK_COMPLETE_DISTILL: DISTILL_JSONL,

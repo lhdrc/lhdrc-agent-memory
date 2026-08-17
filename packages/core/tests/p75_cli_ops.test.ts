@@ -119,7 +119,7 @@ describe("P7.5 CLI ops", () => {
       const dir = await mkdtemp(join(tmpdir(), "dfmem-p75-01-"));
       const repoRoot = await initMemoryRepo(dir, { brain: "default", source: "default", force: false });
       await patchMemoryYml(repoRoot, { llm: { provider: "openai" } });
-      const fail = await runCli(repoRoot, ["ingest", "--adapter", "session", "--input", decisionFx, "--json"], {
+      const fail = await runCli(repoRoot, ["ingest", "--adapter", "session", "--input", decisionFx, "--wait", "--json"], {
         OPENAI_API_KEY: "sk-test",
         DF_MEMORY_MOCK_COMPLETE_FAIL: "1",
       });
@@ -145,7 +145,7 @@ describe("P7.5 CLI ops", () => {
         const dir = await mkdtemp(join(tmpdir(), `dfmem-p75-02-${kind}-`));
         const repoRoot = await initMemoryRepo(dir, { brain: "default", source: "default", force: false });
         await patchMemoryYml(repoRoot, { llm: { provider: "openai" } });
-        await runCli(repoRoot, ["ingest", "--adapter", "session", "--input", decisionFx, "--json"], {
+        await runCli(repoRoot, ["ingest", "--adapter", "session", "--input", decisionFx, "--wait", "--json"], {
           OPENAI_API_KEY: "sk-test",
           DF_MEMORY_MOCK_COMPLETE_FAIL: "1",
         });

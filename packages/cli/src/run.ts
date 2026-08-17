@@ -26,6 +26,7 @@ import { eventsCommand } from "./commands/events.ts";
 import { ingestCommand } from "./commands/ingest.ts";
 import { rememberCommand } from "./commands/remember.ts";
 import { inboxCommand } from "./commands/inbox.ts";
+import { jobCommand } from "./commands/job.ts";
 import { trendCommand } from "./commands/trend.ts";
 
 const HELP = `df-memory CLI
@@ -34,11 +35,12 @@ const HELP = `df-memory CLI
   memory [--brain <id>] [--token <tok>] [--agent <id>] <cmd> ...
   memory init [dir] [--brain <id>] [--source <id>] [--force]
   memory brain <create|list>
-  memory capture --title <t> --type <schema_type> --body <b> [--extract] [--no-dedupe] [options]
+  memory capture --title <t> --type <schema_type> --body <b> [--wait] [--extract] [--no-dedupe] [options]
   memory import <file|dir> [--source <id>]
   memory ingest --list-adapters
-  memory ingest --adapter generic-jsonl|df-app|session --input <file> [--json] [--continue-on-error] [--dry-run] [--retry <id>]
-  memory remember --body "…" [--dry-run] [--json] [--extract|--no-extract]
+  memory ingest --adapter generic-jsonl|df-app|session --input <file> [--wait] [--json] [--continue-on-error] [--dry-run] [--retry <id>]
+  memory remember --body "…" [--wait] [--dry-run] [--json] [--extract|--no-extract]
+  memory job status <task_id> [--json]
   memory inbox list [--json] [--status pending|failed|done]
   memory inbox retry <sessionId> [--json] [--dry-run]
   memory inbox end [--session <id>] [--json]
@@ -102,6 +104,7 @@ const COMMANDS: Record<string, Command> = {
   ingest: ingestCommand,
   remember: rememberCommand,
   inbox: inboxCommand,
+  job: jobCommand,
   find: findCommand,
   think: thinkCommand,
   eval: evalCommand,

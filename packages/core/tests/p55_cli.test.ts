@@ -66,7 +66,7 @@ describe("P5.5 find / think / eval / agent", () => {
     "P55-01: find 与 query 的 path 集合相等",
     async () => {
       expect(
-        (await runCli(["capture", "--title", "重试策略", "--type", "note", "--body", "固定三次重试"])).exit,
+        (await runCli(["capture", "--wait", "--title", "重试策略", "--type", "note", "--body", "固定三次重试"])).exit,
       ).toBe(0);
       const q = await runCli(["query", "重试", "--json"]);
       const f = await runCli(["find", "重试", "--json"]);
@@ -80,7 +80,7 @@ describe("P5.5 find / think / eval / agent", () => {
   test(
     "P55-02: find flags 与 query 相同，退出 0",
     async () => {
-      await runCli(["capture", "--title", "x", "--type", "note", "--body", "x body"]);
+      await runCli(["capture", "--wait", "--title", "x", "--type", "note", "--body", "x body"]);
       const r = await runCli(["find", "x", "--mode", "conservative", "--limit", "3"]);
       expect(r.exit).toBe(0);
     },
@@ -102,7 +102,7 @@ describe("P5.5 find / think / eval / agent", () => {
     "P55-04: think 有数据时至少一个数组非空",
     async () => {
       expect(
-        (await runCli(["capture", "--title", "P55THINKTOKEN 笔记", "--type", "note", "--body", "P55THINKTOKEN"])).exit,
+        (await runCli(["capture", "--wait", "--title", "P55THINKTOKEN 笔记", "--type", "note", "--body", "P55THINKTOKEN"])).exit,
       ).toBe(0);
       const pack = await loadPack("problem-tree");
       const cfg = await loadRepoConfig(repoRoot);
@@ -195,7 +195,7 @@ auth:
           "bot",
           "--token",
           issued.raw,
-          "capture",
+          "capture", "--wait",
           "--title",
           "agent默认源",
           "--type",
@@ -217,7 +217,7 @@ auth:
     async () => {
       expect((await runCli(["agent", "register", "--id", "bot", "--source", "default"])).exit).toBe(0);
       const other = await runCli([
-        "capture",
+        "capture", "--wait",
         "--title",
         "他源笔记",
         "--type",
@@ -257,7 +257,7 @@ auth:
         "bot",
         "--token",
         issued.raw,
-        "capture",
+        "capture", "--wait",
         "--title",
         "越权写",
         "--type",
@@ -279,7 +279,7 @@ auth:
     "P55-09: 无 --agent 时 capture/query 与现网一致",
     async () => {
       const cap = await runCli([
-        "capture",
+        "capture", "--wait",
         "--title",
         "兼容笔记",
         "--type",

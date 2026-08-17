@@ -182,7 +182,7 @@ describe("P7.3 sliding window", () => {
     "P73-04 remember 无 --buffer 立即 compile",
     async () => {
       await patchMemoryYml(repoRoot, { llm: { provider: "openai" } });
-      const r = await runCli(repoRoot, ["remember", "--body", "我们决定重试改为固定3次", "--json"], {
+      const r = await runCli(repoRoot, ["remember", "--wait", "--body", "我们决定重试改为固定3次", "--json"], {
         DF_MEMORY_MOCK_COMPLETE_COMPILE: COMPILE_ONE,
       });
       expect(r.exit).toBe(0);
@@ -199,7 +199,7 @@ describe("P7.3 sliding window", () => {
       await patchMemoryYml(repoRoot, { llm: { provider: "openai" } });
       const r = await runCli(
         repoRoot,
-        ["ingest", "--adapter", "session", "--input", sessionFx, "--json"],
+        ["ingest", "--adapter", "session", "--input", sessionFx, "--wait", "--json"],
         { DF_MEMORY_MOCK_COMPLETE_COMPILE: COMPILE_ONE },
       );
       expect(r.exit).toBe(0);

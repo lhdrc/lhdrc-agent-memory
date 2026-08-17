@@ -9,7 +9,10 @@ import {
   retrySession,
   appendSessionTurns,
   endSession,
+  acceptRememberJob,
+  getJobRunner,
   type IngestAdapter,
+  type CompileResult,
 } from "@lhdrc/core";
 import { genericJsonlAdapter } from "@df-memory/ingest-generic-jsonl";
 import { dfAppAdapter } from "@df-memory/ingest-df-app";
@@ -28,7 +31,7 @@ const SESSION_ADAPTER = "session";
 
 const HELP = `memory ingest --list-adapters
 memory ingest --adapter <id> --input <file> [--json] [--continue-on-error] [--source <id>]
-memory ingest --adapter session --input <file> [--dry-run] [--json] [--continue-on-error] [--retry <id>] [--source <id>] [--window] [--session <id>]
+memory ingest --adapter session --input <file> [--wait] [--dry-run] [--json] [--continue-on-error] [--retry <id>] [--source <id>] [--window] [--session <id>]
 memory ingest --adapter session --end [--session <id>] [--json]
 
 批量摄取。generic-jsonl / df-app 逐行 captureNode。
@@ -81,6 +84,7 @@ export async function ingestCommand(argv: string[]): Promise<number> {
     { name: "end", type: "boolean" },
     { name: "session", type: "string" },
     { name: "no-extract", type: "boolean" },
+    { name: "wait", type: "boolean" },
     { name: "help", type: "boolean" },
   ]);
   if (o.help) {
@@ -180,17 +184,77 @@ export async function ingestCommand(argv: string[]): Promise<number> {
       }
       return 0;
     }
-    const result = await compileSession({
+    if (dryRun) {
+      const result = await compileSession({
+        repoRoot: ctx.repoRoot,
+        brainId: ctx.brainId,
+        sourceId,
+        createdBy,
+        pack,
+        queue,
+        turns,
+        dryRun: true,
+      });
+      formatCompileOutput(result, Boolean(o.json), true);
+      const code = compileExitCode(result);
+      if (code === 2 && !o["continue-on-error"] && result.kept.length === 0) return 2;
+      return code;
+    }
+
+    const job = await acceptRememberJob({
       repoRoot: ctx.repoRoot,
       brainId: ctx.brainId,
       sourceId,
       createdBy,
-      pack,
       queue,
+      sessionId: "",
       turns,
-      dryRun,
+      kind: "compile",
     });
-    formatCompileOutput(result, Boolean(o.json), dryRun);
+    if (!o.wait) {
+      if (o.json) {
+        console.log(JSON.stringify({ accepted: true, task_id: job.task_id, status: "pending" }));
+      } else {
+        console.log(`accepted=true task_id=${job.task_id}`);
+      }
+      return 0;
+    }
+    const done = await getJobRunner(ctx.repoRoot, ctx.brainId).wait(job.task_id, job.timeoutMs);
+    if (done.status === "failed") {
+      throw new MemoryError(
+        (done.error?.code as typeof ErrorCodes.JOB) ?? ErrorCodes.JOB,
+        done.error?.message ?? "ingest session job failed",
+      );
+    }
+    const output = (done.output ?? {}) as CompileResult & Record<string, unknown>;
+    const result: CompileResult = {
+      session_id: (output.session_id as string | undefined) ?? done.session_id,
+      kept: (output.kept as CompileResult["kept"]) ?? [],
+      dropped: (output.dropped as CompileResult["dropped"]) ?? [],
+      unresolved: (output.unresolved as string[]) ?? [],
+      errors: (output.errors as CompileResult["errors"]) ?? [],
+      skipped_reason: output.skipped_reason as string | undefined,
+      distill: output.distill as CompileResult["distill"],
+      entities_created: output.entities_created as string[] | undefined,
+    };
+    if (o.json) {
+      console.log(
+        JSON.stringify({
+          session_id: result.session_id ?? null,
+          kept: result.kept,
+          dropped: result.dropped,
+          unresolved: result.unresolved,
+          errors: result.errors,
+          skipped_reason: result.skipped_reason,
+          distill: result.distill,
+          entities_created: result.entities_created,
+          task_id: done.task_id,
+          status: "done",
+        }),
+      );
+    } else {
+      formatCompileOutput(result, false, false);
+    }
     const code = compileExitCode(result);
     if (code === 2 && !o["continue-on-error"] && result.kept.length === 0) return 2;
     return code;

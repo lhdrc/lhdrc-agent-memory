@@ -218,7 +218,7 @@ describe("M2 写入管线与 CLI", () => {
           cmd: [
             bunBin,
             cliMain,
-            "capture",
+            "capture", "--wait",
             "--title",
             `并行决策${i}`,
             "--type",

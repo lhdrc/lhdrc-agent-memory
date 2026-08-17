@@ -6,6 +6,8 @@ import {
   loadPack,
   compileSession,
   appendSessionTurns,
+  acceptRememberJob,
+  getJobRunner,
   type CompileResult,
 } from "@lhdrc/core";
 import { parseArgs } from "../args.ts";
@@ -17,13 +19,15 @@ function defaultCreatedBy(): string {
 }
 
 const HELP = `memory remember --body "…" | --body-file <path> | stdin
-    [--dry-run] [--json] [--extract | --no-extract] [--source <id>] [--buffer]
+    [--wait] [--dry-run] [--json] [--extract | --no-extract] [--source <id>] [--buffer]
 
 将会话原文编译为短记忆（须 LLM complete，或 --no-extract 当一条 note）。
-无 llm.provider/key 且未 --no-extract → E_DISABLED。
+默认异步入队，stdout 为 accepted + task_id；--wait 写完再返回 kept/path。
+无 llm.provider/key 且未 --no-extract → 任务 failed E_DISABLED（不写 L0）。
 
   --body / --body-file / stdin  原文（单条 user turn）
-  --dry-run                     不写 inbox、不写 sources；仍调 complete
+  --wait                        同步：写完再返回（验收/口令用）
+  --dry-run                     不写 inbox、不写 sources；仍调 complete（同步）
   --extract                     默认：走编译器
   --no-extract                  跳过 complete，当一条 note
   --buffer                      追加到打开中的滑动窗口；达上限才 compile
@@ -69,6 +73,7 @@ export async function rememberCommand(argv: string[]): Promise<number> {
     { name: "buffer", type: "boolean" },
     { name: "json", type: "boolean" },
     { name: "help", type: "boolean" },
+    { name: "wait", type: "boolean" },
   ]);
   if (o.help) {
     console.log(HELP);
@@ -123,17 +128,77 @@ export async function rememberCommand(argv: string[]): Promise<number> {
     return appended.compiled ? compileExitCode(appended.compiled) : 0;
   }
 
-  const result = await compileSession({
+  if (o["dry-run"]) {
+    const result = await compileSession({
+      repoRoot: ctx.repoRoot,
+      brainId: ctx.brainId,
+      sourceId: (o.source as string) ?? ctx.sourceId,
+      createdBy: defaultCreatedBy(),
+      pack,
+      queue,
+      turns: [{ role: "user", text: body }],
+      dryRun: true,
+      noExtract: Boolean(o["no-extract"]),
+    });
+    formatCompileOutput(result, Boolean(o.json), true);
+    return compileExitCode(result);
+  }
+
+  const job = await acceptRememberJob({
     repoRoot: ctx.repoRoot,
     brainId: ctx.brainId,
     sourceId: (o.source as string) ?? ctx.sourceId,
     createdBy: defaultCreatedBy(),
-    pack,
     queue,
+    sessionId: "",
     turns: [{ role: "user", text: body }],
-    dryRun: Boolean(o["dry-run"]),
     noExtract: Boolean(o["no-extract"]),
   });
-  formatCompileOutput(result, Boolean(o.json), Boolean(o["dry-run"]));
+
+  if (!o.wait) {
+    if (o.json) {
+      console.log(JSON.stringify({ accepted: true, task_id: job.task_id, status: "pending" }));
+    } else {
+      console.log(`accepted=true task_id=${job.task_id}`);
+    }
+    return 0;
+  }
+
+  const done = await getJobRunner(ctx.repoRoot, ctx.brainId).wait(job.task_id, job.timeoutMs);
+  if (done.status === "failed") {
+    throw new MemoryError(
+      (done.error?.code as typeof ErrorCodes.JOB) ?? ErrorCodes.JOB,
+      done.error?.message ?? "remember job failed",
+    );
+  }
+  const output = (done.output ?? {}) as CompileResult & Record<string, unknown>;
+  const result: CompileResult = {
+    session_id: (output.session_id as string | undefined) ?? done.session_id,
+    kept: (output.kept as CompileResult["kept"]) ?? [],
+    dropped: (output.dropped as CompileResult["dropped"]) ?? [],
+    unresolved: (output.unresolved as string[]) ?? [],
+    errors: (output.errors as CompileResult["errors"]) ?? [],
+    skipped_reason: output.skipped_reason as string | undefined,
+    distill: output.distill as CompileResult["distill"],
+    entities_created: output.entities_created as string[] | undefined,
+  };
+  if (o.json) {
+    console.log(
+      JSON.stringify({
+        session_id: result.session_id ?? null,
+        kept: result.kept,
+        dropped: result.dropped,
+        unresolved: result.unresolved,
+        errors: result.errors,
+        skipped_reason: result.skipped_reason,
+        distill: result.distill,
+        entities_created: result.entities_created,
+        task_id: done.task_id,
+        status: "done",
+      }),
+    );
+  } else {
+    formatCompileOutput(result, false, false);
+  }
   return compileExitCode(result);
 }
