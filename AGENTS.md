@@ -5,7 +5,7 @@
 ## 项目是什么
 
 **df-memory**：开源、单机、本地部署的记忆模块——「agent 的 git + 知识库」。  
-当前交付焦点：**九期 P9.1–P9.9 done**（[`specs/九期/`](specs/九期/)）。八期 **P8.2–P8.5 done**，P8.1 测例全绿（仅 P81-17 真机 next 关账）。七期 **P7.1–P7.5 done**。四期：**P4.2 A** 已接线（未 npm publish）；**B 档迁 P8.1**；**P4.1 MCP/REST 不做**。**P6.5 Cursor 模板不做**。
+当前交付焦点：**九期 P9.1–P9.9 done**（[`specs/九期/`](specs/九期/)）。八期 **P8.1–P8.5 done**（P81-17 真机 `next` 当步生效 2026-08-17 关账）。七期 **P7.1–P7.5 done**。四期：**P4.2 A** 已接线（未 npm publish）；**B 档迁 P8.1（done）**；**P4.1 MCP/REST 不做**。**P6.5 Cursor 模板不做**。
 
 > 口号里的「git」指版本化知识仓体验；**实现上热路径以 md 文件为权威**，git 为可选批量账本（08 **D1/D18**）。
 
@@ -14,7 +14,7 @@
 | 优先级 | 路径 | 用途 |
 |---|---|---|
 | 1 | [`specs/mvp/`](specs/mvp/) | **实现规格**——按此编码与验收 |
-| 2 | [`specs/二期/`](specs/二期/) · [`三期/`](specs/三期/) · [`五期/`](specs/五期/) · [`六期/`](specs/六期/) · [`七期/`](specs/七期/) · [`八期/`](specs/八期/) · [`九期/`](specs/九期/) · [`四期/`](specs/四期/) | 二–七期主线已做；**八期 P8.2–P8.5 done / P8.1 真机关账**；**九期 P9.1–P9.9 done**；P6.5 Cursor 模板不做；P4.2 A 已接线；P4.1 MCP **不做** |
+| 2 | [`specs/二期/`](specs/二期/) · [`三期/`](specs/三期/) · [`五期/`](specs/五期/) · [`六期/`](specs/六期/) · [`七期/`](specs/七期/) · [`八期/`](specs/八期/) · [`九期/`](specs/九期/) · [`四期/`](specs/四期/) | 二–七期主线已做；**八期 P8.1–P8.5 done（2026-08-17 真机关账）**；**九期 P9.1–P9.9 done**；P6.5 Cursor 模板不做；P4.2 A 已接线；P4.1 MCP **不做** |
 | 3 | [`reports/08-开源记忆模块设计方案.md`](reports/08-开源记忆模块设计方案.md) | 架构与 ADR；与 Spec 冲突时 **先改 Spec/ADR 再改代码** |
 | 4 | [`reports/01`](reports/01-gbrain-调研报告.md)–[`05`](reports/05-四项目对比总结.md) | 调研背景，不直接当接口规格 |
 
@@ -44,7 +44,7 @@
 | **P7.3** | 滑动窗口摄入（攒 turns 再 compile） | **done** |
 | **P7.4** | compile 建 entity + 统一 linkify + query 邻接 | **done** |
 | **P7.5** | `inbox retry`；revert merge/skill/noop | **done** |
-| **P8.1** | 会话挂钩 + remember 异步（统一 job；承接 P4.2 B） | **in_progress**（本仓 deferCompile/`bindOpen` + `job_timeout_ms` + init gitignore 绿；插件 P81-10–18 除真机 next 生效外全绿：15 串行、16 崩溃恢复、17 门控注入 fail-open、卸载 flush、超时不写 L0 均已补测） |
+| **P8.1** | 会话挂钩 + remember 异步（统一 job；承接 P4.2 B） | **done**（本仓 deferCompile/`bindOpen` + `job_timeout_ms` + init gitignore 绿；插件 P81-10–18 全绿：15 串行、16 崩溃恢复、17 门控注入 fail-open、卸载 flush、超时不写 L0 均已补测；P81-17 真机 `next` 当步生效 2026-08-17 验证通过） |
 | **P8.2** | 检索分层标注 / 溯源 / 图臂 schemaType | **done**（P82-01–09 全绿：本仓 exclude + 图臂 type + `annotateHits` + tie-break；插件默认排除 + 标注透传 + prompt 策略） |
 | **P8.3** | Skill 查找与按需注入（不混默认 query） | **done**（本仓 `findSkills` 绿；插件 `memory_skill` list/find/read/inject + 宿主 `ctx.skills.register` A 通道 + 预算/幂等/ACL + P83-10–17 绿） |
 | **P8.4** | 提取粒度（note 合并同类；不破 P6.6） | **done**（P84-00–05：Granularity 合同 + 清单 fixture 合成一条 + 独立 decision 仍拆；P6.6 回归） |
@@ -68,7 +68,7 @@
 | 优先级 | 项 | 说明 |
 |---|---|---|
 | — | **九期** | **P9.1–P9.9 done**。 |
-| — | **八期关账** | P81-17 真机 `next` 当步生效待补验。 |
+| — | **八期关账** | **done（2026-08-17）**：P81-17 真机 `next` 当步生效已验证（DSH Web 真机会话，模型当轮上下文即现注入块）。 |
 | P1 | **remember 无 Key → `E_DISABLED`** | 设计如此；escape：`remember --no-extract`。 |
 | P1 | **schema pack 仅 problem-tree** | 明确裁剪。 |
 | P1 | **embedding** | **P9.2**：init 默认 `openai`；CI `local` 哈希；`onnx` 真本地模型。无 Key 语义臂 fail-open。 |
@@ -78,7 +78,7 @@
 
 1. 改行为前先读 / 更新对应 Spec（[`00-conventions.md`](specs/mvp/00-conventions.md) §8、M1/M2/M3、[`二期/`](specs/二期/)、[`三期/`](specs/三期/)、[`五期/`](specs/五期/)、[`六期/`](specs/六期/)、[`七期/`](specs/七期/)、[`八期/`](specs/八期/)、[`九期/`](specs/九期/)、[`四期/`](specs/四期/)）  
 2. 写入校验以 [`WRITE_FORMAT.md`](specs/mvp/WRITE_FORMAT.md) 为准（含 experience §9、skill §10）  
-3. **五–九期主线已完成（P8.1 真机 next 除外）**。会话摄入必须 `complete()`（无 Key → `E_DISABLED`）。**P6.5 Cursor 模板不做。** **P4.1 MCP 不做。**  
+3. **五–九期主线已完成**。会话摄入必须 `complete()`（无 Key → `E_DISABLED`）。**P6.5 Cursor 模板不做。** **P4.1 MCP 不做。**  
    原文先归档 `.dfmemory/inbox/`。人手 `capture` 仍可零 LLM。**capture / remember / ingest session 默认入队**；立刻可 query 用 `--wait`，或 `memory job status <task_id>`。  
 4. 与 Spec 冲突时：**先改 Spec/08 ADR，再改代码**  
 5. **不**扩 dream 夜间维护全集（v1 五段维持）  
@@ -94,7 +94,7 @@
 - skill 不混默认 `memory_query`（P8.3）；不从会话直接抽 `SKILL.md`。  
 - 懒蒸默认 5→3 **不改**（仓配置即可）。  
 
-分期速查：二期 = P2.1a+P2.2（**done**）；三期 = P3.1–P3.3（**done**）；**五期 = P5.1–P5.8（done）**；**六期 = P6.1–P6.4 + 查询门控 + P6.6（done；Cursor 模板不做）**；**七期 = P7.1–P7.5（done）**；**八期 = P8.2–P8.5 done，P8.1 真机 next 待补**；**九期 = P9.1–P9.9 done**；四期 = **P4.2 A in_progress / B 迁 P8.1**；P4.1 MCP **不做**。
+分期速查：二期 = P2.1a+P2.2（**done**）；三期 = P3.1–P3.3（**done**）；**五期 = P5.1–P5.8（done）**；**六期 = P6.1–P6.4 + 查询门控 + P6.6（done；Cursor 模板不做）**；**七期 = P7.1–P7.5（done）**；**八期 = P8.1–P8.5 done（2026-08-17 真机关账）**；**九期 = P9.1–P9.9 done**；四期 = **P4.2 A in_progress / B 迁 P8.1（done）**；P4.1 MCP **不做**。
 
 ## 技术栈（已锁定）
 
@@ -235,7 +235,7 @@ bun run memory -- remember --help
 
 九期口令见 [`specs/九期/`](specs/九期/)（capture/remember/ingest session 加 `--wait`；`memory trend` / `memory job status`）。  
 五期口令见 [`specs/五期/`](specs/五期/) 各 Spec 验收节。  
-六期口令见 [`specs/六期/`](specs/六期/)；会话摄入无 Key 时 `E_DISABLED`（CI 用 mock `complete`）。**P6.5 Cursor 模板不做。** 七期口令见 [`specs/七期/`](specs/七期/)（P7.1–P7.5 已做）。八期口令见 [`specs/八期/`](specs/八期/)（P8.2–P8.5 done；P8.1 真机 next 待补）。
+六期口令见 [`specs/六期/`](specs/六期/)；会话摄入无 Key 时 `E_DISABLED`（CI 用 mock `complete`）。**P6.5 Cursor 模板不做。** 七期口令见 [`specs/七期/`](specs/七期/)（P7.1–P7.5 已做）。八期口令见 [`specs/八期/`](specs/八期/)（P8.1–P8.5 done；2026-08-17 真机关账）。
 
 细节见各 Spec 验收节与 [`specs/mvp/README.md`](specs/mvp/README.md)、[`specs/三期/README.md`](specs/三期/README.md)、[`specs/五期/README.md`](specs/五期/README.md)、[`specs/六期/README.md`](specs/六期/README.md)、[`specs/七期/README.md`](specs/七期/README.md)、[`specs/八期/README.md`](specs/八期/README.md)、[`specs/四期/README.md`](specs/四期/README.md)（P4.2 A）。
 

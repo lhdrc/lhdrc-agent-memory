@@ -62,7 +62,7 @@ pre-step          → shouldQueryMemory；命中则检索并 inject（知识层�
 
 | 顺序 | Spec | 文件 | 依赖 | 一句话 | 主线 |
 |---|---|---|---|---|---|
-| 1 | P8.1 挂钩 + 异步 | [`P8.1-session-hook-async.md`](P8.1-session-hook-async.md) | P4.2 A、P7.3、P6.3、P6.5 | 每轮 append；compile 入队；remember 返回 accepted | **是（in_progress）** |
+| 1 | P8.1 挂钩 + 异步 | [`P8.1-session-hook-async.md`](P8.1-session-hook-async.md) | P4.2 A、P7.3、P6.3、P6.5 | 每轮 append；compile 入队；remember 返回 accepted | **是（done，2026-08-17 关账）** |
 | 2 | P8.2 检索分层 | [`P8.2-layered-retrieve.md`](P8.2-layered-retrieve.md) | P2.1a、P5.3、P4.2 A | 层标注、experience 溯源、图臂 schemaType、侧车可排除 | **是** |
 | 3 | P8.3 Skill 注入 | [`P8.3-skill-inject.md`](P8.3-skill-inject.md) | P3.2、P8.1（注入通道）、P8.2（可剥离） | 独立查找；按需注入；不混默认 query | **是** |
 | 4 | P8.4 提取粒度 | [`P8.4-extract-granularity.md`](P8.4-extract-granularity.md) | P6.6 | note 合并同类清单；独立决策仍拆条 | **是（done）** |
@@ -106,4 +106,4 @@ P8.2 与 P8.4 可与 P8.1 **并行**（P8.2 图臂/排除是 core；P8.4 是 pro
 
 ## 八期完成标志
 
-P8.1–P8.3 DoD 勾选 → **八期主线完成**（P8.1 仅剩 P81-17 真机 `next` 补验）。**P8.4 / P8.5 done**。P4.1 仍后置。
+P8.1–P8.3 DoD 勾选 → **八期主线完成（2026-08-17：P81-17 真机 `next` 当步生效已验，八期关账）**。**P8.4 / P8.5 done**。P4.1 仍后置。

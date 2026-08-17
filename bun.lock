@@ -13,21 +13,21 @@
       "name": "@df-memory/ingest-df-app",
       "version": "0.1.0",
       "dependencies": {
-        "@df-memory/core": "workspace:*",
+        "@lhdrc/core": "workspace:*",
       },
     },
     "packages/adapters/ingest-generic-jsonl": {
       "name": "@df-memory/ingest-generic-jsonl",
       "version": "0.1.0",
       "dependencies": {
-        "@df-memory/core": "workspace:*",
+        "@lhdrc/core": "workspace:*",
       },
     },
     "packages/adapters/ingest-session": {
       "name": "@df-memory/ingest-session",
       "version": "0.1.0",
       "dependencies": {
-        "@df-memory/core": "workspace:*",
+        "@lhdrc/core": "workspace:*",
       },
     },
     "packages/cli": {
@@ -37,15 +37,15 @@
         "memory": "./src/main.ts",
       },
       "dependencies": {
-        "@df-memory/core": "workspace:*",
         "@df-memory/ingest-df-app": "workspace:*",
         "@df-memory/ingest-generic-jsonl": "workspace:*",
         "@df-memory/ingest-session": "workspace:*",
+        "@lhdrc/core": "workspace:*",
       },
     },
     "packages/core": {
-      "name": "@df-memory/core",
-      "version": "0.1.0",
+      "name": "@lhdrc/core",
+      "version": "0.2.2",
       "dependencies": {
         "@electric-sql/pglite": "^0.3.0",
         "pg": "^8.23.0",
@@ -59,8 +59,6 @@
   "packages": {
     "@df-memory/cli": ["@df-memory/cli@workspace:packages/cli"],
 
-    "@df-memory/core": ["@df-memory/core@workspace:packages/core"],
-
     "@df-memory/ingest-df-app": ["@df-memory/ingest-df-app@workspace:packages/adapters/ingest-df-app"],
 
     "@df-memory/ingest-generic-jsonl": ["@df-memory/ingest-generic-jsonl@workspace:packages/adapters/ingest-generic-jsonl"],
@@ -68,6 +66,8 @@
     "@df-memory/ingest-session": ["@df-memory/ingest-session@workspace:packages/adapters/ingest-session"],
 
     "@electric-sql/pglite": ["@electric-sql/pglite@0.3.16", "", {}, "sha512-mZkZfOd9OqTMHsK+1cje8OSzfAQcpD7JmILXTl5ahdempjUDdmg4euf1biDex5/LfQIDJ3gvCu6qDgdnDxfJmA=="],
+
+    "@lhdrc/core": ["@lhdrc/core@workspace:packages/core"],
 
     "@types/bun": ["@types/bun@1.3.14", "", { "dependencies": { "bun-types": "1.3.14" } }, "sha512-h1hFqFVcvAvD9j9K7ZW7vd82aSA+rTdznZa+5bwvCwqSB1jmmfLcbIWhOLx1/+boy/xmjgCs/OMUL8hRJSmnPw=="],
 
