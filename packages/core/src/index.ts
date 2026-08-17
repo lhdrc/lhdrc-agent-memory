@@ -73,6 +73,8 @@ export type {
   IngestLineError,
   IngestCaptureFn,
 } from "./ingest/types.ts";
+export { applyIronLaw } from "./write/iron-law.ts";
+export type { ApplyIronLawOptions } from "./write/iron-law.ts";
 export { enrichAfterWrite } from "./write/enrich.ts";
 export type { EnrichResult, EnrichOptions } from "./write/enrich.ts";
 export { heuristicExtractFacts, validateFactsForAppend } from "./write/extract.ts";

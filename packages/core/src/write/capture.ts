@@ -8,7 +8,9 @@ import { linkifyBody } from "../compile/linkify.ts";
 import type { SchemaPack } from "../schema/loadPack.ts";
 import { mkdirp } from "../util/fs.ts";
 import type { FileMutationExecutor } from "./executor.ts";
+import { directGitExecutor } from "./executor.ts";
 import { WriteValidator } from "./validator.ts";
+import { applyIronLaw } from "./iron-law.ts";
 import type { CreateNodeRequest, Fact, Link } from "./types.ts";
 
 export interface CaptureOptions {
@@ -27,6 +29,8 @@ export interface CaptureOptions {
   relativePath?: string;
   /** 会话编译撞 path 时追加 -2、-3（P6.3）；人手 capture 默认关闭 */
   disambiguate?: boolean;
+  /** P9.7 Iron Law；缺省用 directGitExecutor（compile 在 queue 内直写） */
+  queue?: FileMutationExecutor;
 }
 
 /** WRITE_FORMAT §3：正文形状 = 摘要 + 正文；若 body 已含 ## 摘要 则不重复包裹。 */
@@ -137,6 +141,12 @@ export async function captureWrite(
     }
     await mkdirp(dirname(abs));
     await writeFile(abs, serializeFrontmatter(n.frontmatter, body), "utf8");
+    try {
+      const ironQueue = opts.queue ?? directGitExecutor(repoRoot);
+      await applyIronLaw(repoRoot, n.path, ironQueue, { brainId: opts.brainId });
+    } catch {
+      /* P9.7 fail-open */
+    }
     return n.path;
   }
 
@@ -153,7 +163,7 @@ export async function captureNode(
   let written = "";
   await queue.execute(
     async () => {
-      written = await captureWrite(repoRoot, pack, opts);
+      written = await captureWrite(repoRoot, pack, { ...opts, queue });
       return [written];
     },
     `capture ${opts.schemaType} ${opts.title}`,

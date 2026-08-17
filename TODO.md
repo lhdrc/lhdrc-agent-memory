@@ -22,7 +22,7 @@
 ## 九期（2026-08-16 会话锁定）
 
 > 先改 Spec/08 再改代码。P8.1 真机 `next` 是八期关账，不进九期 DoD。hotness **α 默认 0.15**（P9.3；禁止沿用加法 0.45）。规格：[`specs/九期/`](specs/九期/)。  
-> **进度 2026-08-17**：已 commit P9.1–P9.5、P9.9。未关账：P9.6 outcome/启动注入（含插件仓）、P9.7 Iron Law、P9.8 JobRunner。各剩余 spec 仍须单独 commit。
+> **进度 2026-08-17**：已 commit P9.1–P9.5、P9.7、P9.9。未关账：P9.6 outcome/启动注入（含插件仓）、P9.8 JobRunner。各剩余 spec 仍须单独 commit。
 
 | # | 锁定做法 | Spec |
 |---|---|---|
