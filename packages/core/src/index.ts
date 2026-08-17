@@ -101,6 +101,8 @@ export {
   type ExperienceWriteInput,
 } from "./write/experience-validator.ts";
 export { writeExperience, patchExperienceStatus, restoreExperienceSnapshot } from "./write/experience.ts";
+export { listBootExperiences } from "./write/boot-experiences.ts";
+export type { BootExperienceItem } from "./write/boot-experiences.ts";
 
 export {
   createLLMProvider,

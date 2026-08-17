@@ -86,12 +86,12 @@ P9.3 的 cosine 在 P9.2 前也能跑（哈希档）；但测例分「哈希拉�
 | P9.3 融合 | **done** | 已 commit |
 | P9.4 source | **done** | 已 commit |
 | P9.5 趋势 | **done** | 已 commit |
-| P9.6 agent | **in_progress** | 本仓 helper + 插件 `memory_skill_outcome`/boot inject；两边未 commit |
+| P9.6 agent | **done** | 本仓 helper + 插件 `memory_skill_outcome`/boot inject |
 | P9.7 Iron Law | **done** | 已 commit |
 | P9.8 异步写 | **in_progress** | JobRunner 已迁 core、CLI 默认入队；**P98 未全绿**，勿标 done |
 | P9.9 merge_op | **done** | 已 commit |
 
-关账顺序：P9.6（本仓+`dsh-df-memory`）→ P9.8。
+关账顺序：P9.8 单独 commit。
 
 ## 4. 仓库边界
 
