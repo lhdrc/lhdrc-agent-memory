@@ -15,6 +15,9 @@ import { WriteValidator } from "../write/validator.ts";
 import type { WriteQueue } from "../write/queue.ts";
 import { resolveBrainRoot } from "../repo/layout.ts";
 import type { LLMProvider } from "../llm/types.ts";
+import { resolveEmbedder } from "../embed/factory.ts";
+import { cosineSimilarity } from "../embed/cosine.ts";
+import type { EmbeddingProvider } from "../embed/types.ts";
 
 export type DreamPhase = 1 | 2 | 3 | 4 | 5;
 
@@ -25,6 +28,8 @@ export interface DreamOptions {
   phases?: DreamPhase[];
   /** 测试注入 FakeLLM；提供时跳过 kill_switch 门禁 */
   llm?: LLMProvider;
+  /** P10.3 测试注入 mock embedder（跨文件 cosine） */
+  embedder?: EmbeddingProvider;
 }
 
 export interface DreamPhaseResult {
@@ -143,20 +148,43 @@ async function phaseDistill(
   };
 }
 
+interface FactCandidate {
+  path: string;
+  factIndex: number;
+  text: string;
+}
+
+const MAX_FACTS_FOR_CROSS = 500;
+const MAX_CROSS_FINDINGS = 100;
+const CROSS_COSINE_THRESHOLD = 0.95;
+
+function escapeFactQuote(text: string): string {
+  return text.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
 /**
- * 同 path 冲突 facts 启发式：同一文件内 facts 文本高度重叠且 event_type 不同 → 记入 contradictions.md。
- * 不删 facts。
+ * P3.2 + P10.3：同文件启发式 + 跨文件 cosine 近似 facts。
+ * 不删、不改 L0 facts；embedding local/off 或 fallback 时跳过跨文件。
  */
-async function phaseContradictions(repoRoot: string, brainId: string): Promise<DreamPhaseResult> {
+async function phaseContradictions(
+  repoRoot: string,
+  brainId: string,
+  opts?: { embedder?: EmbeddingProvider },
+): Promise<DreamPhaseResult> {
   const brainRoot = resolveBrainRoot(repoRoot, brainId);
   const files: string[] = [];
   await walkMd(join(brainRoot, "sources"), `brains/${brainId}/sources`, files);
-  const findings: string[] = [];
+  const intraFindings: string[] = [];
+  const allFacts: FactCandidate[] = [];
 
   for (const rel of files) {
     const raw = await readFile(join(repoRoot, rel), "utf8");
     const { data } = parseFrontmatter(raw);
     const facts = Array.isArray(data.facts) ? (data.facts as Array<Record<string, unknown>>) : [];
+    for (let i = 0; i < facts.length; i++) {
+      const text = String(facts[i]?.text ?? "").trim();
+      if (text) allFacts.push({ path: rel, factIndex: i, text });
+    }
     for (let i = 0; i < facts.length; i++) {
       for (let j = i + 1; j < facts.length; j++) {
         const a = String(facts[i]?.text ?? "").trim().toLowerCase();
@@ -164,22 +192,89 @@ async function phaseContradictions(repoRoot: string, brainId: string): Promise<D
         if (!a || !b) continue;
         const sameType = String(facts[i]?.event_type) === String(facts[j]?.event_type);
         if (!sameType && (a.includes(b) || b.includes(a) || a.slice(0, 40) === b.slice(0, 40))) {
-          findings.push(`- ${rel}: 可能冲突 facts[${i}] vs facts[${j}]`);
+          intraFindings.push(`- ${rel}: 可能冲突 facts[${i}] vs facts[${j}]`);
         }
       }
     }
   }
 
-  const contraPath = join(brainRoot, "contradictions.md");
+  const crossFindings: string[] = [];
+  let truncated = false;
+  let crossSkipped = false;
+
+  let embedder: EmbeddingProvider | undefined;
+  let useCrossFile = false;
+  if (opts?.embedder) {
+    embedder = opts.embedder;
+    useCrossFile = true;
+  } else {
+    const cfg = await loadRepoConfig(repoRoot);
+    const provider = cfg.embedding.provider;
+    if (provider === "openai" || provider === "onnx") {
+      const resolved = resolveEmbedder(cfg.embedding);
+      if (!resolved.fallback) {
+        embedder = resolved.embedder;
+        useCrossFile = true;
+      }
+    }
+  }
+
+  if (useCrossFile && embedder && allFacts.length >= 2) {
+    const sorted = [...allFacts].sort(
+      (a, b) => a.path.localeCompare(b.path) || a.factIndex - b.factIndex,
+    );
+    const candidates =
+      sorted.length > MAX_FACTS_FOR_CROSS ? sorted.slice(0, MAX_FACTS_FOR_CROSS) : sorted;
+    if (sorted.length > MAX_FACTS_FOR_CROSS) truncated = true;
+
+    try {
+      const vectors = await embedder.embed(candidates.map((c) => c.text));
+      for (let i = 0; i < candidates.length && crossFindings.length < MAX_CROSS_FINDINGS; i++) {
+        for (let j = i + 1; j < candidates.length && crossFindings.length < MAX_CROSS_FINDINGS; j++) {
+          const left = candidates[i]!;
+          const right = candidates[j]!;
+          if (left.path === right.path) continue;
+          const cos = cosineSimilarity(vectors[i]!, vectors[j]!);
+          if (cos >= CROSS_COSINE_THRESHOLD) {
+            crossFindings.push(
+              `- duplicate cosine=${cos.toFixed(4)} \`${left.path}\` facts[${left.factIndex}] ↔ \`${right.path}\` facts[${right.factIndex}]\n  - a: "${escapeFactQuote(left.text)}"\n  - b: "${escapeFactQuote(right.text)}"`,
+            );
+          }
+        }
+      }
+    } catch {
+      crossSkipped = true;
+    }
+  }
+
   const header = `# Contradictions\n\n> dream @ ${new Date().toISOString()}\n\n`;
-  const body = findings.length ? findings.join("\n") + "\n" : "_no contradictions detected_\n";
-  await writeFile(contraPath, header + body, "utf8");
+  let body = "";
+  if (intraFindings.length === 0 && crossFindings.length === 0) {
+    body = crossSkipped
+      ? "_no contradictions detected_\n\n(cross-file embedding skipped due to error)\n"
+      : "_no contradictions detected_\n";
+  } else {
+    if (intraFindings.length > 0) {
+      body += `## intra-file\n\n${intraFindings.join("\n")}\n\n`;
+    }
+    if (crossFindings.length > 0) {
+      body += `## cross-file\n\n${crossFindings.join("\n\n")}\n`;
+    } else if (crossSkipped) {
+      body += "## cross-file\n\n(skipped: embedding error)\n";
+    }
+  }
+
+  await writeFile(join(brainRoot, "contradictions.md"), header + body, "utf8");
 
   return {
     phase: 4,
     name: "contradictions",
     ok: true,
-    details: { findings: findings.length },
+    details: {
+      findings: intraFindings.length,
+      cross_file: crossFindings.length,
+      ...(truncated ? { truncated: true } : {}),
+    },
   };
 }
 
@@ -266,7 +361,7 @@ export async function runDream(repoRoot: string, opts: DreamOptions): Promise<Dr
         r = await phaseDistill(repoRoot, opts.brainId, opts.queue, opts.llm);
         break;
       case 4:
-        r = await phaseContradictions(repoRoot, opts.brainId);
+        r = await phaseContradictions(repoRoot, opts.brainId, { embedder: opts.embedder });
         break;
       case 5:
         r = await phaseOrphans(repoRoot, opts.brainId, opts.queue);

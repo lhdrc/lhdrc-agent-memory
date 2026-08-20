@@ -21,8 +21,8 @@ export {
 export type { NormalizedRepoPath } from "./repo/layout.ts";
 export { gitAdd, gitCommit, gitAddAll, gitInit, gitLog, gitIsRepo, runGit, filterGitAddPaths } from "./repo/git.ts";
 
-export { loadPack, stripYamlFence, DEFAULT_PACK, PACKS_DIR } from "./schema/loadPack.ts";
-export type { SchemaPack } from "./schema/loadPack.ts";
+export { loadPack, stripYamlFence, DEFAULT_PACK, PACKS_DIR, compileExtraVerbs } from "./schema/loadPack.ts";
+export type { SchemaPack, ExtraVerbRaw } from "./schema/loadPack.ts";
 export { setSchemaPack } from "./schema/setPack.ts";
 
 export { EntityRegistryImpl, createEntityRegistry, monthDir } from "./entity/registry.ts";
@@ -224,7 +224,7 @@ export { classifyIntent } from "./retrieve/intent.ts";
 export type { QueryIntent } from "./retrieve/intent.ts";
 export { shouldQueryMemory } from "./retrieve/query-triggers.ts";
 export type { QueryGateHit, QueryGateCtx, ShouldQueryMemoryInput, RecallCommand } from "./retrieve/query-triggers.ts";
-export { graphArm, graphArmDetailed, parseRelationalQuery } from "./retrieve/graph.ts";
+export { graphArm, graphArmDetailed, parseRelationalQuery, needleMatchesQuery } from "./retrieve/graph.ts";
 export type { RelationalParse, GraphArmOptions, GraphArmResult, GraphMode } from "./retrieve/graph.ts";
 export {
   applyGraphSignals,
@@ -236,7 +236,7 @@ export {
 export type { SignalExplain, ApplySignalsResult } from "./retrieve/signals.ts";
 export { knobsHash, cacheKey, getSearchCache, setSearchCache, invalidateSearchCache } from "./retrieve/cache.ts";
 export type { SearchKnobs } from "./retrieve/cache.ts";
-export { extractEntityRefs, stripCodeBlocks, inferLinkType } from "./graph/link-extraction.ts";
+export { extractEntityRefs, stripCodeBlocks, inferLinkType, KNOWN_LINK_TYPES, DEFAULT_VERBS } from "./graph/link-extraction.ts";
 export type { ExtractedLink, LinkSource } from "./graph/link-extraction.ts";
 export { syncLinksForPage, deleteLinksForPath, linkRowId } from "./index/sync-links.ts";
 

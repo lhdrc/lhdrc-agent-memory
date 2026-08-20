@@ -20,11 +20,12 @@ export async function syncLinksForPage(
   body: string,
   frontmatter: Record<string, unknown>,
   brainId: string,
+  verbPatterns?: Array<{ re: RegExp; type: string }>,
 ): Promise<ExtractedLink[]> {
   const fmLinks = Array.isArray(frontmatter.links)
     ? (frontmatter.links as Array<{ to?: unknown; type?: unknown; source?: unknown }>)
     : null;
-  const links = extractEntityRefs(body, fmLinks);
+  const links = extractEntityRefs(body, fmLinks, verbPatterns ? { verbPatterns } : undefined);
   await deleteLinksForPath(db, fromPath);
   for (const l of links) {
     const id = linkRowId(fromPath, l.to, l.type, l.source);

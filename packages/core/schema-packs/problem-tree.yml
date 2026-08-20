@@ -56,4 +56,8 @@ directories_on_init:
   - "events"
   - "experiences"
   - "skills"
+
+extra_verbs:
+  - pattern: "带队|led"
+    type: works_on
 ```

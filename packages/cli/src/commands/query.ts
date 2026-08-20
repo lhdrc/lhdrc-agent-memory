@@ -6,7 +6,6 @@ import {
   createEmbeddingProvider,
   loadRepoConfig,
   loadPack,
-  recordQueryStat,
   assertSourceScope,
   assertPathScope,
   type SearchMode,
@@ -86,12 +85,6 @@ export async function queryCommand(argv: string[]): Promise<number> {
             return false;
           }
         });
-    const avgScore = hits.length ? hits.reduce((s, h) => s + h.score, 0) / hits.length : 0;
-    await recordQueryStat(ctx.repoRoot, {
-      query: text,
-      hitCount: hits.length,
-      avgScore,
-    }).catch(() => {});
     if (o.explain || o.json) {
       const payload: Record<string, unknown> = { query: text, mode, results: hits };
       if (explain) payload.explain = explain;

@@ -12,15 +12,35 @@ export interface ExtractedLink {
 }
 
 export interface ExtractOptions {
-  /** 正文动词窗口推断（可覆盖） */
+  /** 正文动词窗口推断（可覆盖；通常为 DEFAULT_VERBS + pack extra） */
   verbPatterns?: Array<{ re: RegExp; type: string }>;
 }
 
-const DEFAULT_VERBS: Array<{ re: RegExp; type: string }> = [
+/** P10.2 冻结边类型词表 */
+export const KNOWN_LINK_TYPES = Object.freeze(
+  new Set([
+    "mentions",
+    "references",
+    "decided",
+    "produced_by",
+    "works_on",
+    "belongs_to",
+    "works_at",
+    "founded",
+    "invested_in",
+    "advises",
+  ]),
+) as ReadonlySet<string>;
+
+export const DEFAULT_VERBS: Array<{ re: RegExp; type: string }> = [
   { re: /决定|decided/i, type: "decided" },
   { re: /产出|produced/i, type: "produced_by" },
   { re: /负责|works\s+on/i, type: "works_on" },
   { re: /属于/i, type: "belongs_to" },
+  { re: /任职|就职|工作于|works\s+at|works_at/i, type: "works_at" },
+  { re: /创立|创办|founded/i, type: "founded" },
+  { re: /投资|invested\s+in/i, type: "invested_in" },
+  { re: /顾问|advises/i, type: "advises" },
 ];
 
 interface MaskRange {

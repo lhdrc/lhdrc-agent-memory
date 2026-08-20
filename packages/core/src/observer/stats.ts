@@ -8,10 +8,18 @@ import { mkdirp } from "../util/fs.ts";
 import { loadRepoConfig } from "../repo/config.ts";
 import { readCostConfig, readCostLog } from "../cost/logger.ts";
 
+export interface QueryEvidenceCounts {
+  keyword: number;
+  semantic: number;
+  graph: number;
+}
+
 export interface ObserverStats {
   query_count: number;
   zero_result_rate: number;
   avg_score: number;
+  avg_latency_ms: number;
+  evidence_share: QueryEvidenceCounts;
   distill_count: number;
   cost: {
     entries: number;
@@ -25,20 +33,26 @@ const QUERY_LOG = ".dfmemory/logs/query.jsonl";
 
 export async function recordQueryStat(
   repoRoot: string,
-  entry: { query: string; hitCount: number; avgScore: number; at?: string },
+  entry: {
+    query: string;
+    hitCount: number;
+    avgScore: number;
+    at?: string;
+    latency_ms?: number;
+    evidence?: QueryEvidenceCounts;
+  },
 ): Promise<void> {
   const abs = join(repoRoot, QUERY_LOG);
   await mkdirp(dirname(abs));
-  await appendFile(
-    abs,
-    `${JSON.stringify({
-      at: entry.at ?? new Date().toISOString(),
-      query: entry.query,
-      hitCount: entry.hitCount,
-      avgScore: entry.avgScore,
-    })}\n`,
-    "utf8",
-  );
+  const row: Record<string, unknown> = {
+    at: entry.at ?? new Date().toISOString(),
+    query: entry.query,
+    hitCount: entry.hitCount,
+    avgScore: entry.avgScore,
+  };
+  if (entry.latency_ms !== undefined) row.latency_ms = entry.latency_ms;
+  if (entry.evidence) row.evidence = entry.evidence;
+  await appendFile(abs, `${JSON.stringify(row)}\n`, "utf8");
 }
 
 export async function collectObserverStats(repoRoot: string, brainId: string): Promise<ObserverStats> {
@@ -48,6 +62,11 @@ export async function collectObserverStats(repoRoot: string, brainId: string): P
   let query_count = 0;
   let zero = 0;
   let scoreSum = 0;
+  let latencySum = 0;
+  let latencyCount = 0;
+  let evKeyword = 0;
+  let evSemantic = 0;
+  let evGraph = 0;
 
   const qAbs = join(repoRoot, QUERY_LOG);
   if (existsSync(qAbs)) {
@@ -55,10 +74,24 @@ export async function collectObserverStats(repoRoot: string, brainId: string): P
     for (const line of raw.split("\n")) {
       if (!line.trim()) continue;
       try {
-        const e = JSON.parse(line) as { hitCount: number; avgScore: number };
+        const e = JSON.parse(line) as {
+          hitCount: number;
+          avgScore: number;
+          latency_ms?: number;
+          evidence?: Partial<QueryEvidenceCounts>;
+        };
         query_count++;
         if (!e.hitCount) zero++;
         scoreSum += e.avgScore ?? 0;
+        if (typeof e.latency_ms === "number" && Number.isFinite(e.latency_ms)) {
+          latencySum += e.latency_ms;
+          latencyCount++;
+        }
+        if (e.evidence) {
+          evKeyword += e.evidence.keyword ?? 0;
+          evSemantic += e.evidence.semantic ?? 0;
+          evGraph += e.evidence.graph ?? 0;
+        }
       } catch {
         /* skip */
       }
@@ -98,10 +131,21 @@ export async function collectObserverStats(repoRoot: string, brainId: string): P
     }
   }
 
+  const evSum = evKeyword + evSemantic + evGraph;
+  const evidence_share: QueryEvidenceCounts = evSum
+    ? {
+        keyword: evKeyword / evSum,
+        semantic: evSemantic / evSum,
+        graph: evGraph / evSum,
+      }
+    : { keyword: 0, semantic: 0, graph: 0 };
+
   return {
     query_count,
     zero_result_rate: query_count ? zero / query_count : 0,
     avg_score: query_count ? scoreSum / query_count : 0,
+    avg_latency_ms: latencyCount ? latencySum / latencyCount : 0,
+    evidence_share,
     distill_count,
     cost: { entries: costs.length, tokens_in, tokens_out, skipped },
   };
