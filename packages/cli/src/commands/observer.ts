@@ -12,6 +12,10 @@ export async function observerCommand(argv: string[]): Promise<number> {
     console.log(`queries: ${stats.query_count}`);
     console.log(`zero-result rate: ${(stats.zero_result_rate * 100).toFixed(1)}%`);
     console.log(`avg score: ${stats.avg_score.toFixed(4)}`);
+    console.log(`avg latency: ${stats.avg_latency_ms.toFixed(1)} ms`);
+    console.log(
+      `evidence share: keyword=${(stats.evidence_share.keyword * 100).toFixed(1)}% semantic=${(stats.evidence_share.semantic * 100).toFixed(1)}% graph=${(stats.evidence_share.graph * 100).toFixed(1)}%`,
+    );
     console.log(`distill ops: ${stats.distill_count}`);
     console.log(
       `cost: entries=${stats.cost.entries} in=${stats.cost.tokens_in} out=${stats.cost.tokens_out} skipped=${stats.cost.skipped}`,

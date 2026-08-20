@@ -13,10 +13,24 @@ import { float32ToBytes } from "../embed/cosine.ts";
 import { writeIndexMeta, writeEmbeddingMeta } from "./meta.ts";
 import { deleteLinksForPath, syncLinksForPage } from "./sync-links.ts";
 import { isDerivedLayerFile } from "../layers/generate.ts";
+import { loadRepoConfig } from "../repo/config.ts";
+import { loadPack, compileExtraVerbs } from "../schema/loadPack.ts";
+import { DEFAULT_VERBS } from "../graph/link-extraction.ts";
 
 export interface SyncOptions {
   embedder?: EmbeddingProvider;
   embeddingModel?: string;
+}
+
+async function verbPatternsForRepo(repoRoot: string): Promise<Array<{ re: RegExp; type: string }>> {
+  try {
+    const cfg = await loadRepoConfig(repoRoot);
+    const pack = await loadPack(cfg.schema_pack);
+    const extra = compileExtraVerbs(pack.extra_verbs);
+    return extra.length > 0 ? [...DEFAULT_VERBS, ...extra] : DEFAULT_VERBS;
+  } catch {
+    return DEFAULT_VERBS;
+  }
 }
 
 export const PAGE_COLS = [
@@ -90,10 +104,11 @@ export async function syncPage(
   const hash = semanticContentHash(raw);
   const { data, body } = parseFrontmatter(raw);
   const brainId = brainIdFromPath(relPath);
+  const verbPatterns = await verbPatternsForRepo(repoRoot);
   const existing = await db.query<{ content_hash: string }>(`SELECT content_hash FROM pages WHERE path = $1`, [relPath]);
   if (existing.rows.length > 0 && existing.rows[0]!.content_hash === hash) {
     // 内容未变仍刷新 links（P3.1 DDL 增量后可自愈）
-    await syncLinksForPage(db, relPath, body, data, brainId);
+    await syncLinksForPage(db, relPath, body, data, brainId, verbPatterns);
     return;
   }
 
@@ -151,7 +166,7 @@ export async function syncPage(
         model: opts.embeddingModel ?? opts.embedder.id,
       });
     }
-    await syncLinksForPage(db, relPath, body, data, brainId);
+    await syncLinksForPage(db, relPath, body, data, brainId, verbPatterns);
     await db.exec("COMMIT");
   } catch (e) {
     await db.exec("ROLLBACK");

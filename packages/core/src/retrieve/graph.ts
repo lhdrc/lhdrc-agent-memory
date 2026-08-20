@@ -26,7 +26,59 @@ const TEMPLATES: Array<{ re: RegExp; seedGroup: number; verb?: string }> = [
   { re: /^(.+?)\s+references$/iu, seedGroup: 1, verb: "references" },
   { re: /^(.+?)\s*提到了?\s*(.+)$/u, seedGroup: 2, verb: "mentions" },
   { re: /^提到了?\s*(.+)$/u, seedGroup: 1, verb: "mentions" },
+  { re: /^who\s+works\s+at\s+(.+)$/iu, seedGroup: 1, verb: "works_at" },
+  { re: /^who\s+founded\s+(.+)$/iu, seedGroup: 1, verb: "founded" },
 ];
+
+const STOPWORDS = new Set([
+  "the",
+  "a",
+  "an",
+  "of",
+  "and",
+  "or",
+  "is",
+  "的",
+  "了",
+  "和",
+  "与",
+  "谁",
+  "什么",
+  "如何",
+]);
+
+function isStopword(text: string): boolean {
+  return STOPWORDS.has(text.trim().toLowerCase());
+}
+
+function isPunctuationOnly(text: string): boolean {
+  const t = text.trim();
+  if (!t) return true;
+  return !/[\p{L}\p{N}]/u.test(t);
+}
+
+function hasCjk(text: string): boolean {
+  return /\p{Script=Han}/u.test(text) || /[\u4e00-\u9fff]/.test(text);
+}
+
+function isAsciiAlnum(text: string): boolean {
+  return /^[a-zA-Z0-9]+$/.test(text);
+}
+
+export function needleMatchesQuery(queryLower: string, needle: string): boolean {
+  const n = needle.trim();
+  if (!n) return false;
+  if (isStopword(n)) return false;
+
+  if (hasCjk(n)) {
+    if (n.length < 2) return false;
+    return queryLower.includes(n.toLowerCase());
+  }
+
+  if (!isAsciiAlnum(n) || n.length < 3) return false;
+  const escaped = n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`\\b${escaped}\\b`, "i").test(queryLower);
+}
 
 export function parseRelationalQuery(q: string): RelationalParse | null {
   const text = q.trim();
@@ -35,7 +87,8 @@ export function parseRelationalQuery(q: string): RelationalParse | null {
     const m = text.match(t.re);
     if (!m) continue;
     const seed = (m[t.seedGroup] ?? "").trim();
-    if (!seed || seed.length > 128) continue;
+    if (!seed || seed.length > 64) continue;
+    if (isStopword(seed) || isPunctuationOnly(seed)) continue;
     let verb = t.verb ?? null;
     if (!verb && m[2]) {
       const v = m[2];
@@ -69,12 +122,6 @@ function parseAliasesJson(raw: string | null | undefined): string[] {
   }
 }
 
-function needleMatchesQuery(queryLower: string, needle: string): boolean {
-  const n = needle.trim();
-  if (n.length < 2) return false;
-  return queryLower.includes(n.toLowerCase());
-}
-
 async function collectAdjacencySeeds(db: SqlClient, brainId: string, query: string): Promise<string[]> {
   const qLower = query.trim().toLowerCase();
   if (!qLower) return [];
@@ -106,7 +153,7 @@ async function collectAdjacencySeeds(db: SqlClient, brainId: string, query: stri
     /* fail-open */
   }
 
-  return [...seeds];
+  return [...seeds].sort((a, b) => a.localeCompare(b)).slice(0, 8);
 }
 
 async function hitsFromSeeds(

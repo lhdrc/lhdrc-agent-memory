@@ -6,15 +6,16 @@
 
 ## 下期（2026-08-16 会话锁定）
 
-> **九期不立这些 Spec。** 下期开工仍先改 Spec/08。本表只收「明确下期做」；后续对话追加，禁止只停在聊天里。
+> **九期不立这些 Spec。** 下期开工仍先改 Spec/08。本表只收「明确下期做」；后续对话追加，禁止只停在聊天里。  
+> **2026-08-20**：#8 / #17-B / #22+#32 已落地 [`specs/十期/`](specs/十期/)（P10.2–P10.4 **done**）。**#9 本期不做**。#17 **锁 B**（禁止 C）。
 
 | # | 锁定做法 |
 |---|---|
-| 8 | 图谱规则密度对齐。建议切片：扩动词 + pack `extraVerbs`、邻接种子门控、STOPWORD/ReDoS、关系查询夹具。不做 `link_kind` / 批量 jsonb 写入 / page-type→默认边（pack 仍仅 problem-tree） |
-| 9 | postgres 路径真 `vector` 列 + HNSW + `<=>`；PGLite 维持 BYTEA + JS 余弦；无 pgvector 扩展 fail-open 降级；BYTEA→vector 迁移 + `rebuild-index --embeddings` 兜底 |
-| 17 | 矛盾分类。范围未锁（A 维持启发式 / B 仅跨文件 cosine / C 08 全套）。**下期开工前必须再问一次收益与缺陷，等用户重选后再写 Spec，禁止直接按 C 开工。** |
+| 8 | 图谱规则密度对齐。扩动词 + pack `extra_verbs`、邻接种子门控、STOPWORD/ReDoS、关系查询夹具。不做 `link_kind` / 批量 jsonb 写入 / page-type→默认边。**Spec [`P10.2`](specs/十期/P10.2-graph-verbs.md)** |
+| 9 | postgres 真 `vector` + HNSW。**2026-08-20 用户：本期不做。** 不进 P10.2–P10.4 DoD |
+| 17 | **B**：跨文件 cosine → 只写 `contradictions.md`；同文件启发式保留；不改 hybrid；无 LLM 三分类；`local` 哈希档跳过跨文件 cosine。**Spec [`P10.3`](specs/十期/P10.3-contradictions.md)**。C 另开 Spec |
 | 20+37 | **C**：L0 capture 同一写事务内 `memory_diff` `op: create` + 事件账本 `node_created`。`changes` 能审计 L0；ledger 仍 jsonl（#16 不做表）。 |
-| 22+32 | **一起做**：observer 补 latency + evidence 分布；`--explain` 补 `query_plan` / `searched_directories` / 分母级 `score_details`。同一套 query log。 |
+| 22+32 | observer 补 latency + evidence 分布；`--explain` 补 `query_plan` / `searched_directories` / 分母级 `score_details`。同一套 query log。**Spec [`P10.4`](specs/十期/P10.4-query-observe.md)** |
 | 29 | 敏感字段 mask。范围未锁（A 不做 / B 仅拒绝落盘 / C 拒绝或打码）。**下期开工前必须再问一次**，禁止默认按 08 打码开工。 |
 | 35 | 公开 bench LongMemEval_S / HaluMem。范围未锁。**下期开工前必须再问一次**（是否上 adapter、是否进 CI、和 `eval:mini` 的关系），禁止默认按 reports/10 P0 全量开工。 |
 | 34 | 开源治理面（含 `memory upgrade`）。upgrade = 升 CLI/core 包版本 + 可选 `memory.yml` 迁移，**不改** `brains/**` / AGENTS.md。**无 npm publish（#36 本次不做）则 upgrade 无对象**；下期开工前必须先问是否同时重开 #36。不含 MCP/#24 examples。 |
@@ -50,8 +51,8 @@
 | 5 | 懒蒸默认 5→3 | 仓配置已有 | **不做 Spec** |
 | 6 | 分层检索标注 | 08 §6.5 / §7 分层加载 | **P8.2 done** |
 | 7 | Skill 查找+注入 | 08 D5/D6；纠正「独立抽取」 | **P8.3 done** |
-| 8 | 图谱规则密度对齐 gbrain | 08 §6.6 / §7.3 / §7.5 NER | **下期**（扩动词/种子门控/查询防御/关系夹具；见文首下期表） |
-| 9 | 真 pgvector（vector 列 + HNSW） | 08 §5.2 引擎 | **下期**（仅 postgres；PGLite 不动） |
+| 8 | 图谱规则密度对齐 gbrain | 08 §6.6 / §7.3 / §7.5 NER | **P10.2 done** |
+| 9 | 真 pgvector（vector 列 + HNSW） | 08 §5.2 引擎 | **本期不做**（2026-08-20） |
 | 10 | 真模型 rerank + 低置信过滤 | 08 §7.1 cross-encoder | **做**：低分过滤默认开；真 rerank 默认关，失败 local→不 rerank |
 | 11 | 融合后 cosine re-score | 08 §7.1；gbrain 管线 | **做**：embedding 可用即跑（含哈希 local）；0.7/0.3 可配 |
 | 12 | temporal 趋势检索 | gbrain find_trajectory | **做 C**：facts 可选 metric/value/unit/period + 趋势查询；无量纲 facts 不参与 |
@@ -59,12 +60,12 @@
 | 14 | content_hash 未归一化 | 08 §5.3 | **做**：语义字段白名单 hash，剔除时间戳 |
 | 15 | source 解析链 7 层只实现 3 层 | 08 §4.2 | **做 C**：按 08 补齐 7 层 |
 | 16 | 索引表缺口 facts / event_ledger | 08 §5.2 | **不做**（文件即索引；#12 扫 md） |
-| 17 | 矛盾分类（cosine + LLM 三分类） | 08 §8.3 | **下期**（开工前再问范围，见文首下期表） |
+| 17 | 矛盾分类（cosine + LLM 三分类） | 08 §8.3 | **P10.3 done（B）**；C 不做 |
 | 18 | compiled_truth / synopsis + 2.0x | 08 §5.2 | **不做**（经验页即理解层；不建实体百科、不 ×2） |
 | 19 | skill 状态机 + onSkillOutcome | 08 §9.1 / §13 | **做 B**：outcome 回写；不自动 active（前端可展示） |
 | 20 | memory_diff 未覆盖 L0 capture | 08 §6.0 | **下期 C**（与 #37 同事务） |
 | 21 | RRF 量纲对齐 + hotness 乘法 + per-arm floor | 08 §7.1 / §7.2 | **做**：`rrf*(k+1)`，**不做 sigmoid**；hotness 改乘法，**α 待定**（现 0.45 加法不合理） |
-| 22 | observer 缺 latency / evidence 分布 | 08 §7.7 | **下期**（与 #32 一起） |
+| 22 | observer 缺 latency / evidence 分布 | 08 §7.7 | **P10.4 done**（与 #32 同一 Spec） |
 | 23 | MCP / REST / `memory serve` | 08 D7 / §12 / §15 | **不做** |
 | 24 | harness 适配器（Claude/Codex/OpenCode/OpenClaw） | 08 D16 / §10.1 | **不做**（仅 DSH；Cursor 仍不做） |
 | 25 | 启动被动注入 top 经验+skill；系统级 Skill>经验>源 | 08 D6 / §10 | **做 B**：启动只注 top 经验；skill 仍 P8.3 按需；不做三层强制排序 |
@@ -74,7 +75,7 @@
 | 29 | WRITE_FORMAT 敏感字段 mask | 08 §6.2 | **下期**（开工前再问范围） |
 | 30 | 每 source `facts.md` | 08 §5.1 | **不做**（facts 只在节点 frontmatter） |
 | 31 | tokenmax **LLM** 扩写 | 08 §7.1 | **不做**（调用方是 AI） |
-| 32 | explain 缺 query_plan / searched_directories / 分母级 score_details | 08 §7.7 | **下期**（与 #22 一起） |
+| 32 | explain 缺 query_plan / searched_directories / 分母级 score_details | 08 §7.7 | **P10.4 done**（与 #22 一起） |
 | 33 | Java 17 并行方案 | 08 D10 / §13 方案 B | **明确不做** |
 | 34 | 开源治理面（llms.txt / examples / CONTRIBUTING / `memory upgrade`） | 08 §15 | **下期**（upgrade 依赖重开 #36；见文首） |
 | 35 | 公开 bench：LongMemEval_S / HaluMem | 08 §15；[`reports/10`](reports/10-公开记忆Benchmark调研.md) | **下期**（开工前再问） |
@@ -170,7 +171,7 @@ session-start        → 打开 inbox session（或惰性）
 | 查询批量回填 | BFS 逐节点 SQL（N+1） | batch-hydrate | 路径批量 IN（已在 hydrate 端做，遍历端待合并） |
 | 评测佐证 | mini 夹具 12 条 | BrainBench +31.4 P@5 实证 | 关系查询专项夹具 |
 
-**2026-08-16 锁定：下期做。** 建议切片见文首「下期」表。先改 Spec（P3.1 补丁或新 Spec）再改代码。
+**2026-08-16 锁定：下期做。2026-08-20：Spec [`P10.2`](specs/十期/P10.2-graph-verbs.md) ready。** 建议切片见文首「下期」表。先按 P10.2 编码。
 
 ---
 
@@ -190,7 +191,7 @@ session-start        → 打开 inbox session（或惰性）
 
 **约束**：PGLite 无 pgvector，默认档语义臂**保持** BYTEA + JS 余弦不变（engine parity：同 schema 前提下允许 SQL 分叉，行为须一致）；postgres 无 pgvector 时仍 fail-open 降级。
 
-**2026-08-16 锁定：下期做（B）。** 仅 postgres 真 vector + HNSW；PGLite 不动。先改 Spec（P5.7 补丁或新 Spec）再改代码。
+**2026-08-16 锁定：下期做（B）。2026-08-20 用户：本期不做。** 仅 postgres 真 vector + HNSW；PGLite 不动。不进十期 P10.2–P10.4。
 
 ---
 
@@ -306,8 +307,7 @@ session-start        → 打开 inbox session（或惰性）
 
 **目标**：至少补 cosine 快路径（跨文件近似事实对）+ 冲突写 `contradictions.md`；LLM 三分类按 P7.x 的 `complete()` 接入；降级链按设计。
 
-**2026-08-16 锁定：下期。范围未锁。** 无 facts 表（#16 不做）则扫 md；哈希 embedding 上 0.95 快路径易误报。产出默认只写 `contradictions.md`，不自动改检索。  
-**门闩**：下期开工前必须再向用户陈述收益/缺陷（误报、扫库、`complete()` 费用、与 P5.1 重叠、不接 hybrid），请用户在 A/B/C 中重选后才写 Spec。禁止默认按 08 全套开工。
+**2026-08-16 锁定：下期。2026-08-20：锁 B，Spec [`P10.3`](specs/十期/P10.3-contradictions.md)。** 无 facts 表（#16 不做）则扫 md；`local` 哈希档跳过跨文件 cosine。产出只写 `contradictions.md`，不接 hybrid。C（LLM 三分类）不做。
 
 ---
 
@@ -372,7 +372,7 @@ score     = final_rel * (1 + α * hotness)
 
 **目标**：query log 增记 latency + evidence 统计，observer 输出分布。
 
-**2026-08-16 锁定：下期，与 #32 同一 Spec。** query log 记 latency + 各臂 evidence；observer 出分布。
+**2026-08-16 锁定：下期，与 #32 同一 Spec。2026-08-20：[`P10.4`](specs/十期/P10.4-query-observe.md) ready。** query log 记 latency + 各臂 evidence；observer 出分布。
 
 ---
 
@@ -467,7 +467,7 @@ score     = final_rel * (1 + α * hotness)
 
 **现状**：hit 有 `evidence` 标签；`--explain` 有 intent/mode/arms/signals/dir 预筛。无 `query_plan`、无 `searched_directories` 下钻列表、无分母/阈值级 `score_details`。observer 分布见 #22。
 
-**2026-08-16 锁定：下期，与 #22 同一 Spec。** 补齐 `query_plan`、`searched_directories`、分母/阈值级 `score_details`。
+**2026-08-16 锁定：下期，与 #22 同一 Spec。2026-08-20：[`P10.4`](specs/十期/P10.4-query-observe.md) ready。** 补齐 `query_plan`、`searched_directories`、分母/阈值级 `score_details`。
 
 ---
 

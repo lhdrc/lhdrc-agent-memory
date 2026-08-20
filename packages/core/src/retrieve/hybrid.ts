@@ -12,9 +12,10 @@ import { applyGraphSignals, type SignalExplain } from "./signals.ts";
 import { getSearchCache, setSearchCache, knobsHash, type SearchKnobs } from "./cache.ts";
 import { heuristicExpand } from "./expand.ts";
 import { localRerank, localRerankScore, type RerankStatus } from "./rerank.ts";
-import { applyHotness } from "./hotness.ts";
+import { applyHotness, hotnessBoost } from "./hotness.ts";
 import { applyDirectoryPrefilter, type DirectoryPrefilterExplain } from "./prefilter.ts";
 import { annotateHits } from "./annotate.ts";
+import { recordQueryStat, type QueryEvidenceCounts } from "../observer/stats.ts";
 
 export interface HybridQueryOptions extends QueryOptions {
   mode?: SearchMode;
@@ -62,6 +63,22 @@ export interface QueryExplain {
     cosine: "applied" | "skipped";
   };
   hotness_detail?: { alpha: number; mode: "multiply" };
+  /** P10.4 */
+  query_plan?: string[];
+  searched_directories?: string[];
+  score_details?: Array<{
+    path: string;
+    kw?: number;
+    sem?: number;
+    graph?: number;
+    title?: number;
+    entity?: number;
+    fused?: number;
+    cosine?: number;
+    hotness?: number;
+    final?: number;
+    dropped?: "per_arm" | "fused_min" | null;
+  }>;
 }
 
 export interface HybridQueryResult {
@@ -129,6 +146,115 @@ function mergeBm25Groups(groups: QueryHit[][]): QueryHit[] {
 function titlePhraseHit(query: string, title: string): boolean {
   const q = query.trim();
   return q.length >= 2 && title.includes(q);
+}
+
+function parentDir(path: string): string {
+  const posix = path.replace(/\\/g, "/");
+  const i = posix.lastIndexOf("/");
+  return i < 0 ? posix : posix.slice(0, i);
+}
+
+function countEvidenceFromHits(hits: QueryHit[]): QueryEvidenceCounts {
+  const ev: QueryEvidenceCounts = { keyword: 0, semantic: 0, graph: 0 };
+  for (const h of hits) {
+    for (const e of h.evidence) {
+      const lower = e.toLowerCase();
+      if (lower.includes("bm25") || lower.includes("keyword")) ev.keyword++;
+      if (lower.includes("semantic")) ev.semantic++;
+      if (lower.includes("graph")) ev.graph++;
+    }
+  }
+  return ev;
+}
+
+function searchedDirsFromPrefilter(hits: Array<{ path: string; score: number }>): string[] {
+  const dirScore = new Map<string, number>();
+  for (const h of hits) {
+    const d = parentDir(h.path);
+    dirScore.set(d, (dirScore.get(d) ?? 0) + h.score);
+  }
+  return [...dirScore.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 32)
+    .map(([dir]) => dir);
+}
+
+function searchedDirsFromHits(hits: QueryHit[]): string[] {
+  const dirs = [...new Set(hits.map((h) => parentDir(h.path)))];
+  return dirs.sort((a, b) => a.localeCompare(b)).slice(0, 32);
+}
+
+function buildQueryPlan(opts: {
+  intent: QueryIntent;
+  semanticAvailable: boolean;
+  cosineStatus: "applied" | "skipped";
+  directoryPrefilter: boolean;
+  rerankStatus: RerankStatus;
+}): string[] {
+  const plan: string[] = [`intent:${opts.intent}`];
+  if (opts.semanticAvailable) {
+    plan.push("arms:bm25,semantic,graph");
+  } else {
+    plan.push("semantic:off");
+  }
+  plan.push("fusion:rrf_rescale", "floor", `cosine:${opts.cosineStatus}`, "signals", "hotness");
+  plan.push(opts.directoryPrefilter ? "prefilter:dir" : "prefilter:off");
+  plan.push(`rerank:${opts.rerankStatus}`);
+  return plan;
+}
+
+type ScoreDetail = NonNullable<QueryExplain["score_details"]>[number];
+
+function buildScoreDetails(
+  finalHits: QueryHit[],
+  fusedByPath: Map<string, FusedHit>,
+  preHotnessScore: Map<string, number>,
+  cosineByPath: Map<string, number>,
+  hotnessByPath: Map<string, number>,
+  cosineStatus: "applied" | "skipped",
+): ScoreDetail[] {
+  return finalHits.map((h) => {
+    const f = fusedByPath.get(h.path);
+    const detail: ScoreDetail = { path: h.path, final: h.score };
+    if (f) {
+      detail.kw = f.rrfBm25;
+      detail.sem = f.rrfSemantic;
+      detail.graph = f.rrfGraph;
+      detail.title = f.titlePathBoost;
+      detail.entity = f.entityBoost;
+      detail.fused = preHotnessScore.get(h.path) ?? f.score;
+    }
+    if (cosineStatus === "applied") {
+      const cos = cosineByPath.get(h.path);
+      if (cos !== undefined) detail.cosine = cos;
+    }
+    const hb = hotnessByPath.get(h.path);
+    if (hb !== undefined) detail.hotness = hb;
+    return detail;
+  });
+}
+
+async function finalizeHybridResult(
+  opts: HybridQueryOptions,
+  q: string,
+  hits: QueryHit[],
+  explain: QueryExplain | undefined,
+  t0: number,
+): Promise<HybridQueryResult> {
+  const annotated = await withAnnotations(opts, hits);
+  if (opts.repoRoot) {
+    const avgScore = annotated.length
+      ? annotated.reduce((s, h) => s + h.score, 0) / annotated.length
+      : 0;
+    await recordQueryStat(opts.repoRoot, {
+      query: q,
+      hitCount: annotated.length,
+      avgScore,
+      latency_ms: Date.now() - t0,
+      evidence: countEvidenceFromHits(annotated),
+    }).catch(() => {});
+  }
+  return { hits: annotated, explain };
 }
 
 interface EntityBoostPack {
@@ -214,8 +340,11 @@ export async function hybridQueryDetailed(
   db: SqlClient,
   opts: HybridQueryOptions,
 ): Promise<HybridQueryResult> {
+  const t0 = Date.now();
   const q = opts.query.trim();
-  if (!q) return { hits: [] };
+  if (!q) {
+    return finalizeHybridResult(opts, q, [], undefined, t0);
+  }
 
   assertExclusiveSchemaFilters(opts);
 
@@ -330,7 +459,9 @@ export async function hybridQueryDetailed(
   if (useCache) {
     const cached = await getSearchCache(db, q, knobs);
     if (cached) {
-      const explain: QueryExplain | undefined = opts.explain
+      const cachedHits = cached.hits;
+      const cacheRerank: RerankStatus = search.tokenmax.rerank;
+      const cacheExplain: QueryExplain | undefined = opts.explain
         ? {
             intent,
             mode,
@@ -344,14 +475,23 @@ export async function hybridQueryDetailed(
             signals: { hub: [], crossSource: [], diversified: [] },
             weightsKey: knobs.weightsKey,
             queries,
-            rerank: search.tokenmax.rerank,
+            rerank: cacheRerank,
             hotness: search.hotness.enabled,
             directory_prefilter: search.directory_prefilter ? null : null,
             graph_mode: graphMode,
             ...(embedder?.fallbackFrom ? { embedding_fallback: "local" as const } : {}),
+            query_plan: buildQueryPlan({
+              intent,
+              semanticAvailable,
+              cosineStatus: "skipped",
+              directoryPrefilter: search.directory_prefilter,
+              rerankStatus: cacheRerank,
+            }),
+            searched_directories: searchedDirsFromHits(cachedHits),
+            score_details: cachedHits.map((h) => ({ path: h.path, final: h.score })),
           }
         : undefined;
-      return { hits: await withAnnotations(opts, cached.hits), explain };
+      return finalizeHybridResult(opts, q, cachedHits, cacheExplain, t0);
     }
   }
 
@@ -372,16 +512,21 @@ export async function hybridQueryDetailed(
     fusion: search.fusion ?? DEFAULT_FUSION_CONFIG,
   });
 
+  const fusedByPath = new Map<string, FusedHit>();
+  if (opts.explain) {
+    for (const f of fused) fusedByPath.set(f.path, { ...f });
+  }
+
   const fusionCfg = search.fusion ?? DEFAULT_FUSION_CONFIG;
   const cosineLambda = fusionCfg.cosine_lambda;
   let cosineStatus: "applied" | "skipped" = "skipped";
+  const cosineByPath = new Map<string, number>();
   if (embedder && embedder.id !== "off" && queryVec && queryVec.length > 0 && cosineLambda > 0) {
-    const cosByPath = new Map<string, number>();
     for (const h of semanticHits) {
-      if (typeof h.score === "number") cosByPath.set(h.path, h.score);
+      if (typeof h.score === "number") cosineByPath.set(h.path, Math.max(0, h.score));
     }
     fused = fused.map((h) => {
-      const cos = Math.max(0, cosByPath.get(h.path) ?? 0);
+      const cos = Math.max(0, cosineByPath.get(h.path) ?? 0);
       return { ...h, score: (1 - cosineLambda) * h.score + cosineLambda * cos };
     });
     cosineStatus = "applied";
@@ -396,13 +541,26 @@ export async function hybridQueryDetailed(
     /* fail-open */
   }
 
+  const preHotnessScore = new Map<string, number>();
+  if (opts.explain) {
+    for (const f of fused) preHotnessScore.set(f.path, f.score);
+  }
+
+  const hotnessByPath = new Map<string, number>();
   if (search.hotness.enabled) {
+    if (opts.explain) {
+      for (const f of fused) {
+        hotnessByPath.set(f.path, hotnessBoost(updatedAt.get(f.path), search.hotness.half_life_days));
+      }
+    }
     fused = applyHotness(fused, updatedAt, search.hotness.half_life_days, search.hotness.alpha ?? 0.15);
   }
   fused = sortWithTieBreak(fused);
 
   let dirExplain: DirectoryPrefilterExplain | null = null;
+  let prefilterFused: FusedHit[] | null = null;
   if (search.directory_prefilter) {
+    if (opts.explain) prefilterFused = [...fused];
     const pf = applyDirectoryPrefilter(fused);
     fused = pf.hits;
     dirExplain = pf.explain;
@@ -464,6 +622,10 @@ export async function hybridQueryDetailed(
     await setSearchCache(db, q, knobs, hits);
   }
 
+  const searched_directories = dirExplain
+    ? searchedDirsFromPrefilter(prefilterFused ?? fused)
+    : searchedDirsFromHits(hits);
+
   const explain: QueryExplain | undefined = opts.explain
     ? {
         intent,
@@ -494,8 +656,24 @@ export async function hybridQueryDetailed(
         },
         hotness_detail: { alpha: search.hotness.alpha ?? 0.15, mode: "multiply" },
         ...(rerankScores ? { rerank_scores: rerankScores } : {}),
+        query_plan: buildQueryPlan({
+          intent,
+          semanticAvailable,
+          cosineStatus,
+          directoryPrefilter: search.directory_prefilter,
+          rerankStatus,
+        }),
+        searched_directories,
+        score_details: buildScoreDetails(
+          hits,
+          fusedByPath,
+          preHotnessScore,
+          cosineByPath,
+          hotnessByPath,
+          cosineStatus,
+        ),
       }
     : undefined;
 
-  return { hits: await withAnnotations(opts, hits), explain };
+  return finalizeHybridResult(opts, q, hits, explain, t0);
 }
