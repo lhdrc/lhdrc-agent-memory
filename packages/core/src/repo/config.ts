@@ -319,6 +319,7 @@ export async function loadRepoConfig(repoRoot: string): Promise<RepoConfig> {
       dims: data.embedding?.dims != null ? Number(data.embedding.dims) || undefined : undefined,
       openai_api_key_env: String(data.embedding?.openai_api_key_env ?? "OPENAI_API_KEY"),
       onnx_model_path: data.embedding?.onnx_model_path != null ? String(data.embedding.onnx_model_path) : "",
+      base_url: data.embedding?.base_url != null ? String(data.embedding.base_url).trim() || undefined : undefined,
     },
     search: parseSearchConfig(data),
     llm: parseLLMConfig(data),

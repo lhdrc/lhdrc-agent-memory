@@ -13,3 +13,7 @@ evals/cache/*
 test4humancli/
 reports/test-run-latest.txt
 *.tgz
+
+# 本地密钥配置（含真实 API Key，禁止入库）
+.env
+.env.local

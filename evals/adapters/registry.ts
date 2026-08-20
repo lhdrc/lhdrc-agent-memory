@@ -1,8 +1,11 @@
 import { locomoAdapter } from "./locomo.ts";
 import type { EvalAdapter } from "./types.ts";
 
+import { halumemAdapter } from "./halumem-adapter.ts";
+
 const REGISTRY: Record<string, EvalAdapter> = {
   locomo: locomoAdapter,
+  halumem: halumemAdapter,
 };
 
 export function getAdapter(id: string): EvalAdapter {

@@ -10,6 +10,7 @@ import {
   pgliteIndexHooks,
   type SchemaPack,
   type RepoConfig,
+  type GitInitPolicy,
 } from "../../packages/core/src/index.ts";
 
 export interface EvalWorkspace {
@@ -24,10 +25,16 @@ export interface EvalWorkspace {
 export async function createEvalWorkspace(opts?: {
   brain?: string;
   extraBrains?: string[];
+  git?: GitInitPolicy;
 }): Promise<EvalWorkspace> {
   const dir = await mkdtemp(join(tmpdir(), "dfmem-eval-"));
   const brain = opts?.brain ?? "default";
-  const repoRoot = await initMemoryRepo(dir, { brain, source: "default", force: false });
+  const repoRoot = await initMemoryRepo(dir, {
+    brain,
+    source: "default",
+    force: false,
+    git: opts?.git,
+  });
   for (const b of opts?.extraBrains ?? []) {
     if (b !== brain) await createBrain(repoRoot, b);
   }

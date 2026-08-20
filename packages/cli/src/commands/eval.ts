@@ -8,10 +8,12 @@ function packageRoot(): string {
 }
 
 const HELP = `memory eval --mini|--distill|--report|--adapter <id> [--fixture] [--json]
-memory eval fetch --adapter <id> --allow-net
+memory eval --adapter locomo [--sample <id>] [--resume <run_id>] [--allow-hash-embed] [--ingest compile|capture] [--concurrency <n>]
+memory eval --adapter halumem [--fixture] [--sample <uuid>] [--max-sessions <n>] [--allow-hash-embed] [--concurrency <n>]
+memory eval fetch --adapter <locomo|halumem> --allow-net
 
 跑仓内评测（与 bun run eval:mini / eval:distill / eval:report 同脚本）。
-无网默认用 --fixture；全量公开基准需 fetch --allow-net。
+--fixture 仍为 P5.6 子串夹具；无 --fixture 的 locomo 走 P10.1 J-score（需 Key 或 mock）。
 `;
 
 export async function evalCommand(argv: string[]): Promise<number> {
@@ -24,6 +26,13 @@ export async function evalCommand(argv: string[]): Promise<number> {
     { name: "json", type: "boolean" },
     { name: "allow-net", type: "boolean" },
     { name: "wipe-index", type: "boolean" },
+    { name: "sample", type: "string" },
+    { name: "resume", type: "string" },
+    { name: "run-id", type: "string" },
+    { name: "allow-hash-embed", type: "boolean" },
+    { name: "ingest", type: "string" },
+    { name: "concurrency", type: "string" },
+    { name: "max-sessions", type: "string" },
     { name: "help", type: "boolean" },
   ]);
   if (o.help) {
@@ -47,6 +56,13 @@ export async function evalCommand(argv: string[]): Promise<number> {
   if (o.json) forward.push("--json");
   if (o["allow-net"]) forward.push("--allow-net");
   if (o["wipe-index"]) forward.push("--wipe-index");
+  if (o.sample) forward.push("--sample", String(o.sample));
+  if (o.resume) forward.push("--resume", String(o.resume));
+  if (o["run-id"]) forward.push("--run-id", String(o["run-id"]));
+  if (o["allow-hash-embed"]) forward.push("--allow-hash-embed");
+  if (o.ingest) forward.push("--ingest", String(o.ingest));
+  if (o.concurrency) forward.push("--concurrency", String(o.concurrency));
+  if (o["max-sessions"]) forward.push("--max-sessions", String(o["max-sessions"]));
 
   const root = packageRoot();
   const script = join(root, "evals", "run.ts");

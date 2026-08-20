@@ -26,12 +26,13 @@ const PURPOSE_ENV: Record<CompletePurpose, string | undefined> = {
   distill: "DF_MEMORY_MOCK_COMPLETE_DISTILL",
   extract: "DF_MEMORY_MOCK_COMPLETE_EXTRACT",
   abstract: "DF_MEMORY_MOCK_COMPLETE_ABSTRACT",
-  other: undefined,
+  other: "DF_MEMORY_MOCK_COMPLETE_OTHER",
 };
 
 export function isEnvMockCompleteEnabled(): boolean {
   if (process.env.DF_MEMORY_MOCK_COMPLETE != null) return true;
   if (process.env.DF_MEMORY_MOCK_COMPLETE_FAIL === "1") return true;
+  if (process.env.DF_MEMORY_MOCK_COMPLETE_DISABLED === "1") return true;
   for (const key of Object.values(PURPOSE_ENV)) {
     if (key && process.env[key] != null) return true;
   }
@@ -58,12 +59,18 @@ function distillJsonlLines(raw: string): string[] {
 export class EnvMockLLMProvider implements LLMProvider {
   readonly id = "openai";
   private distillSeq = 0;
+  private otherSeq = 0;
 
   async complete(req: CompleteRequest): Promise<CompleteResult> {
     const log = process.env.DF_MEMORY_MOCK_COMPLETE_LOG;
     if (log) {
       await mkdirp(dirname(log));
       await appendFile(log, `${req.purpose}\n`, "utf8");
+    }
+    if (process.env.DF_MEMORY_MOCK_COMPLETE_DISABLED === "1") {
+      throw new MemoryError(ErrorCodes.DISABLED, "mock complete E_DISABLED", {
+        skipped_reason: "mock_disabled",
+      });
     }
     if (process.env.DF_MEMORY_MOCK_COMPLETE_FAIL === "1") {
       throw new MemoryError(ErrorCodes.LLM, "mock complete 失败");
@@ -74,6 +81,16 @@ export class EnvMockLLMProvider implements LLMProvider {
       if (lines.length >= 2) {
         const i = Math.min(this.distillSeq, lines.length - 1);
         this.distillSeq += 1;
+        text = lines[i]!;
+      }
+    } else if (req.purpose === "other") {
+      const lines = text
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+      if (lines.length >= 2) {
+        const i = this.otherSeq % lines.length;
+        this.otherSeq += 1;
         text = lines[i]!;
       }
     }

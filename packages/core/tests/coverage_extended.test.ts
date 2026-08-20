@@ -269,6 +269,30 @@ describe("扩展覆盖", () => {
     }
   });
 
+  test("OpenAI embedding 可用自定义 base_url", async () => {
+    const origFetch = globalThis.fetch;
+    const seen: string[] = [];
+    globalThis.fetch = (async (input: string | URL) => {
+      seen.push(String(input));
+      return new Response(JSON.stringify({ data: [{ embedding: [0.1, 0.2] }] }), { status: 200 });
+    }) as unknown as typeof fetch;
+    try {
+      process.env.TEST_OPENAI_KEY = "sk-test";
+      const p = createEmbeddingProvider({
+        provider: "openai",
+        model: "Qwen/Qwen3-Embedding-8B",
+        dims: 2,
+        openai_api_key_env: "TEST_OPENAI_KEY",
+        base_url: "https://api.siliconflow.cn",
+      });
+      await p.embed(["hello"]);
+      expect(seen[0]).toContain("https://api.siliconflow.cn/v1/embeddings");
+    } finally {
+      globalThis.fetch = origFetch;
+      delete process.env.TEST_OPENAI_KEY;
+    }
+  });
+
   test("OpenAI embedding 缺 API key → E_USAGE", async () => {
     delete process.env.MISSING_EMBED_KEY;
     const p = new OpenAIEmbedding({

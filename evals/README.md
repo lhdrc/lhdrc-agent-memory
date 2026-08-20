@@ -8,7 +8,8 @@ Hermetic 评测：默认无网。公开全量仅 `fetch --allow-net`。
 bun run eval:mini          # 检索回归 + 隔离；写出 evals/receipts/
 bun run eval:distill       # 有经验 vs 无经验（规则代理）
 bun run eval:report        # 打印最近 receipt metrics
-bun run eval:locomo-sample # LoCoMo 仓内 fixture 子集
+  bun run eval:locomo-sample # LoCoMo 仓内 fixture 子集
+  bun run eval:halumem-sample # HaluMem 仓内 fixture
 bun test packages/core/tests/isolation_fuzz.test.ts
 ```
 

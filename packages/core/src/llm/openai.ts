@@ -27,6 +27,8 @@ export interface OpenAILLMOptions {
   repoRoot?: string;
   cost?: CostConfig;
   fetch?: (input: string | URL, init?: RequestInit) => Promise<Response>;
+  /** 覆盖默认 60s；也可用环境变量 DF_LLM_COMPLETE_TIMEOUT_MS */
+  timeoutMs?: number;
 }
 
 interface ChatCompletionsResponse {
@@ -55,6 +57,16 @@ export class OpenAILLMProvider implements LLMProvider {
       });
     }
     return key;
+  }
+
+  private completeTimeoutMs(): number {
+    const fromOpts = this.opts.timeoutMs;
+    if (typeof fromOpts === "number" && fromOpts > 0) return fromOpts;
+    for (const key of ["DF_LLM_COMPLETE_TIMEOUT_MS", "DF_EVAL_COMPLETE_TIMEOUT_MS"]) {
+      const fromEnv = Number(process.env[key] ?? "");
+      if (Number.isFinite(fromEnv) && fromEnv > 0) return fromEnv;
+    }
+    return COMPLETE_TIMEOUT_MS;
   }
 
   async complete(req: CompleteRequest): Promise<CompleteResult> {
@@ -93,6 +105,10 @@ export class OpenAILLMProvider implements LLMProvider {
 
     const doFetch = this.opts.fetch ?? globalThis.fetch;
     let res: Response;
+    const t0 = Date.now();
+    if (process.env.DF_LLM_DEBUG === "1") {
+      console.log(`[llm] POST ${url} model=${this.cfg.model || DEFAULT_LLM_CONFIG.model} purpose=${req.purpose} prompt=${req.prompt.length}chars`);
+    }
     try {
       res = await doFetch(url, {
         method: "POST",
@@ -106,10 +122,14 @@ export class OpenAILLMProvider implements LLMProvider {
           max_tokens: MAX_TOKENS,
           messages,
         }),
-        signal: AbortSignal.timeout(COMPLETE_TIMEOUT_MS),
+        signal: AbortSignal.timeout(this.completeTimeoutMs()),
       });
     } catch (e) {
-      throw new MemoryError(ErrorCodes.LLM, `OpenAI complete 请求失败: ${e instanceof Error ? e.message : String(e)}`);
+      const cause = e instanceof Error && "cause" in e && e.cause instanceof Error ? ` cause=${e.cause.message}` : "";
+      if (process.env.DF_LLM_DEBUG === "1") {
+        console.log(`[llm] FAILED ${Date.now() - t0}ms: ${e instanceof Error ? e.message : String(e)}${cause}`);
+      }
+      throw new MemoryError(ErrorCodes.LLM, `OpenAI complete 请求失败: ${e instanceof Error ? e.message : String(e)}${cause}`);
     }
 
     if (!res.ok) {

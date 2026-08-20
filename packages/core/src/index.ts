@@ -111,6 +111,7 @@ export {
   NoopLLMProvider,
   OpenAILLMProvider,
   EnvMockLLMProvider,
+  isEnvMockCompleteEnabled,
   DEFAULT_LLM_CONFIG,
   loadDistillJudgePrompt,
   loadDistillRefinePrompt,

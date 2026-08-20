@@ -9,12 +9,45 @@ import { fixtureDir, cacheDir } from "./lib/paths.ts";
 import { writeReceipt } from "./lib/receipt.ts";
 import { createEvalWorkspace } from "./lib/workspace.ts";
 import { hitsToBlob } from "./lib/rule-agent.ts";
+import { runLocomoPublish } from "./locomo-publish.ts";
+import { runHaluMemPublish } from "./halumem-run.ts";
 
 export async function runAdapter(opts: {
   adapter: string;
   fixture?: boolean;
   json?: boolean;
+  sample?: string;
+  resume?: string;
+  runId?: string;
+  allowHashEmbed?: boolean;
+  ingest?: "compile" | "capture";
+  concurrency?: number;
+  maxSessions?: number;
+  continueOnCompileError?: boolean;
 }): Promise<number> {
+  if (opts.adapter === "halumem") {
+    return runHaluMemPublish({
+      fixture: opts.fixture,
+      user: opts.sample,
+      json: opts.json,
+      concurrency: opts.concurrency,
+      maxSessions: opts.maxSessions,
+      continueOnCompileError: opts.continueOnCompileError,
+      allowHashEmbed: opts.allowHashEmbed,
+      ingest: opts.ingest,
+    });
+  }
+  if (opts.adapter === "locomo" && !opts.fixture) {
+    return runLocomoPublish({
+      sample: opts.sample,
+      resume: opts.resume,
+      runId: opts.runId,
+      allowHashEmbed: opts.allowHashEmbed,
+      ingest: opts.ingest,
+      json: opts.json,
+      concurrency: opts.concurrency,
+    });
+  }
   const adapter = getAdapter(opts.adapter);
   const cases = await adapter.load({
     fixture: Boolean(opts.fixture),
