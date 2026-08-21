@@ -7,7 +7,8 @@
 ## 下期（2026-08-16 会话锁定）
 
 > **九期不立这些 Spec。** 下期开工仍先改 Spec/08。本表只收「明确下期做」；后续对话追加，禁止只停在聊天里。  
-> **2026-08-20**：#8 / #17-B / #22+#32 已落地 [`specs/十期/`](specs/十期/)（P10.2–P10.4 **done**）。**#9 本期不做**。#17 **锁 B**（禁止 C）。
+> **2026-08-20**：#8 / #17-B / #22+#32 已落地 [`specs/十期/`](specs/十期/)（P10.2–P10.4 **done**）。**#9 本期不做**。#17 **锁 B**（禁止 C）。  
+> **2026-08-21**：#44–#48 收成 [`specs/十一期/`](specs/十一期/)（范围选择 / hotness freq / 变更可写 / 旧事实降权 / 实体槽位）。**不**含 #9 / #17-C / #20+#37 / #29 / #34 / LongMemEval。
 
 | # | 锁定做法 |
 |---|---|
@@ -19,6 +20,11 @@
 | 29 | 敏感字段 mask。范围未锁（A 不做 / B 仅拒绝落盘 / C 拒绝或打码）。**下期开工前必须再问一次**，禁止默认按 08 打码开工。 |
 | 35 | 公开 bench LongMemEval_S / HaluMem。范围未锁。**下期开工前必须再问一次**（是否上 adapter、是否进 CI、和 `eval:mini` 的关系），禁止默认按 reports/10 P0 全量开工。 |
 | 34 | 开源治理面（含 `memory upgrade`）。upgrade = 升 CLI/core 包版本 + 可选 `memory.yml` 迁移，**不改** `brains/**` / AGENTS.md。**无 npm publish（#36 本次不做）则 upgrade 无对象**；下期开工前必须先问是否同时重开 #36。不含 MCP/#24 examples。 |
+| 44 | hotness 学 OpenViking：**freq × recency**。`freq=sigmoid(log1p(active_count))`；无计数时 freq=1。保持乘法与 **α=0.15**。**Spec [`P11.2`](specs/十一期/P11.2-hotness-freq.md)** |
+| 45 | 意图→目录先验：先窄搜，证据不足再扩全仓。守 #6：必须 fallback，禁止无回退级联。CLI 默认关；`think` 默认开。**Spec [`P11.1`](specs/十一期/P11.1-scope-route.md)** |
+| 46 | 写入 duplicate≠update：prefetch 旧值必须再写新 item；余弦近但宾语不同不得跳过。L0 仍 ADD-only。**Spec [`P11.3`](specs/十一期/P11.3-update-write.md)** |
+| 47 | 旧事实让位：`contradictions.md` 较旧侧检索降权，不删 L0。非 #17-C（无 LLM 三分类）。**Spec [`P11.4`](specs/十一期/P11.4-stale-demote.md)** |
+| 48 | 实体槽位 `merge_op=patch`：同一主语当前值写实体 facts；`note: patch` 仍不驱动 L0。**Spec [`P11.5`](specs/十一期/P11.5-entity-slot.md)** |
 
 ## 九期（2026-08-16 会话锁定）
 
@@ -39,6 +45,19 @@
 | 27 | back-link + `[Source:]` | [P9.7](specs/九期/P9.7-iron-law.md) |
 | 41 | 写路径默认入队 | [P9.8](specs/九期/P9.8-async-write.md) |
 | 42 | 蒸馏读 merge_op | [P9.9](specs/九期/P9.9-merge-op-distill.md) |
+
+## 十一期（2026-08-21 会话锁定）
+
+> 先改 Spec/08 再改代码。十期 P10.2–P10.4 **done**；P10.1 / P10.5 发数仍属十期，不进十一期 DoD。规格：[`specs/十一期/`](specs/十一期/)。  
+> **来源**：OpenViking 意图选目录；HaluMem Update 0/8 + topk=20 miss；D17 / P10.3「过期降权另开 Spec」。
+
+| # | 锁定做法 | Spec |
+|---|---|---|
+| 45 | 意图→目录先验，不足再扩 | [P11.1](specs/十一期/P11.1-scope-route.md) |
+| 44 | hotness = freq × recency | [P11.2](specs/十一期/P11.2-hotness-freq.md) |
+| 46 | 写入 duplicate≠update | [P11.3](specs/十一期/P11.3-update-write.md) |
+| 47 | 矛盾对较旧侧降权 | [P11.4](specs/十一期/P11.4-stale-demote.md) |
+| 48 | 实体槽位 patch，不改 L0 note | [P11.5](specs/十一期/P11.5-entity-slot.md) |
 
 ## 优先级总览
 
@@ -87,8 +106,13 @@
 | 41 | L0 `capture` 热路径仍同步 | 08 §2 / §6.1 | **P9.8 done**：写路径默认入队；同步须 `--wait`；JobRunner 在 core |
 | 42 | pack `merge_op` 未驱动节点更新 | 08 §6.2 / §13 `updateNode` | **做 B**：蒸馏/经验合并读 merge_op；L0 仍 ADD-only |
 | 43 | df-app 摄取仅 fixture | 08 D9 | **不做**（fixture 留样例；生产摄入 = DSH） |
+| 44 | hotness 仅文件 mtime 衰减 | OpenViking `freq×recency`；P9.3 α=0.15 | **十一期 P11.2** |
+| 45 | 意图只调融合权重，不改搜索空间 | OpenViking 选目录；TODO #6 禁无回退级联 | **十一期 P11.1** |
+| 46 | 更新被 prefetch/余弦去重吞掉 | HaluMem Update Omission；D17 ADD-only | **十一期 P11.3** |
+| 47 | contradictions.md 不接检索 | P10.3 留「过期降权另开 Spec」 | **十一期 P11.4** |
+| 48 | pack `note: patch` 死配置；实体 facts 只 append | OV 字段 merge_op；#42 已裁 L0 updateNode | **十一期 P11.5** |
 
-#1–#7 为八期评审痕迹。#8–#22 为先前 08/面试审计。#23–#43 为本次补全。裁剪见八期 README §0。下列正文 **与 Spec 冲突时以 Spec 为准**。
+#1–#7 为八期评审痕迹。#8–#22 为先前 08/面试审计。#23–#43 为 2026-08-16 补全。#44–#48 为 2026-08-21 会话追加（十一期）。裁剪见八期 README §0。下列正文 **与 Spec 冲突时以 Spec 为准**。
 
 ---
 
@@ -494,6 +518,16 @@ AGENTS / 08 决策建议主推 TS/Bun。不实现 Java、不并行维护两套�
 
 **现状**：P5.6 = `eval:mini` + `eval:distill` + LoCoMo **仓内 fixture**。无 LongMemEval / HaluMem adapter。
 
+**评测发现（2026-08-21）— 信息更新（Update）能力弱**：
+
+- **现象**：`halumem-official-v1` 预跑（Martin Mark `2f1f897e…`，max_sessions=5，4/5 compile）；**Update Correct 0/8**（官方 judge 全判 Omission）；同期 Integrity **85.6%**、QA **58.3%** — 写入/检索尚可，**变更记忆几乎不会**。
+- **Receipt**：`evals/receipts/2026-08-21T09-51-35-376Z-adapter-halumem.json`
+- **待查/待做**（未排期）：
+  - compile 热路径 **L0 ADD-only**（D17）是否导致旧 fact 不被替换/标记过期
+  - update 验证仅 `hybridQuery` top_k=10 + 全 L0 列表 judge，是否检索不到「更新后」表述
+  - 是否需要 **patch/merge** 写路径或 session 内显式 update 提取（不破 P6.6 / D17 前提下先改 Spec）
+- **简历/对外**：主指标写 Integrity + QA；**勿夸大 Update**，直至上述项有改进 receipt。
+
 **2026-08-16 锁定：下期。范围未锁。**  
 **门闩**：下期开工前必须再问用户（上哪些 adapter、是否进 CI、与仓内 mini/LoCoMo 的关系）。禁止默认按 reports/10 把 LongMemEval_S 当九期/下期必做全量。
 
@@ -567,9 +601,74 @@ AGENTS / 08 决策建议主推 TS/Bun。不实现 Java、不并行维护两套�
 
 ---
 
+## 44. hotness 学 OpenViking：freq × recency（2026-08-21 会话）
+
+**对照**：[`reports/04`](reports/04-openviking-调研报告.md) §5.3；`memory_lifecycle.py`：`hotness = sigmoid(log1p(active_count)) * exp(-decay*age)`（OV 半衰期默认 7 天）。本仓现网 P9.3：只用 `pages.updated_at` 做 `exp(-ln2*age/30)`，再 `score = rel * (1 + 0.15 * h)`。
+
+**现状**：无访问次数。P10.4 `query.jsonl` 只记 `hitCount` / `avgScore` / latency / evidence 臂占比，**不记终榜 path**，无法还原 active_count。
+
+**2026-08-21 锁定：下期做，第一步只加频率项。**
+
+| 锁 | 做法 |
+|---|---|
+| 公式 | `h = freq * recency`；`recency` 维持现网指数衰减；`freq = sigmoid(log1p(n))` |
+| 零计数 | `n=0` 或尚无计数 → **freq=1**（与现网同分序，P9.3 夹具不炸） |
+| 融合 | 仍 `score = rel * (1 + α * h)`；**α 默认 0.15**；半衰期默认 **30 天**（可配，不强制改 7） |
+| 计数 | hybridQuery **终榜 path** 累加（读一次 +1）；须补 query log 或独立 counter；失败 fail-open 当 n=0 |
+| 验收 | 无计数：与现网序一致；有计数：同相关度下 n 大者更前；**旧文档标题全命中仍压过新文档无关**（P9.3 回归） |
+
+**明确不做（本项）**：加法 0.45；把 α 拧大当「更新语义」；按访问删除/归档；LLM；把 contradictions 乘进 hotness；改三臂 RRF。
+
+开工先改 Spec，再改 `retrieve/hotness.ts` + query log。**Spec [`P11.2`](specs/十一期/P11.2-hotness-freq.md)**。
+
+---
+
+## 45. 意图→目录先验（2026-08-21 会话）
+
+**对照**：OpenViking「召回是范围选择」；本仓 `classifyIntent` 只改 RRF 权重；`directory_prefilter` 事后重排且默认关；`thinkQuery` 先全仓再分桶。HaluMem/QA 即使 top_k=20 仍 miss。
+
+**2026-08-21 锁定：十一期做。** 先按意图缩到 `experiences/` / `entities/` / `issues/` 等 pack 路径，证据不足（命中少 / 低于 fused_min / evidence 薄）再扩全仓。`query_plan` 必须能看到 `scope:` / `expand:global`。
+
+**守 #6**：禁止无回退级联。CLI `search.scope_first` 默认 **false**；`thinkQuery` 默认开。不做 LLM 意图、不做 HierarchicalRetriever 递归下钻、不把前端「设计偏好」写进 core。
+
+**Spec [`P11.1`](specs/十一期/P11.1-scope-route.md)**。
+
+---
+
+## 46. 写入 duplicate ≠ update（2026-08-21 会话）
+
+**现象**：HaluMem-official Update Correct 0/8 全 Omission；Integrity 仍可。提取合同「Already in the knowledge base 不要再抽」+ P5.1 余弦 ≥0.95 跳过，会把「同一主语、新宾语」当成重复丢掉。
+
+**2026-08-21 锁定：十一期做。** prefetch 命中的是旧值 → 必须再写新 L0 item；余弦近但数字/地点/专名不同 → **不是 duplicate**。可带 `supersedes` / 用已有 `at`/`period`。**不** patch 旧 `sources/` md，不破 D17。
+
+**Spec [`P11.3`](specs/十一期/P11.3-update-write.md)**。
+
+---
+
+## 47. 旧事实检索降权（2026-08-21 会话）
+
+**对照**：P10.3 只写 `contradictions.md`、**不接 hybrid**；正文写明「过期事实降权另开 Spec」。GBrain consolidate 标 `consolidated_into`、永不 DELETE。
+
+**2026-08-21 锁定：十一期做。** 跨文件 duplicate 对里较旧 path **乘子降权**（不丢出终榜）。无 contradictions 文件 fail-open。`local` 哈希档无跨文件对则本项空转。 **禁止** LLM 三分类（#17-C）、禁止乘进 RRF 当硬过滤、禁止删 L0。
+
+**Spec [`P11.4`](specs/十一期/P11.4-stale-demote.md)**。
+
+---
+
+## 48. 实体槽位 patch（2026-08-21 会话）
+
+**对照**：OpenViking 字段级 `merge_op`（topic immutable / content patch）。本仓 pack `note: patch` 不消费；`entity link-facts` 只 append。#42 已裁通用 `updateNode`。
+
+**2026-08-21 锁定：十一期做。** 仅 **实体 facts** 对同一槽位（同一主语当前值）允许 patch；L0 note/decision 仍 ADD-only。`note: patch` 在 pack 里注明「L0 不读」。不做两实体合成之外的 source 覆盖写。
+
+**Spec [`P11.5`](specs/十一期/P11.5-entity-slot.md)**。
+
+---
+
 ## 备注
 
-- **本次重审（2026-08-16）**：#23–#43 补 08 里「有章节、无 Spec 主人」的项；已落地（混合检索骨架、graph signals、search_cache、分层 sidecar、DSH 闭环等）不重复列。
+- **本次重审（2026-08-16）**：#23–#43 补 08 里「有章节、无 Spec 主人」的项；已落地（混合检索骨架、graph signals、search_cache、分层 sidecar、DSH 闭环等）不重复列。  
+- **2026-08-21**：#44–#48 追加，收成十一期 P11.1–P11.5。
 - **先前审计**：#8–#22；#8 含 §7.5 NER 类型链接，不另开号。
 - **明确不做 / 后置** 仍占行，避免再被当成「AI 漏拆」。
 - 推进任一项：先改对应 Spec/08，再改代码。
