@@ -1,5 +1,5 @@
 /**
- * P10.2 HaluMem-Medium adapter：compile + extract recall + QA（halumem-v1）。
+ * P10.2 HaluMem-Medium adapter：compile + official LLM judge（halumem-official-v1 默认）或 halumem-v1 趋势。
  */
 import { describe, expect, test } from "bun:test";
 import { mkdtemp, readFile } from "node:fs/promises";
@@ -25,7 +25,17 @@ const COMPILE_ONE = JSON.stringify({
   entities: [],
 });
 
-const OTHER_OK = "Mochi\nCORRECT\nRivermark Labs\nCORRECT";
+const OTHER_OFFICIAL = [
+  '{"score":"2","reasoning":"integrity ok"}',
+  '{"score":"2","reasoning":"integrity ok"}',
+  '{"score":"2","reasoning":"integrity ok"}',
+  "Mochi",
+  '{"evaluation_result":"Correct","reasoning":"qa ok"}',
+  "Rivermark Labs",
+  '{"evaluation_result":"Correct","reasoning":"qa ok"}',
+].join("\n");
+
+const OTHER_V1 = "Mochi\nCORRECT\nRivermark Labs\nCORRECT";
 
 async function spawn(
   args: string[],
@@ -56,12 +66,12 @@ async function receiptEnv(): Promise<{ dir: string; cache: string; env: Record<s
   };
 }
 
-function publishEnv(base: Record<string, string>): Record<string, string> {
+function publishEnv(base: Record<string, string>, other = OTHER_OFFICIAL): Record<string, string> {
   return {
     ...base,
     DF_EVAL_MOCK_EMBED: "1",
     DF_MEMORY_MOCK_COMPLETE_COMPILE: COMPILE_ONE,
-    DF_MEMORY_MOCK_COMPLETE_OTHER: OTHER_OK,
+    DF_MEMORY_MOCK_COMPLETE_OTHER: other,
   };
 }
 
@@ -84,7 +94,7 @@ describe("P10.2 halumem publish", () => {
   );
 
   test(
-    "P102-02: --fixture protocol=halumem-v1；extract recall>0；qa n=2",
+    "P102-02: --fixture protocol=halumem-official-v1；extract integrity 命中；qa n=2",
     async () => {
       const { dir, env } = await receiptEnv();
       const r = await spawn([evalScript, "--adapter", "halumem", "--fixture", "--json"], {
@@ -92,21 +102,40 @@ describe("P10.2 halumem publish", () => {
       });
       expect(r.exit).toBe(0);
       const body = parseJsonLine(r.out);
-      expect(body.protocol).toBe("halumem-v1");
+      expect(body.protocol).toBe("halumem-official-v1");
       const metrics = body.metrics as Record<string, unknown>;
-      expect(metrics.protocol).toBe("halumem-v1");
+      expect(metrics.protocol).toBe("halumem-official-v1");
+      expect(metrics.top_k).toBe(20);
       const extract = metrics.extract as Record<string, number>;
       expect(extract.integrity_n).toBeGreaterThanOrEqual(2);
       expect(extract.integrity_hits).toBeGreaterThanOrEqual(2);
       const qa = metrics.qa as Record<string, number>;
       expect(qa.n).toBe(2);
-      expect(qa.hits).toBe(2);
+      expect(qa.correct).toBe(2);
       expect(typeof metrics.dataset_sha256).toBe("string");
       const receipt = JSON.parse(await readFile(join(dir, "latest.json"), "utf8")) as {
         metrics: Record<string, unknown>;
         extra: Record<string, unknown>;
       };
       expect(Number(receipt.metrics.l0_written)).toBeGreaterThanOrEqual(1);
+    },
+    T,
+  );
+
+  test(
+    "P102-05: --protocol halumem-v1 仍走 LoCoMo J-score",
+    async () => {
+      const { env } = await receiptEnv();
+      const r = await spawn(
+        [evalScript, "--adapter", "halumem", "--fixture", "--protocol", "halumem-v1", "--json"],
+        { env: publishEnv(env, OTHER_V1) },
+      );
+      expect(r.exit).toBe(0);
+      const body = parseJsonLine(r.out);
+      expect(body.protocol).toBe("halumem-v1");
+      const qa = (body.metrics as Record<string, unknown>).qa as Record<string, number>;
+      expect(qa.n).toBe(2);
+      expect(qa.hits).toBe(2);
     },
     T,
   );

@@ -8,6 +8,7 @@ import { runDistill } from "./distill.ts";
 import { runReport } from "./report.ts";
 import { runFetch } from "./fetch.ts";
 import { runAdapter } from "./adapter-run.ts";
+import type { HaluMemRunOpts } from "./halumem-run.ts";
 
 /** 仓库根 .env（不入库）优先于 shell 已设变量；仅填充未定义的 key。 */
 function loadDotEnv(path = ".env"): void {
@@ -57,6 +58,8 @@ async function main(): Promise<number> {
       ingest: o.ingest,
       concurrency: o.concurrency,
       maxSessions: o.maxSessions,
+      topK: o.topK,
+      protocol: o.protocol as HaluMemRunOpts["protocol"] | undefined,
       continueOnCompileError: o.continueOnCompileError,
     });
   return runMini({ wipeIndex: o.wipeIndex, json: o.json });

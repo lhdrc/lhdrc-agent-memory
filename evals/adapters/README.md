@@ -48,15 +48,15 @@ bun run evals/run.ts --adapter locomo --resume <run_id>
 | split | **Medium**（`HaluMem-Medium.jsonl`） |
 | fixture | [`../fixtures/halumem-sample/`](../fixtures/halumem-sample/)（1 user / 1 session / 3 memory points / 2 QA） |
 | full pin | [IAAR-Shanghai/HaluMem](https://huggingface.co/datasets/IAAR-Shanghai/HaluMem) `HaluMem-Medium.jsonl` |
-| 协议 | `halumem-v1`：每 session `compileSession` → 规则 extract recall + QA J-score |
+| 协议 | **`halumem-official-v1`（默认）**：Appendix C.1/C.2 LLM judge；QA top_k=20。`halumem-v1`：内部 LoCoMo J-score 趋势（`--protocol halumem-v1`） |
 
 ```bash
 bun run evals/run.ts --adapter halumem --fixture
 bun run evals/run.ts fetch --adapter halumem --allow-net
-bun run evals/run.ts --adapter halumem --sample <uuid>   # 单 user 预跑
-bun run evals/run.ts --adapter halumem --sample <uuid> --max-sessions 10  # 前 10 场趋势分
-bun run evals/run.ts --adapter halumem --sample <uuid> --max-sessions 3 --ingest capture  # capture 原文摄入
+bun run evals/run.ts --adapter halumem --sample <uuid>   # 单 user 预跑（official 默认）
+bun run evals/run.ts --adapter halumem --sample <uuid> --max-sessions 10
+bun run evals/run.ts --adapter halumem --sample <uuid> --protocol halumem-v1 --top-k 10  # 内部趋势
 bun run evals/run.ts --adapter halumem                   # 全量（需 fetch）
 ```
 
-**extract 分项**（v1 规则子串，非 HaluMem 官方 LLM judge）：`integrity_recall`、`update_accuracy`；**QA** 与 LoCoMo 同 J-score 答题+judge。对外数字须声明口径差异。
+**extract 分项**：official 用 LLM integrity（score=2 命中）+ update judge；`halumem-v1` 仍用规则子串。**QA**：official 用 C.2 三分类；`halumem-v1` 用 LoCoMo J-score。**禁止**与 Mem0 HaluMem 榜无 protocol 声明对比。Spec：[`P10.5-halumem-official.md`](../../specs/十期/P10.5-halumem-official.md)。

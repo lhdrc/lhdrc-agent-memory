@@ -58,6 +58,7 @@ P10.2 与 P10.4 可并行。P10.3 不依赖 P10.2。
 | Spec | 状态 |
 |---|---|
 | P10.1 LoCoMo 发数 | **in_progress**（G0 runner + P101 测例绿；全量发数待 G1–G6） |
+| P10.5 HaluMem 官方 | **in_progress**（C.1/C.2 锁仓 + official runner；全量发数待 G 检查单） |
 | P10.2 图谱 | **done** |
 | P10.3 矛盾 B | **done** |
 | P10.4 可观测 | **done** |

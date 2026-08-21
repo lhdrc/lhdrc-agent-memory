@@ -10,7 +10,7 @@ import { writeReceipt } from "./lib/receipt.ts";
 import { createEvalWorkspace } from "./lib/workspace.ts";
 import { hitsToBlob } from "./lib/rule-agent.ts";
 import { runLocomoPublish } from "./locomo-publish.ts";
-import { runHaluMemPublish } from "./halumem-run.ts";
+import { runHaluMemPublish, type HaluMemRunOpts } from "./halumem-run.ts";
 
 export async function runAdapter(opts: {
   adapter: string;
@@ -23,6 +23,8 @@ export async function runAdapter(opts: {
   ingest?: "compile" | "capture";
   concurrency?: number;
   maxSessions?: number;
+  topK?: number;
+  protocol?: HaluMemRunOpts["protocol"];
   continueOnCompileError?: boolean;
 }): Promise<number> {
   if (opts.adapter === "halumem") {
@@ -32,6 +34,8 @@ export async function runAdapter(opts: {
       json: opts.json,
       concurrency: opts.concurrency,
       maxSessions: opts.maxSessions,
+      topK: opts.topK,
+      protocol: opts.protocol,
       continueOnCompileError: opts.continueOnCompileError,
       allowHashEmbed: opts.allowHashEmbed,
       ingest: opts.ingest,

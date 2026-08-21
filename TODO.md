@@ -492,7 +492,16 @@ AGENTS / 08 决策建议主推 TS/Bun。不实现 Java、不并行维护两套�
 
 **设计**：08 §15 `/evals` LongMemEval；[`reports/10`](reports/10-公开记忆Benchmark调研.md) 把 LongMemEval_S 列为 P0、HaluMem-Medium 为 P1。
 
-**现状**：P5.6 = `eval:mini` + `eval:distill` + LoCoMo **仓内 fixture**。无 LongMemEval / HaluMem adapter。
+**现状**：P5.6 = `eval:mini` + `eval:distill` + LoCoMo **仓内 fixture**。LongMemEval 仍无 adapter。**HaluMem** 在 `eval4locomo` 已有 `halumem-v1` runner（`evals/halumem-run.ts`），但 QA **复用 LoCoMo `locomo-prompts.ts` J-score**，与论文官方口径不一致（见下）。
+
+**待办（2026-08-21 会话）— HaluMem 官方口径对齐（P10.5 in_progress）**：
+
+- [x] `evals/adapters/halumem-prompts.ts` — Appendix C.1/C.2 锁仓 + hash
+- [x] `halumem-official-v1` 默认；`--protocol halumem-v1` 保留内部趋势
+- [x] QA top_k=20；update verify top_k=10；LLM integrity/update/QA judge
+- [ ] 全量 Medium 发数 + 操作门闩；memory accuracy（C.2 per-candidate）可选二期
+
+**禁止**与 Mem0 等 HaluMem 榜数字无 protocol 声明对比。
 
 **2026-08-16 锁定：下期。范围未锁。**  
 **门闩**：下期开工前必须再问用户（上哪些 adapter、是否进 CI、与仓内 mini/LoCoMo 的关系）。禁止默认按 reports/10 把 LongMemEval_S 当九期/下期必做全量。

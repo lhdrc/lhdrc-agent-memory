@@ -38,6 +38,30 @@ import {
   locomoPromptHash,
   parseJudgeVerdict,
 } from "./adapters/locomo-prompts.ts";
+import {
+  formatOfficialAnswerPrompt,
+  formatOfficialIntegrityJudgePrompt,
+  formatOfficialQaJudgePrompt,
+  formatOfficialUpdateJudgePrompt,
+  halumemOfficialPromptHash,
+  HALUMEM_OFFICIAL_QA_TOP_K,
+  HALUMEM_OFFICIAL_UPDATE_TOP_K,
+  type HaluMemProtocol,
+} from "./adapters/halumem-prompts.ts";
+import {
+  aggregateQaMetrics,
+  aggregateUpdateMetrics,
+  buildOfficialRetrievalContext,
+  formatExtractedMemoriesList,
+  originalMemoryText,
+  parseIntegrityScore,
+  parseQaVerdict,
+  parseUpdateVerdict,
+  qaKeyPoints,
+  readAllL0MemoryLines,
+  type QaVerdict,
+  type UpdateVerdict,
+} from "./adapters/halumem-official-eval.ts";
 import { cacheDir, fixtureDir } from "./lib/paths.ts";
 import {
   API_BASE,
@@ -52,9 +76,15 @@ import {
 import { writeReceipt } from "./lib/receipt.ts";
 import { createEvalWorkspace } from "./lib/workspace.ts";
 
-const TOP_K = 5;
+const V1_DEFAULT_TOP_K = 5;
 const MISSING =
   "HaluMem 数据未准备。请 --fixture 跑仓内样例，或 memory eval fetch --adapter halumem --allow-net";
+
+/** Official HaluMem judge model pin (paper: gpt-4o). Override via env; receipt records actual. */
+const HALUMEM_JUDGE_MODEL =
+  process.env.DF_EVAL_HALUMEM_JUDGE_MODEL?.trim() ||
+  process.env.DF_EVAL_CHAT_MODEL?.trim() ||
+  "gpt-4o";
 
 export interface HaluMemRunOpts {
   fixture?: boolean;
@@ -62,9 +92,20 @@ export interface HaluMemRunOpts {
   json?: boolean;
   concurrency?: number;
   maxSessions?: number;
+  topK?: number;
+  /** halumem-official-v1（默认，论文 Appendix C）| halumem-v1（内部 LoCoMo J-score 趋势） */
+  protocol?: HaluMemProtocol;
   continueOnCompileError?: boolean;
   allowHashEmbed?: boolean;
   ingest?: "compile" | "capture";
+}
+
+function resolveProtocol(opts: HaluMemRunOpts): HaluMemProtocol {
+  const p = opts.protocol ?? "halumem-official-v1";
+  if (p !== "halumem-official-v1" && p !== "halumem-v1") {
+    throw new Error(`未知 halumem protocol: ${p}。支持: halumem-official-v1 | halumem-v1`);
+  }
+  return p;
 }
 
 function goldText(gold: string | string[]): string {
@@ -254,10 +295,19 @@ export async function runHaluMemPublish(opts: HaluMemRunOpts): Promise<number> {
     return 1;
   }
 
+  const protocol = resolveProtocol(opts);
+  const isOfficial = protocol === "halumem-official-v1";
   const concurrency = Math.max(1, Math.floor(opts.concurrency ?? 1) || 1);
+  const topK = Math.max(
+    1,
+    Math.floor(
+      opts.topK ?? (isOfficial ? HALUMEM_OFFICIAL_QA_TOP_K : V1_DEFAULT_TOP_K),
+    ) || (isOfficial ? HALUMEM_OFFICIAL_QA_TOP_K : V1_DEFAULT_TOP_K),
+  );
+  const updateTopK = HALUMEM_OFFICIAL_UPDATE_TOP_K;
   const ingestMode = opts.ingest ?? "compile";
   const datasetSha = await sha256File(loaded.sourcePath);
-  const promptHash = locomoPromptHash();
+  const promptHash = isOfficial ? halumemOfficialPromptHash() : locomoPromptHash();
   const ts = new Date().toISOString();
 
   const tokens = {
@@ -272,12 +322,30 @@ export async function runHaluMemPublish(opts: HaluMemRunOpts): Promise<number> {
 
   let integrityN = 0;
   let integrityHits = 0;
+  let integrityScoreSum = 0;
   let updateN = 0;
   let updateHits = 0;
   let qaN = 0;
   let qaHits = 0;
-  const extractRows: Array<{ session: number; memory_content: string; hit: number; kind: string }> = [];
-  const qaRows: Array<{ id: string; question: string; score: number; predicted: string; verdict: string }> = [];
+  const extractRows: Array<{
+    session: number;
+    memory_content: string;
+    hit: number;
+    kind: string;
+    score?: number;
+    verdict?: string;
+  }> = [];
+  const qaRows: Array<{
+    id: string;
+    question: string;
+    score: number;
+    predicted: string;
+    verdict: string;
+  }> = [];
+  const officialQaRows: Array<{ id: string; question: string; predicted: string; verdict: QaVerdict }> =
+    [];
+  const officialUpdateRows: Array<{ session: number; memory_content: string; verdict: UpdateVerdict }> =
+    [];
   let compileSessions = 0;
   let ingestNotes = 0;
   let compileErrors = 0;
@@ -324,20 +392,24 @@ export async function runHaluMemPublish(opts: HaluMemRunOpts): Promise<number> {
         }
         if (ingestedSessions.length > 0) {
           scoreExtractFromSessions(ingestedSessions, (sess, blob) => {
-            const ex = scoreExtractSession(blob, sess.memory_points);
-            integrityN += ex.integrity.n;
-            integrityHits += ex.integrity.hits;
-            updateN += ex.update.n;
-            updateHits += ex.update.hits;
+            if (!isOfficial) {
+              const ex = scoreExtractSession(blob, sess.memory_points);
+              integrityN += ex.integrity.n;
+              integrityHits += ex.integrity.hits;
+              updateN += ex.update.n;
+              updateHits += ex.update.hits;
+            }
             for (const mp of sess.memory_points) {
               if (isInterference(mp)) continue;
               const kind = isTruthyUpdate(mp.is_update) ? "update" : "integrity";
-              extractRows.push({
-                session: sess.session_index,
-                memory_content: mp.memory_content.slice(0, 120),
-                hit: memoryIntegrityHit(blob, mp.memory_content) ? 1 : 0,
-                kind,
-              });
+              if (!isOfficial) {
+                extractRows.push({
+                  session: sess.session_index,
+                  memory_content: mp.memory_content.slice(0, 120),
+                  hit: memoryIntegrityHit(blob, mp.memory_content) ? 1 : 0,
+                  kind,
+                });
+              }
             }
             if (sess.questions?.length) {
               for (const qa of sess.questions) allQuestions.push({ qa, sid: sess.session_index });
@@ -374,20 +446,22 @@ export async function runHaluMemPublish(opts: HaluMemRunOpts): Promise<number> {
         }
 
         const extractedBlob = await keptToBlob(ws.repoRoot, "default", result.kept);
-        const ex = scoreExtractSession(extractedBlob, sess.memory_points);
-        integrityN += ex.integrity.n;
-        integrityHits += ex.integrity.hits;
-        updateN += ex.update.n;
-        updateHits += ex.update.hits;
-        for (const mp of sess.memory_points) {
-          if (isInterference(mp)) continue;
-          const kind = isTruthyUpdate(mp.is_update) ? "update" : "integrity";
-          extractRows.push({
-            session: sess.session_index,
-            memory_content: mp.memory_content.slice(0, 120),
-            hit: memoryIntegrityHit(extractedBlob, mp.memory_content) ? 1 : 0,
-            kind,
-          });
+        if (!isOfficial) {
+          const ex = scoreExtractSession(extractedBlob, sess.memory_points);
+          integrityN += ex.integrity.n;
+          integrityHits += ex.integrity.hits;
+          updateN += ex.update.n;
+          updateHits += ex.update.hits;
+          for (const mp of sess.memory_points) {
+            if (isInterference(mp)) continue;
+            const kind = isTruthyUpdate(mp.is_update) ? "update" : "integrity";
+            extractRows.push({
+              session: sess.session_index,
+              memory_content: mp.memory_content.slice(0, 120),
+              hit: memoryIntegrityHit(extractedBlob, mp.memory_content) ? 1 : 0,
+              kind,
+            });
+          }
         }
         if (sess.questions?.length) {
           for (const qa of sess.questions) allQuestions.push({ qa, sid: sess.session_index });
@@ -408,6 +482,88 @@ export async function runHaluMemPublish(opts: HaluMemRunOpts): Promise<number> {
 
       const conn = await openPglite(ws.repoRoot);
       try {
+        if (isOfficial) {
+          const l0Lines = await readAllL0MemoryLines(ws.repoRoot, "default");
+          const extractedList = formatExtractedMemoriesList(l0Lines);
+          for (const sess of picked.sessions) {
+            for (const mp of sess.memory_points) {
+              if (isInterference(mp)) continue;
+              if (isTruthyUpdate(mp.is_update)) {
+                updateN++;
+                const u0 = Date.now();
+                const updateHitsRaw = await hybridQuery(conn.db, {
+                  brainId: "default",
+                  query: mp.memory_content,
+                  skipCache: true,
+                  limit: updateTopK,
+                  mode: "balanced",
+                  embedder,
+                  repoRoot: ws.repoRoot,
+                  excludeSchemaTypes: ["skill"],
+                  excludeSidecars: true,
+                });
+                lat.query.push(Date.now() - u0);
+                const retrievedLines = updateHitsRaw.map((h) =>
+                  [h.title, h.abstract, h.snippet].filter(Boolean).join(" — "),
+                );
+                const genMem = formatExtractedMemoriesList(
+                  [...new Set([...l0Lines, ...retrievedLines])],
+                );
+                const jP = formatOfficialUpdateJudgePrompt(
+                  genMem,
+                  mp.memory_content,
+                  originalMemoryText(mp),
+                );
+                const j0 = Date.now();
+                const judged = await llm.complete({
+                  purpose: "other",
+                  system: jP.system,
+                  prompt: jP.prompt,
+                });
+                lat.judge.push(Date.now() - j0);
+                tokens.judge_in += judged.usage?.prompt_tokens ?? 0;
+                tokens.judge_out += judged.usage?.completion_tokens ?? 0;
+                const verdict = parseUpdateVerdict(judged.text);
+                if (verdict === "Correct") updateHits++;
+                officialUpdateRows.push({
+                  session: sess.session_index,
+                  memory_content: mp.memory_content.slice(0, 120),
+                  verdict,
+                });
+                extractRows.push({
+                  session: sess.session_index,
+                  memory_content: mp.memory_content.slice(0, 120),
+                  hit: verdict === "Correct" ? 1 : 0,
+                  kind: "update",
+                  verdict,
+                });
+              } else {
+                integrityN++;
+                const jP = formatOfficialIntegrityJudgePrompt(extractedList, mp.memory_content);
+                const j0 = Date.now();
+                const judged = await llm.complete({
+                  purpose: "other",
+                  system: jP.system,
+                  prompt: jP.prompt,
+                });
+                lat.judge.push(Date.now() - j0);
+                tokens.judge_in += judged.usage?.prompt_tokens ?? 0;
+                tokens.judge_out += judged.usage?.completion_tokens ?? 0;
+                const score = parseIntegrityScore(judged.text);
+                integrityScoreSum += score;
+                if (score === 2) integrityHits++;
+                extractRows.push({
+                  session: sess.session_index,
+                  memory_content: mp.memory_content.slice(0, 120),
+                  hit: score === 2 ? 1 : 0,
+                  kind: "integrity",
+                  score,
+                });
+              }
+            }
+          }
+        }
+
         let queryChain: Promise<unknown> = Promise.resolve();
         const withQuery = <T>(fn: () => Promise<T>): Promise<T> => {
           const run = queryChain.then(fn);
@@ -428,7 +584,7 @@ export async function runHaluMemPublish(opts: HaluMemRunOpts): Promise<number> {
                   brainId: "default",
                   query: qa.question,
                   skipCache: true,
-                  limit: TOP_K,
+                  limit: topK,
                   mode: "balanced",
                   embedder,
                   repoRoot: ws.repoRoot,
@@ -437,6 +593,47 @@ export async function runHaluMemPublish(opts: HaluMemRunOpts): Promise<number> {
                 }),
               );
               lat.query.push(Date.now() - q0);
+
+              if (isOfficial) {
+                const context = buildOfficialRetrievalContext(user.uuid, hits);
+                const ansP = formatOfficialAnswerPrompt(qa.question, context);
+                const a0 = Date.now();
+                const ans = await llm.complete({
+                  purpose: "other",
+                  system: ansP.system,
+                  prompt: ansP.prompt,
+                });
+                lat.answer.push(Date.now() - a0);
+                tokens.answer_in += ans.usage?.prompt_tokens ?? 0;
+                tokens.answer_out += ans.usage?.completion_tokens ?? 0;
+                const predicted = String(ans.text ?? "").trim();
+                const jP = formatOfficialQaJudgePrompt(
+                  qa.question,
+                  goldText(qa.answer),
+                  qaKeyPoints(qa),
+                  predicted,
+                );
+                const j0 = Date.now();
+                const judged = await llm.complete({
+                  purpose: "other",
+                  system: jP.system,
+                  prompt: jP.prompt,
+                });
+                lat.judge.push(Date.now() - j0);
+                tokens.judge_in += judged.usage?.prompt_tokens ?? 0;
+                tokens.judge_out += judged.usage?.completion_tokens ?? 0;
+                const verdict = parseQaVerdict(judged.text);
+                const score = verdict === "Correct" ? 1 : 0;
+                return {
+                  id: `${user.uuid}-s${sid}-q${i + qi}`,
+                  question: qa.question,
+                  score,
+                  predicted,
+                  verdict,
+                  officialVerdict: verdict,
+                };
+              }
+
               const ansP = formatAnswerPrompt(qa.question, memoriesBlob(hits));
               const a0 = Date.now();
               const ans = await llm.complete({ purpose: "other", system: ansP.system, prompt: ansP.prompt });
@@ -458,11 +655,26 @@ export async function runHaluMemPublish(opts: HaluMemRunOpts): Promise<number> {
                 score,
                 predicted,
                 verdict,
+                officialVerdict: undefined as QaVerdict | undefined,
               };
             }),
           );
           for (const r of results) {
-            qaRows.push(r);
+            qaRows.push({
+              id: r.id,
+              question: r.question,
+              score: r.score,
+              predicted: r.predicted,
+              verdict: r.verdict,
+            });
+            if (r.officialVerdict) {
+              officialQaRows.push({
+                id: r.id,
+                question: r.question,
+                predicted: r.predicted,
+                verdict: r.officialVerdict,
+              });
+            }
             qaN++;
             qaHits += r.score;
           }
@@ -476,19 +688,23 @@ export async function runHaluMemPublish(opts: HaluMemRunOpts): Promise<number> {
   }
 
   const integrityRecall = integrityN === 0 ? 0 : integrityHits / integrityN;
+  const integrityMean = integrityN === 0 ? 0 : integrityScoreSum / integrityN;
   const updateAcc = updateN === 0 ? 0 : updateHits / updateN;
   const qaAcc = qaN === 0 ? 0 : qaHits / qaN;
+  const officialQa = aggregateQaMetrics(officialQaRows);
+  const officialUpdate = aggregateUpdateMetrics(officialUpdateRows);
 
   const isFixture = Boolean(opts.fixture);
   const capped = opts.maxSessions != null;
   const minIntegrity = isFixture || capped ? 1 : 10;
-  const ok =
-    ingestMode === "capture"
+  const ok = isOfficial
+    ? compileSessions > 0 && qaN >= 1
+    : ingestMode === "capture"
       ? compileSessions > 0 && qaN >= 1
       : !compileFailed && integrityN >= minIntegrity && qaN >= 1;
 
-  const metrics = {
-    protocol: "halumem-v1",
+  const metrics: Record<string, unknown> = {
+    protocol,
     fixture: isFixture,
     split: "medium",
     ingest_mode: ingestMode,
@@ -497,22 +713,45 @@ export async function runHaluMemPublish(opts: HaluMemRunOpts): Promise<number> {
     dataset_sha256: datasetSha,
     compile_model: CHAT_MODEL,
     answerer_model: CHAT_MODEL,
-    judge_model: CHAT_MODEL,
+    judge_model: isOfficial ? HALUMEM_JUDGE_MODEL : CHAT_MODEL,
     embedding_provider: resolved.fallback ? "local" : "openai",
     embedding_model: resolved.fallback ? "hashed-bigram-384" : EMBED_MODEL,
     embedding_fallback: resolved.fallback ? "local" : null,
     api_base: API_BASE,
     prompt_hash: promptHash,
-    top_k: TOP_K,
-    extract: {
-      integrity_n: integrityN,
-      integrity_hits: integrityHits,
-      integrity_recall: integrityRecall,
-      update_n: updateN,
-      update_hits: updateHits,
-      update_accuracy: updateAcc,
-    },
-    qa: { n: qaN, hits: qaHits, accuracy: qaAcc },
+    top_k: topK,
+    update_top_k: isOfficial ? updateTopK : null,
+    extract: isOfficial
+      ? {
+          integrity_n: integrityN,
+          integrity_hits: integrityHits,
+          integrity_recall: integrityRecall,
+          integrity_mean_score: integrityMean,
+          update_n: updateN,
+          update_hits: updateHits,
+          update_accuracy: updateAcc,
+          update: officialUpdate,
+        }
+      : {
+          integrity_n: integrityN,
+          integrity_hits: integrityHits,
+          integrity_recall: integrityRecall,
+          update_n: updateN,
+          update_hits: updateHits,
+          update_accuracy: updateAcc,
+        },
+    qa: isOfficial
+      ? {
+          n: officialQa.n,
+          correct: officialQa.correct,
+          hallucination: officialQa.hallucination,
+          omission: officialQa.omission,
+          correct_ratio: officialQa.correct_ratio,
+          /** legacy binary alias for trends */
+          hits: officialQa.correct,
+          accuracy: officialQa.correct_ratio,
+        }
+      : { n: qaN, hits: qaHits, accuracy: qaAcc },
     tokens,
     latency_ms: {
       compile_p50: percentile(lat.compile, 50),
@@ -538,6 +777,8 @@ export async function runHaluMemPublish(opts: HaluMemRunOpts): Promise<number> {
     extra: {
       extract_rows: extractRows,
       qa_rows: qaRows,
+      official_qa_rows: isOfficial ? officialQaRows : undefined,
+      official_update_rows: isOfficial ? officialUpdateRows : undefined,
       compile_failed: compileFailed,
       compile_errors: compileErrors,
       continue_on_compile_error: continueOnCompileError,
@@ -552,7 +793,7 @@ export async function runHaluMemPublish(opts: HaluMemRunOpts): Promise<number> {
       ok,
       kind: "adapter",
       adapter: "halumem",
-      protocol: "halumem-v1",
+      protocol,
       metrics,
       receipt: receiptPath,
     }),

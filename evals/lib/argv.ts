@@ -17,6 +17,9 @@ export interface EvalArgv {
   ingest?: "compile" | "capture";
   concurrency?: number;
   maxSessions?: number;
+  topK?: number;
+  /** halumem-official-v1 | halumem-v1（内部 LoCoMo J-score 趋势） */
+  protocol?: string;
   /** 单场 compile 失败时继续（默认 max_sessions 预跑开启） */
   continueOnCompileError?: boolean;
 }
@@ -75,6 +78,14 @@ export function parseEvalArgv(argv: string[]): EvalArgv {
       const n = Number(v);
       if (!Number.isInteger(n) || n < 1) throw new Error(`--max-sessions 需为正整数，收到: ${v}`);
       out.maxSessions = n;
+    } else if (a === "--top-k" || a.startsWith("--top-k=")) {
+      const v = a.startsWith("--top-k=") ? a.slice("--top-k=".length) : argv[++i];
+      const n = Number(v);
+      if (!Number.isInteger(n) || n < 1) throw new Error(`--top-k 需为正整数，收到: ${v}`);
+      out.topK = n;
+    } else if (a === "--protocol" || a.startsWith("--protocol=")) {
+      const v = a.startsWith("--protocol=") ? a.slice("--protocol=".length) : argv[++i];
+      if (v) out.protocol = v;
     } else if (a === "--continue-on-compile-error") {
       out.continueOnCompileError = true;
     } else if (a === "--no-continue-on-compile-error") {
@@ -109,6 +120,8 @@ Flags:
   --ingest <mode>         locomo 摄入入口：compile（默认，走提取合同）| capture（raw 原文，绕过提取过滤）
   --concurrency <n>       locomo QA 阶段并发数（默认 1，串行）；注意 API 速率/额度
   --max-sessions <n>      halumem 每 user 最多 compile 前 N 场（趋势预跑；QA 仅含已 compile 场）
+  --top-k <n>             halumem QA 检索 top_k（official 默认 20；halumem-v1 默认 5）
+  --protocol <id>         halumem：halumem-official-v1（默认）| halumem-v1（内部 LoCoMo J-score）
   --continue-on-compile-error  halumem 单场 compile 失败仍继续（max_sessions 预跑默认开启）
   --fixture-experiences  distill 对照：仍写入工经验（默认关，走 refineSource）
   --wipe-index   清空索引且不 rebuild（检索门禁；应失败）

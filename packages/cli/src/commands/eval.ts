@@ -9,7 +9,7 @@ function packageRoot(): string {
 
 const HELP = `memory eval --mini|--distill|--report|--adapter <id> [--fixture] [--json]
 memory eval --adapter locomo [--sample <id>] [--resume <run_id>] [--allow-hash-embed] [--ingest compile|capture] [--concurrency <n>]
-memory eval --adapter halumem [--fixture] [--sample <uuid>] [--max-sessions <n>] [--allow-hash-embed] [--concurrency <n>]
+memory eval --adapter halumem [--fixture] [--sample <uuid>] [--max-sessions <n>] [--protocol halumem-official-v1|halumem-v1] [--top-k <n>] [--allow-hash-embed] [--concurrency <n>]
 memory eval fetch --adapter <locomo|halumem> --allow-net
 
 跑仓内评测（与 bun run eval:mini / eval:distill / eval:report 同脚本）。
@@ -33,6 +33,8 @@ export async function evalCommand(argv: string[]): Promise<number> {
     { name: "ingest", type: "string" },
     { name: "concurrency", type: "string" },
     { name: "max-sessions", type: "string" },
+    { name: "top-k", type: "string" },
+    { name: "protocol", type: "string" },
     { name: "help", type: "boolean" },
   ]);
   if (o.help) {
@@ -63,6 +65,8 @@ export async function evalCommand(argv: string[]): Promise<number> {
   if (o.ingest) forward.push("--ingest", String(o.ingest));
   if (o.concurrency) forward.push("--concurrency", String(o.concurrency));
   if (o["max-sessions"]) forward.push("--max-sessions", String(o["max-sessions"]));
+  if (o["top-k"]) forward.push("--top-k", String(o["top-k"]));
+  if (o.protocol) forward.push("--protocol", String(o.protocol));
 
   const root = packageRoot();
   const script = join(root, "evals", "run.ts");
