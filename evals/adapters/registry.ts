@@ -1,8 +1,12 @@
 import { locomoAdapter } from "./locomo.ts";
+import { groupmembenchAdapter } from "./groupmembench.ts";
+import { orgmembenchAdapter } from "./orgmembench.ts";
 import type { EvalAdapter } from "./types.ts";
 
 const REGISTRY: Record<string, EvalAdapter> = {
   locomo: locomoAdapter,
+  groupmembench: groupmembenchAdapter,
+  orgmembench: orgmembenchAdapter,
 };
 
 export function getAdapter(id: string): EvalAdapter {

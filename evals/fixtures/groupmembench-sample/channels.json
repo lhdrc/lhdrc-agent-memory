@@ -1,0 +1,40 @@
+{
+  "eng-oncall": [
+    {
+      "msg_node": "Msg_1",
+      "content": "Decision: keep the on-call rotation at 7 days. No change this quarter.",
+      "author": "User_1",
+      "role": "Eng Manager",
+      "timestamp": "2026-01-10T09:00:00Z",
+      "reply_to": null,
+      "phase_name": "ops-freeze",
+      "topic": "on-call",
+      "is_noise": false,
+      "is_decision_point": true
+    },
+    {
+      "msg_node": "Msg_2",
+      "content": "Update: we are switching the on-call rotation to 14 days starting next sprint. The 7-day plan is superseded.",
+      "author": "User_3",
+      "role": "SRE Lead",
+      "timestamp": "2026-02-02T15:30:00Z",
+      "reply_to": "Msg_1",
+      "phase_name": "ops-update",
+      "topic": "on-call",
+      "is_noise": false,
+      "is_decision_point": true
+    },
+    {
+      "msg_node": "Msg_3",
+      "content": "Lunch thread: anyone tried the new cafeteria tacos?",
+      "author": "User_9",
+      "role": "Designer",
+      "timestamp": "2026-02-02T16:00:00Z",
+      "reply_to": null,
+      "phase_name": "noise",
+      "topic": "offtopic",
+      "is_noise": true,
+      "is_decision_point": false
+    }
+  ]
+}

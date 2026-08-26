@@ -29,9 +29,16 @@ export async function runAdapter(opts: {
   const ts = new Date().toISOString();
   try {
     const ingested = new Set<string>();
+    const maxIngest = Number.parseInt(process.env.DF_EVAL_MAX_INGEST ?? "0", 10);
+    let ingestDone = false;
     for (const c of cases) {
+      if (ingestDone) break;
       for (const text of c.ingestTexts ?? []) {
         if (ingested.has(text)) continue;
+        if (maxIngest > 0 && ingested.size >= maxIngest) {
+          ingestDone = true;
+          break;
+        }
         ingested.add(text);
         const title = text.slice(0, 80);
         await captureNode(ws.repoRoot, ws.pack, ws.queue, {

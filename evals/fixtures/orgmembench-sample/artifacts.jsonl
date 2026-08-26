@@ -1,0 +1,2 @@
+{"slot_id": "ART-FIXTURE-001", "source_type": "meeting_notes", "author": "Maya Chen", "timestamp": "2026-03-01", "text": "Rivermark retention was 180 days. Maya Chen and Omar Diaz agreed to cut customer-log retention to 90 days after the privacy audit."}
+{"slot_id": "ART-FIXTURE-002", "source_type": "slack_thread", "author": "Omar Diaz", "timestamp": "2026-06-15", "text": "Update: retention is now 30 days. The 90-day policy is replaced. Reason: a major customer required a shorter window before the Fleet launch."}

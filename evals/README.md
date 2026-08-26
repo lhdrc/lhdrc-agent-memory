@@ -9,6 +9,8 @@ bun run eval:mini          # 检索回归 + 隔离；写出 evals/receipts/
 bun run eval:distill       # 有经验 vs 无经验（规则代理）
 bun run eval:report        # 打印最近 receipt metrics
 bun run eval:locomo-sample # LoCoMo 仓内 fixture 子集
+bun run eval:groupmembench-sample
+bun run eval:orgmembench-sample
 bun test packages/core/tests/isolation_fuzz.test.ts
 ```
 
@@ -20,7 +22,11 @@ memory eval --distill
 memory eval --report
 memory eval --adapter locomo --fixture
 memory eval fetch --adapter locomo --allow-net
+memory eval --adapter groupmembench --fixture
+memory eval --adapter orgmembench --fixture
 ```
+
+GroupMemBench / OrgMemBench 启动步骤见 [`GROUPMEM_ORGMEM.md`](GROUPMEM_ORGMEM.md)。全量评测不要当 CI。
 
 检索门禁：`bun run evals/run.ts --mini --wipe-index` 应非 0（清空索引且不 rebuild）。
 
@@ -31,7 +37,9 @@ memory eval fetch --adapter locomo --allow-net
 | `fixtures/mini/` | 12 条检索夹具 + 隔离 secret（运行时注入） |
 | `fixtures/distill/` | 有/无经验对比 |
 | `fixtures/locomo-sample/` | LoCoMo JSON 形状的仓内小样（非全量） |
-| `adapters/` | `EvalAdapter`；当前实现 `locomo` |
+| `fixtures/groupmembench-sample/` | GroupMemBench 形状自建小样 |
+| `fixtures/orgmembench-sample/` | OrgMemBench 形状自建小样 |
+| `adapters/` | `EvalAdapter`：`locomo` / `groupmembench` / `orgmembench` |
 | `receipts/` | per-run receipt（gitignore；保留 .gitkeep） |
 | `cache/` | `fetch --allow-net` 产物（gitignore） |
 

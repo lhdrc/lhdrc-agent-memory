@@ -1,0 +1,2 @@
+{"id": "Q-FIXTURE-001", "category": "C1", "text": "What is Rivermark's current data retention policy?", "ground_truth_answer": {"current_value": "30 days", "prior_value": "90 days", "change_date": "2026-06-15"}, "evidence_artefact_ids": ["ART-FIXTURE-001", "ART-FIXTURE-002"]}
+{"id": "Q-FIXTURE-002", "category": "C2", "text": "Who agreed to cut retention to 90 days?", "ground_truth_answer": {"deciders": ["Maya Chen", "Omar Diaz"], "decision": "cut customer-log retention to 90 days"}, "evidence_artefact_ids": ["ART-FIXTURE-001"]}
