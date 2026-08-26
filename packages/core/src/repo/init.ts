@@ -65,9 +65,15 @@ search:
     enabled: true
     half_life_days: 30
     alpha: 0.15
+    freq: true
   directory_prefilter: false
   entity_boost: true
   alias_hop: true
+  scope_first: false
+  scope_expand_min_hits: 3
+  scope_expand_max_score: 0.20
+  stale_demote: false
+  stale_demote_factor: 0.85
 llm:
   provider: off
   model: gpt-4o-mini

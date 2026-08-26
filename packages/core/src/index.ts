@@ -33,8 +33,10 @@ export type {
   EntityMergeInput,
   EntityListOptions,
   EntityLinkFactsInput,
+  EntityLinkFactsResult,
   EntityFact,
 } from "./entity/types.ts";
+export { sameEntitySlot, slotSkeleton, trigramJaccard } from "./entity/slot.ts";
 export {
   listLedgerEvents,
   appendLedgerEvent,
@@ -61,7 +63,7 @@ export type { ExecuteOptions, FlushReason, GitMode } from "./write/flush-policy.
 export { shouldForceCommit, shouldBatchFlush } from "./write/flush-policy.ts";
 export { readDirtyState, addDirtyPaths, removeDirtyPaths, clearDirtyState, writeDirtyState } from "./write/dirty.ts";
 export type { DirtyState } from "./write/dirty.ts";
-export { WriteValidator, todayUtc } from "./write/validator.ts";
+export { WriteValidator, todayUtc, sanitizeFactSupersedes } from "./write/validator.ts";
 export { captureNode, captureWrite, buildMarkdownBody } from "./write/capture.ts";
 export type { CaptureOptions } from "./write/capture.ts";
 export { ingestJsonl, ingestRecordToCapture } from "./ingest/run.ts";
@@ -78,7 +80,7 @@ export type { ApplyIronLawOptions } from "./write/iron-law.ts";
 export { enrichAfterWrite } from "./write/enrich.ts";
 export type { EnrichResult, EnrichOptions } from "./write/enrich.ts";
 export { heuristicExtractFacts, validateFactsForAppend } from "./write/extract.ts";
-export { checkDedupe } from "./write/dedupe.ts";
+export { checkDedupe, extractValueTokens, isObjectValueConflict } from "./write/dedupe.ts";
 export type { DedupeResult } from "./write/dedupe.ts";
 export { forgetNode, purgeNode, assertCanPurge } from "./write/forget.ts";
 export { importNode, importPath } from "./write/import.ts";
@@ -100,7 +102,13 @@ export {
   generateExperienceId,
   type ExperienceWriteInput,
 } from "./write/experience-validator.ts";
-export { writeExperience, patchExperienceStatus, restoreExperienceSnapshot } from "./write/experience.ts";
+export {
+  writeExperience,
+  patchExperienceStatus,
+  restoreExperienceSnapshot,
+  resolveExperienceMergeOp,
+  resolveEntityMergeOp,
+} from "./write/experience.ts";
 export { listBootExperiences } from "./write/boot-experiences.ts";
 export type { BootExperienceItem } from "./write/boot-experiences.ts";
 
@@ -220,7 +228,9 @@ export type {
   FusionWeights,
   IntentForWeights,
 } from "./retrieve/rrf.ts";
-export { classifyIntent } from "./retrieve/intent.ts";
+export { classifyIntent, scopePrefixForIntent } from "./retrieve/intent.ts";
+export { parseCrossFilePairs, applyStaleDemote, loadCrossFilePairs } from "./retrieve/stale.ts";
+export type { StalePair, StaleDemoteExplain } from "./retrieve/stale.ts";
 export type { QueryIntent } from "./retrieve/intent.ts";
 export { shouldQueryMemory } from "./retrieve/query-triggers.ts";
 export type { QueryGateHit, QueryGateCtx, ShouldQueryMemoryInput, RecallCommand } from "./retrieve/query-triggers.ts";
@@ -335,7 +345,8 @@ export type {
 } from "./embed/index.ts";
 export { heuristicExpand } from "./retrieve/expand.ts";
 export { localRerank, localRerankScore } from "./retrieve/rerank.ts";
-export { hotnessBoost } from "./retrieve/hotness.ts";
+export { hotnessBoost, applyHotness, freqFromHitCount } from "./retrieve/hotness.ts";
+export { readHitCounts, bumpHitCounts, HIT_COUNTS_REL } from "./observer/hit-counts.ts";
 export { queryTrend, normalizeMetric } from "./retrieve/trend.ts";
 export type { TrendPoint, TrendResult, QueryTrendOptions } from "./retrieve/trend.ts";
 

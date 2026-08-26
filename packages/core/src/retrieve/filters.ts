@@ -5,6 +5,10 @@ export interface PageFilterOptions {
   schemaType?: string;
   excludeSchemaTypes?: string[];
   excludeSidecars?: boolean;
+  /** P11.1：路径须含子串，如 `/experiences/` */
+  pathPrefix?: string;
+  /** P11.1：路径须含子串，如 `/issues/` */
+  pathContains?: string;
 }
 
 export function assertExclusiveSchemaFilters(opts: {
@@ -47,6 +51,24 @@ export function appendPageFilters(
     clauses.push(`${p}path NOT LIKE '%.overview.md'`);
     clauses.push(`${p}path NOT LIKE '%.abstract.md'`);
   }
+  const prefixNeedle = pathIncludeNeedle(opts.pathPrefix);
+  if (prefixNeedle) {
+    clauses.push(`position($${i} in ${p}path) > 0`);
+    params.push(prefixNeedle);
+    i++;
+  }
+  if (opts.pathContains) {
+    clauses.push(`position($${i} in ${p}path) > 0`);
+    params.push(opts.pathContains);
+    i++;
+  }
 
   return { clauses, params, nextIndex: i };
+}
+
+function pathIncludeNeedle(prefix?: string): string | undefined {
+  if (!prefix) return undefined;
+  const trimmed = prefix.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
+  if (!trimmed) return undefined;
+  return `/${trimmed}/`;
 }

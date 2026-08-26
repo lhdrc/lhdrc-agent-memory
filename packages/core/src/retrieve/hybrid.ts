@@ -6,16 +6,18 @@ import { loadRepoConfig } from "../repo/config.ts";
 import { bm25Query, type QueryHit, type QueryOptions, assertExclusiveSchemaFilters } from "./query.ts";
 import { fuseHybridArms, resolveFusionWeights, weightsKey, sortWithTieBreak, type RankedHit, type SearchMode, type FusedHit } from "./rrf.ts";
 import { semanticArm } from "./semantic.ts";
-import { classifyIntent, type QueryIntent } from "./intent.ts";
+import { classifyIntent, scopePrefixForIntent, type QueryIntent, type ScopeRoute } from "./intent.ts";
 import { graphArmDetailed, type GraphMode } from "./graph.ts";
 import { applyGraphSignals, type SignalExplain } from "./signals.ts";
 import { getSearchCache, setSearchCache, knobsHash, type SearchKnobs } from "./cache.ts";
 import { heuristicExpand } from "./expand.ts";
 import { localRerank, localRerankScore, type RerankStatus } from "./rerank.ts";
-import { applyHotness, hotnessBoost } from "./hotness.ts";
+import { applyHotness, hotnessBoost, freqFromHitCount } from "./hotness.ts";
 import { applyDirectoryPrefilter, type DirectoryPrefilterExplain } from "./prefilter.ts";
 import { annotateHits } from "./annotate.ts";
+import { applyStaleDemote, loadCrossFilePairs, type StaleDemoteExplain } from "./stale.ts";
 import { recordQueryStat, type QueryEvidenceCounts } from "../observer/stats.ts";
+import { bumpHitCounts, readHitCounts } from "../observer/hit-counts.ts";
 
 export interface HybridQueryOptions extends QueryOptions {
   mode?: SearchMode;
@@ -26,6 +28,12 @@ export interface HybridQueryOptions extends QueryOptions {
   skipCache?: boolean;
   explain?: boolean;
   search?: SearchConfig;
+  /** P11.1：单次覆盖仓配置 */
+  scopeFirst?: boolean;
+  /** 内部：范围选择已处理，避免递归 */
+  scopePass?: boolean;
+  /** 内部：窄搜不写 query log */
+  omitQueryStat?: boolean;
   /** 测试注入；throw 时 rerank=skipped */
   rerankFn?: (query: string, hits: QueryHit[]) => QueryHit[] | Promise<QueryHit[]>;
 }
@@ -62,10 +70,11 @@ export interface QueryExplain {
     fused_min: number;
     cosine: "applied" | "skipped";
   };
-  hotness_detail?: { alpha: number; mode: "multiply" };
+  hotness_detail?: { alpha: number; mode: "multiply"; freq?: "applied" | "identity"; active_count?: number };
   /** P10.4 */
   query_plan?: string[];
   searched_directories?: string[];
+  stale_demote?: StaleDemoteExplain[];
   score_details?: Array<{
     path: string;
     kw?: number;
@@ -123,6 +132,8 @@ function buildKnobs(
     limit,
     semanticAvailable: semOn,
     advKey: advKey(search),
+    pathPrefix: opts.pathPrefix,
+    pathContains: opts.pathContains,
   };
 }
 
@@ -184,6 +195,73 @@ function searchedDirsFromHits(hits: QueryHit[]): string[] {
   return dirs.sort((a, b) => a.localeCompare(b)).slice(0, 32);
 }
 
+function routeToPathFilters(route: ScopeRoute): { pathPrefix?: string; pathContains?: string } {
+  if (route.kind === "prefix") return { pathPrefix: route.prefix };
+  if (route.kind === "contains") return { pathContains: route.needle };
+  return {};
+}
+
+function needsScopeExpand(hits: QueryHit[], limit: number, search: SearchConfig): boolean {
+  const minHits = search.scope_expand_min_hits ?? 3;
+  const maxScore = search.scope_expand_max_score ?? (search.fusion.fused_min ?? 0.05) * 4;
+  if (hits.length < Math.min(limit, minHits)) return true;
+  const top = hits[0]?.score ?? 0;
+  return top < maxScore;
+}
+
+function withScopePlan(
+  explain: QueryExplain | undefined,
+  intent: QueryIntent,
+  route: ScopeRoute,
+  expand: "none" | "global",
+): QueryExplain | undefined {
+  if (!explain) return undefined;
+  const rest = (explain.query_plan ?? []).filter(
+    (s) => !s.startsWith("intent:") && !s.startsWith("scope:") && !s.startsWith("expand:"),
+  );
+  return {
+    ...explain,
+    query_plan: [`intent:${intent}`, `scope:${route.label}`, `expand:${expand}`, ...rest],
+  };
+}
+
+async function runScopedHybrid(
+  db: SqlClient,
+  opts: HybridQueryOptions,
+  q: string,
+  intent: QueryIntent,
+  search: SearchConfig,
+  t0: number,
+): Promise<HybridQueryResult> {
+  const route = scopePrefixForIntent(intent);
+  const base = { ...opts, scopePass: true, skipCache: true, omitQueryStat: true };
+  if (route.kind === "off") {
+    const inner = await hybridQueryDetailed(db, base);
+    return finalizeHybridResult(opts, q, inner.hits, withScopePlan(inner.explain, intent, route, "none"), t0);
+  }
+  let expand = false;
+  let narrowHits: QueryHit[] = [];
+  let narrowExplain: QueryExplain | undefined;
+  try {
+    const narrow = await hybridQueryDetailed(db, { ...base, ...routeToPathFilters(route), explain: true });
+    narrowHits = narrow.hits;
+    narrowExplain = narrow.explain;
+    expand = needsScopeExpand(narrowHits, opts.limit ?? 10, search);
+  } catch {
+    expand = true;
+  }
+  if (!expand) {
+    return finalizeHybridResult(opts, q, narrowHits, withScopePlan(narrowExplain, intent, route, "none"), t0);
+  }
+  const global = await hybridQueryDetailed(db, {
+    ...base,
+    pathPrefix: undefined,
+    pathContains: undefined,
+    explain: opts.explain || Boolean(narrowExplain),
+  });
+  return finalizeHybridResult(opts, q, global.hits, withScopePlan(global.explain, intent, route, "global"), t0);
+}
+
 function buildQueryPlan(opts: {
   intent: QueryIntent;
   semanticAvailable: boolean;
@@ -242,7 +320,11 @@ async function finalizeHybridResult(
   t0: number,
 ): Promise<HybridQueryResult> {
   const annotated = await withAnnotations(opts, hits);
-  if (opts.repoRoot) {
+  if (opts.repoRoot && !opts.omitQueryStat) {
+    await bumpHitCounts(
+      opts.repoRoot,
+      annotated.map((h) => h.path),
+    ).catch(() => {});
     const avgScore = annotated.length
       ? annotated.reduce((s, h) => s + h.score, 0) / annotated.length
       : 0;
@@ -353,6 +435,10 @@ export async function hybridQueryDetailed(
   const mode: SearchMode = opts.mode ?? "balanced";
   const intent = classifyIntent(q, opts.intentLexicon);
   const search = await resolveSearch(opts);
+  const scopeFirst = opts.scopeFirst ?? search.scope_first === true;
+  if (scopeFirst && !opts.scopePass) {
+    return runScopedHybrid(db, opts, q, intent, search, t0);
+  }
 
   const expandOn = mode === "tokenmax" && search.tokenmax.expand;
   const queries = expandOn ? heuristicExpand(q, search.tokenmax.expand_n) : [q];
@@ -411,6 +497,8 @@ export async function hybridQueryDetailed(
             schemaType: opts.schemaType,
             excludeSchemaTypes: opts.excludeSchemaTypes,
             excludeSidecars: opts.excludeSidecars,
+            pathPrefix: opts.pathPrefix,
+            pathContains: opts.pathContains,
           });
           semanticAvailable = true;
           for (const h of semanticHits) {
@@ -439,6 +527,8 @@ export async function hybridQueryDetailed(
       schemaType: opts.schemaType,
       excludeSchemaTypes: opts.excludeSchemaTypes,
       excludeSidecars: opts.excludeSidecars,
+      pathPrefix: opts.pathPrefix,
+      pathContains: opts.pathContains,
     });
     graphHits = graph.hits;
     graphMode = graph.mode;
@@ -547,13 +637,41 @@ export async function hybridQueryDetailed(
   }
 
   const hotnessByPath = new Map<string, number>();
+  let hitCounts: Record<string, number> = {};
+  const freqOn = search.hotness.freq !== false;
+  if (search.hotness.enabled && freqOn && opts.repoRoot) {
+    try {
+      hitCounts = (await readHitCounts(opts.repoRoot)).counts;
+    } catch {
+      hitCounts = {};
+    }
+  }
   if (search.hotness.enabled) {
     if (opts.explain) {
       for (const f of fused) {
-        hotnessByPath.set(f.path, hotnessBoost(updatedAt.get(f.path), search.hotness.half_life_days));
+        const recency = hotnessBoost(updatedAt.get(f.path), search.hotness.half_life_days);
+        const n = freqOn ? (hitCounts[f.path.replace(/\\/g, "/")] ?? 0) : 0;
+        hotnessByPath.set(f.path, recency * freqFromHitCount(n));
       }
     }
-    fused = applyHotness(fused, updatedAt, search.hotness.half_life_days, search.hotness.alpha ?? 0.15);
+    fused = applyHotness(fused, updatedAt, search.hotness.half_life_days, search.hotness.alpha ?? 0.15, {
+      counts: hitCounts,
+      freq: freqOn,
+    });
+  }
+
+  let staleExplain: StaleDemoteExplain[] = [];
+  if (search.stale_demote === true && opts.repoRoot) {
+    try {
+      const pairs = await loadCrossFilePairs(opts.repoRoot, opts.brainId);
+      if (pairs.length) {
+        const applied = applyStaleDemote(fused, pairs, updatedAt, search.stale_demote_factor ?? 0.85);
+        fused = applied.hits;
+        staleExplain = applied.explain;
+      }
+    } catch {
+      staleExplain = [];
+    }
   }
   fused = sortWithTieBreak(fused);
 
@@ -654,7 +772,14 @@ export async function hybridQueryDetailed(
           fused_min: fusionCfg.fused_min,
           cosine: cosineStatus,
         },
-        hotness_detail: { alpha: search.hotness.alpha ?? 0.15, mode: "multiply" },
+        hotness_detail: {
+          alpha: search.hotness.alpha ?? 0.15,
+          mode: "multiply",
+          freq:
+            !freqOn || !fused.some((h) => (hitCounts[h.path.replace(/\\/g, "/")] ?? 0) > 0)
+              ? "identity"
+              : "applied",
+        },
         ...(rerankScores ? { rerank_scores: rerankScores } : {}),
         query_plan: buildQueryPlan({
           intent,
@@ -664,6 +789,7 @@ export async function hybridQueryDetailed(
           rerankStatus,
         }),
         searched_directories,
+        stale_demote: staleExplain,
         score_details: buildScoreDetails(
           hits,
           fusedByPath,

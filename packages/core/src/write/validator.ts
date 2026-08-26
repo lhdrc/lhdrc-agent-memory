@@ -5,9 +5,18 @@ import { MemoryError, ErrorCodes } from "../errors.ts";
 import type { SchemaPack } from "../schema/loadPack.ts";
 import { isSlug, titleToSlug } from "../util/slug.ts";
 import { normalizeRepoPath, resolveSourceRoot, assertUnderPrefix } from "../repo/layout.ts";
-import type { CreateNodeRequest, NormalizedWrite, NodeStatus, ValidationError, ValidationResult } from "./types.ts";
+import type { CreateNodeRequest, NormalizedWrite, NodeStatus, ValidationError, ValidationResult, Fact } from "./types.ts";
 
 const MAX_BODY_CHARS = 200_000;
+const MAX_SUPERSEDES_CHARS = 500;
+
+/** P11.3：非法 / 超长 supersedes 丢键，不整单失败。 */
+export function sanitizeFactSupersedes(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const s = raw.trim();
+  if (!s || s.length > MAX_SUPERSEDES_CHARS) return undefined;
+  return s;
+}
 const ALLOWED_LINK_TYPES = new Set([
   "belongs_to",
   "references",
@@ -20,6 +29,27 @@ const STATUSES = new Set(["active", "archived", "stale"]);
 
 export function todayUtc(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function sanitizeFacts(facts: CreateNodeRequest["facts"]): Fact[] {
+  if (!facts?.length) return [];
+  const out: Fact[] = [];
+  for (const f of facts) {
+    const supersedes = sanitizeFactSupersedes(f.supersedes);
+    const next: Fact = {
+      text: f.text,
+      event_type: f.event_type,
+      attributed_to: f.attributed_to,
+      at: f.at,
+    };
+    if (f.metric !== undefined) next.metric = f.metric;
+    if (f.value !== undefined) next.value = f.value;
+    if (f.unit !== undefined) next.unit = f.unit;
+    if (f.period !== undefined) next.period = f.period;
+    if (supersedes) next.supersedes = supersedes;
+    out.push(next);
+  }
+  return out;
 }
 
 function stripSlashes(s: string): string {
@@ -59,7 +89,8 @@ export class WriteValidator {
     if (req.body.length > this.maxBodyChars) {
       errors.push({ field: "body", message: `body 超过 ${this.maxBodyChars} 字符` });
     }
-    for (const f of req.facts ?? []) {
+    const sanitizedFacts = sanitizeFacts(req.facts);
+    for (const f of sanitizedFacts) {
       if (!f.text?.trim() || f.text.length > 2000) {
         errors.push({ field: "facts", message: "facts[].text 非空且 ≤2000" });
       }
@@ -97,7 +128,13 @@ export class WriteValidator {
       if (existsSync(normalized.abs)) {
         return { ok: false, code: "E_CONFLICT", errors: [{ field: "path", message: `路径已存在（ADD-only）: ${normalized.rel}` }] };
       }
-      const normalizedWrite = this.buildNormalized(req, title, pathFromBrain, normalized.rel, status);
+      const normalizedWrite = this.buildNormalized(
+        { ...req, facts: sanitizedFacts },
+        title,
+        pathFromBrain,
+        normalized.rel,
+        status,
+      );
       return { ok: true, normalized: normalizedWrite };
     } catch (e) {
       if (e instanceof MemoryError) {

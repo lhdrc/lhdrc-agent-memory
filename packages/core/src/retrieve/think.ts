@@ -45,6 +45,7 @@ export async function thinkQuery(
     embedder: opts.embedder,
     intentLexicon: opts.intentLexicon,
     skipCache: true,
+    scopeFirst: true,
   });
 
   const skills: ThinkHit[] = [];

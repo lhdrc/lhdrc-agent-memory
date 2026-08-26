@@ -19,6 +19,8 @@ export interface SemanticArmOptions {
   /** P8.2 */
   excludeSchemaTypes?: string[];
   excludeSidecars?: boolean;
+  pathPrefix?: string;
+  pathContains?: string;
 }
 
 /**

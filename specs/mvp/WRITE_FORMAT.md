@@ -27,6 +27,7 @@ type CreateNodeRequest = {
     value?: number;             // 有 value 必须有 metric
     unit?: string;
     period?: string;            // 如 2026-Q1 / 2026-08-16
+    supersedes?: string;        // P11.3：旧 fact 文本或仓内相对 path；≤500；非法则丢键
   }>;
   createdBy: string;            // 如 "cli:user" / "agent:claude"
   status?: "active" | "archived" | "stale";  // 默认 active；forget 另走 API
@@ -49,6 +50,7 @@ type CreateNodeRequest = {
 | `facts[].metric` | 可选；trim 后 1–64 | `field=facts` |
 | `facts[].value` | 可选；须为有限数；有 value 必须有 metric | `field=facts` |
 | `facts[].unit` / `facts[].period` | 可选字符串 | — |
+| `facts[].supersedes` | 可选；字符串 trim 后 1–500；非字符串或超长则**丢该键**，不整单失败 | — |
 | `links[].to` | 非空相对/逻辑 path | `field=links` |
 | `links[].type` | ∈ pack 或核心允许集合（见下） | `field=links.type` |
 
@@ -195,6 +197,8 @@ outcome：成功 `eta_score += 0.1`、`support += 1`；失败 `eta_score -= 0.2`
 
 ## 12. Entity facts 与硬删（P5.4）
 
-`memory entity link-facts <slug> --fact <text>` 向 **entity 文件** frontmatter `facts` **append**（不改正文），并写 `fact_linked` 账本事件。不是 L0 `capture` 路径，不走 ADD-only 冲突。
+`memory entity link-facts <slug> --fact <text>` 向 **entity 文件** frontmatter `facts` 写入（不改正文），并写 `fact_linked` 账本事件。不是 L0 `capture` 路径，不走 ADD-only 冲突。
+
+P11.5：`merge_op.entity: patch`（缺省）时，与已有条同一槽位则 **覆盖该条 text/`at`**（`payload.op=patch`）；不同槽位仍 append。`immutable` / `append` / 未知串只 append。文本全等则不写。`note: patch` 仍不驱动 L0。
 
 `forget <path>` 软归档（文件保留，`node_archived`）。`forget <path> --purge --confirm` **物理删除**文件（`node_purged`）；禁止无确认、禁止自动化/dream 触发。

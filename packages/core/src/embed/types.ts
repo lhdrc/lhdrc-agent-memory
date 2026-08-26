@@ -38,6 +38,8 @@ export interface HotnessConfig {
   half_life_days: number;
   /** P9.3 乘法系数；缺省 0.15 */
   alpha?: number;
+  /** P11.2：freq × recency；false 则 freq 恒 1 */
+  freq?: boolean;
 }
 
 export interface SearchConfig {
@@ -48,6 +50,13 @@ export interface SearchConfig {
   directory_prefilter: boolean;
   entity_boost: boolean;
   alias_hop: boolean;
+  /** P11.1：搜前按意图收窄目录；CLI query 默认关 */
+  scope_first?: boolean;
+  scope_expand_min_hits?: number;
+  scope_expand_max_score?: number;
+  /** P11.4 / #49：未审默认不自动降权 */
+  stale_demote?: boolean;
+  stale_demote_factor?: number;
 }
 
 export const DEFAULT_FUSION_CONFIG: FusionConfig = {
@@ -71,8 +80,14 @@ export const DEFAULT_SEARCH_CONFIG: SearchConfig = {
     enabled: true,
     half_life_days: 30,
     alpha: 0.15,
+    freq: true,
   },
   directory_prefilter: false,
   entity_boost: true,
   alias_hop: true,
+  scope_first: false,
+  scope_expand_min_hits: 3,
+  scope_expand_max_score: 0.2,
+  stale_demote: false,
+  stale_demote_factor: 0.85,
 };

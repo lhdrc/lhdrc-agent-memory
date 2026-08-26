@@ -20,7 +20,8 @@ merge_op:
   decision: append
   lesson: append
   experience: append
-  note: patch
+  note: patch          # L0 不读（P9.9 / P11.5）；仅文档占位
+  entity: patch
 
 # 相对 sources/{sourceId}/
 filename_templates:

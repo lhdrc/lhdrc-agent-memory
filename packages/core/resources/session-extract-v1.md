@@ -40,6 +40,8 @@ Each item:
 - Write `title` / `body` / `facts` in the **same language as the user turns**. Keep code identifiers unchanged.
 - Prefer user-confirmed conclusions. Do not extract assistant speculation or uncommitted options.
 - If the user prompt has **Already in the knowledge base**, do not re-extract those items. Only emit genuinely new memories.
+- If an existing item is the **same subject with a different value** (address, role, quota, flag, etc.), treat it as an **update**: you must emit a new item whose title names the change. Do not skip because a near-paraphrase appears in Already in the knowledge base.
+- 若已有条目与本轮**同一主语、不同取值**（住址/职位/配额/开关等），视为**更新**：必须再输出一条新 item，标题写成变更本身。不得因为 prefetch 里出现近义旧句而 skip。仍禁止复述与已有条目**取值相同**的事实。
 
 ## Type contracts
 

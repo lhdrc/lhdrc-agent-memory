@@ -5,6 +5,25 @@
 
 export type QueryIntent = "task" | "experience" | "person" | "relation" | "general";
 
+export type ScopeRoute =
+  | { kind: "prefix"; prefix: string; label: string }
+  | { kind: "contains"; needle: string; label: string }
+  | { kind: "off"; label: "off" };
+
+/** P11.1：意图 → 搜前目录先验。relation/general 无收缩。 */
+export function scopePrefixForIntent(intent: QueryIntent): ScopeRoute {
+  switch (intent) {
+    case "experience":
+      return { kind: "prefix", prefix: "experiences/", label: "experiences/" };
+    case "person":
+      return { kind: "prefix", prefix: "entities/", label: "entities/" };
+    case "task":
+      return { kind: "contains", needle: "/issues/", label: "issues/" };
+    default:
+      return { kind: "off", label: "off" };
+  }
+}
+
 const BUILTIN: Record<Exclude<QueryIntent, "general">, string[]> = {
   task: ["issue", "工单", "需求", "bug", "任务"],
   experience: ["经验", "lesson", "踩坑", "experience"],

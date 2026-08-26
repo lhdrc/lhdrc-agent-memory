@@ -14,6 +14,8 @@ export interface Fact {
   value?: number;
   unit?: string;
   period?: string;
+  /** P11.3：被本条取代的旧 fact 文本或仓内相对 path；≤500 */
+  supersedes?: string;
 }
 
 export type NodeStatus = "active" | "archived" | "stale";

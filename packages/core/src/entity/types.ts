@@ -29,6 +29,11 @@ export interface EntityLinkFactsInput {
   by: string;
 }
 
+export interface EntityLinkFactsResult extends Entity {
+  /** P11.5：同槽覆盖为 true；append / 幂等不写为 false */
+  patched: boolean;
+}
+
 export interface EntityCreateInput {
   slug: string;
   title: string;

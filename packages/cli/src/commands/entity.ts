@@ -110,8 +110,8 @@ export async function entityCommand(argv: string[]): Promise<number> {
         path: o.path as string | undefined,
         by: "cli:user",
       });
-      if (o.json) console.log(JSON.stringify({ slug: e.slug, facts: e.facts ?? [] }));
-      else console.log(`linked ${e.slug}`);
+      if (o.json) console.log(JSON.stringify({ slug: e.slug, facts: e.facts ?? [], patched: e.patched }));
+      else console.log(e.patched ? `patched ${e.slug}` : `linked ${e.slug}`);
       return 0;
     }
     default:

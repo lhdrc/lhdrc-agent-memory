@@ -9,12 +9,17 @@ import { directGitExecutor } from "../write/executor.ts";
 import { parseFrontmatter, serializeFrontmatter } from "../frontmatter.ts";
 import { newLedgerEvent, writeLedgerLine } from "../events/ledger.ts";
 import { entityToFile, fileToEntity } from "./files.ts";
+import { loadRepoConfig } from "../repo/config.ts";
+import { loadPack } from "../schema/loadPack.ts";
+import { resolveEntityMergeOp } from "../write/experience.ts";
+import { sameEntitySlot } from "./slot.ts";
 import type {
   Entity,
   EntityCreateInput,
   EntityMergeInput,
   EntityListOptions,
   EntityLinkFactsInput,
+  EntityLinkFactsResult,
 } from "./types.ts";
 
 export interface EntityRegistry {
@@ -22,7 +27,7 @@ export interface EntityRegistry {
   resolve(aliasOrSlug: string): Promise<Entity>;
   list(opts?: EntityListOptions): Promise<Entity[]>;
   merge(input: EntityMergeInput): Promise<Entity>;
-  linkFacts(input: EntityLinkFactsInput): Promise<Entity>;
+  linkFacts(input: EntityLinkFactsInput): Promise<EntityLinkFactsResult>;
 }
 
 const REDIRECT_DEPTH_LIMIT = 2;
@@ -317,7 +322,17 @@ export class EntityRegistryImpl implements EntityRegistry {
     return updated;
   }
 
-  async linkFacts(input: EntityLinkFactsInput): Promise<Entity> {
+  private async entityMergeOp(): Promise<"immutable" | "append" | "patch"> {
+    try {
+      const cfg = await loadRepoConfig(this.repoRoot);
+      const pack = await loadPack(cfg.schema_pack);
+      return resolveEntityMergeOp(pack);
+    } catch {
+      return "patch";
+    }
+  }
+
+  async linkFacts(input: EntityLinkFactsInput): Promise<EntityLinkFactsResult> {
     const text = input.fact.trim();
     if (!text) {
       throw new MemoryError(ErrorCodes.VALIDATION, "fact 必填", { field: "fact" });
@@ -329,16 +344,44 @@ export class EntityRegistryImpl implements EntityRegistry {
     const abs = this.entityAbs(entity.slug);
     const raw = await readFile(abs, "utf8");
     const { data, body } = parseFrontmatter(raw);
-    const now = new Date().toISOString();
-    const fact = {
-      text,
-      event_type: "fact_linked",
-      attributed_to: input.by,
-      at: now,
-      ...(input.path ? { path: input.path } : {}),
-    };
     const facts = Array.isArray(data.facts) ? [...(data.facts as unknown[])] : [];
-    facts.push(fact);
+
+    const exactIdx = facts.findIndex((item) => {
+      if (!item || typeof item !== "object") return false;
+      return String((item as Record<string, unknown>).text ?? "").trim() === text;
+    });
+    if (exactIdx >= 0) {
+      return { ...fileToEntity(raw), patched: false };
+    }
+
+    const op = await this.entityMergeOp();
+    let patchIdx = -1;
+    if (op === "patch") {
+      patchIdx = facts.findIndex((item) => {
+        if (!item || typeof item !== "object") return false;
+        const existing = String((item as Record<string, unknown>).text ?? "").trim();
+        return existing.length > 0 && sameEntitySlot(existing, text);
+      });
+    }
+
+    const now = new Date().toISOString();
+    const patched = patchIdx >= 0;
+    if (patched) {
+      const prev = facts[patchIdx] as Record<string, unknown>;
+      facts[patchIdx] = {
+        ...prev,
+        text,
+        at: now,
+      };
+    } else {
+      facts.push({
+        text,
+        event_type: "fact_linked",
+        attributed_to: input.by,
+        at: now,
+        ...(input.path ? { path: input.path } : {}),
+      });
+    }
     data.facts = facts;
     data.updated_at = now;
     await this.executor.execute(async () => {
@@ -347,12 +390,17 @@ export class EntityRegistryImpl implements EntityRegistry {
         type: "fact_linked",
         by: input.by,
         from: entity.slug,
-        payload: { slug: entity.slug, fact: text, path: input.path },
+        payload: {
+          slug: entity.slug,
+          fact: text,
+          path: input.path,
+          op: patched ? "patch" : "append",
+        },
       });
       const ledgerRel = await writeLedgerLine(this.repoRoot, this.brainId, evt);
       return [this.entityRel(entity.slug), ledgerRel];
     }, `entity link-facts ${entity.slug}`);
-    return fileToEntity(serializeFrontmatter(data, body));
+    return { ...fileToEntity(serializeFrontmatter(data, body)), patched };
   }
 }
 

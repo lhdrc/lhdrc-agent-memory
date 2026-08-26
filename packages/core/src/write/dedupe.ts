@@ -13,6 +13,45 @@ export interface DedupeResult {
   skipped_reason?: string;
 }
 
+/**
+ * P11.3 值 token：连续数字、Title-case 拉丁专名（≥2 字母）、引号内片段。
+ * 不做 NER；中文专名窗口按 Spec 简化省略。
+ */
+export function extractValueTokens(text: string): Set<string> {
+  const out = new Set<string>();
+  const s = text.normalize("NFKC");
+  for (const m of s.matchAll(/\d+/g)) {
+    if (m[0]) out.add(m[0]);
+  }
+  for (const m of s.matchAll(/["'「『]([^"'」』]{1,64})["'」』]/g)) {
+    const inner = m[1]?.trim();
+    if (inner) out.add(inner.toLowerCase());
+  }
+  for (const m of s.matchAll(/\b[A-Z][A-Za-z]{1,}\b/g)) {
+    out.add(m[0]!.toLowerCase());
+  }
+  return out;
+}
+
+/**
+ * 宾语冲突：两边都有值 token，且各自含对方没有的 token。
+ * 共享主语（Alice）时集合仍可能相交；「相交为空」会把 NY→SF 误判成 duplicate，故用双方差集。
+ */
+export function isObjectValueConflict(a: string, b: string): boolean {
+  const ta = extractValueTokens(a);
+  const tb = extractValueTokens(b);
+  if (ta.size === 0 || tb.size === 0) return false;
+  let aOnly = false;
+  let bOnly = false;
+  for (const x of ta) {
+    if (!tb.has(x)) aOnly = true;
+  }
+  for (const x of tb) {
+    if (!ta.has(x)) bOnly = true;
+  }
+  return aOnly && bOnly;
+}
+
 interface ScoredFile {
   rel: string;
   mtimeMs: number;
@@ -104,6 +143,10 @@ export async function checkDedupe(
   }
 
   if (bestSim >= threshold && bestPath) {
+    const matched = recent.find((c) => c.rel === bestPath);
+    if (matched && isObjectValueConflict(queryText, matched.text)) {
+      return { duplicate: false };
+    }
     return { duplicate: true, matchedPath: bestPath };
   }
   return { duplicate: false };

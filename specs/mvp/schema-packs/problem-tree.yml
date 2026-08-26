@@ -19,7 +19,9 @@ merge_op:
   requirement: immutable
   decision: append
   lesson: append
-  note: patch
+  experience: append
+  note: patch          # L0 不读（P9.9 / P11.5）；仅文档占位
+  entity: patch
 
 # 相对 sources/{sourceId}/
 filename_templates:

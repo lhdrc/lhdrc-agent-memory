@@ -12,7 +12,7 @@ import type { SchemaPack } from "../schema/loadPack.ts";
 import type { FileMutationExecutor } from "../write/executor.ts";
 import { captureWrite, buildMarkdownBody, type CaptureOptions } from "../write/capture.ts";
 import { checkDedupe } from "../write/dedupe.ts";
-import { todayUtc } from "../write/validator.ts";
+import { todayUtc, sanitizeFactSupersedes } from "../write/validator.ts";
 import type { Fact, Link } from "../write/types.ts";
 import {
   archiveSession,
@@ -148,10 +148,15 @@ function toFacts(type: string, createdBy: string, facts: unknown): Fact[] | unde
   const out: Fact[] = [];
   for (const f of facts) {
     if (!f || typeof f !== "object") continue;
-    const text = String((f as { text?: unknown }).text ?? "").trim();
+    const raw = f as Record<string, unknown>;
+    const text = String(raw.text ?? "").trim();
     if (!text || text.length > 2000) continue;
-    const attributed = String((f as { attributed_to?: unknown }).attributed_to ?? createdBy);
-    out.push({ text, event_type: type, attributed_to: attributed, at });
+    const attributed = String(raw.attributed_to ?? createdBy);
+    const fact: Fact = { text, event_type: type, attributed_to: attributed, at };
+    const supersedes = sanitizeFactSupersedes(raw.supersedes);
+    if (supersedes) fact.supersedes = supersedes;
+    if (typeof raw.period === "string" && raw.period.trim()) fact.period = raw.period.trim();
+    out.push(fact);
   }
   return out.length ? out : undefined;
 }

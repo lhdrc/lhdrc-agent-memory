@@ -110,6 +110,8 @@ export interface GraphArmOptions {
   schemaType?: string;
   excludeSchemaTypes?: string[];
   excludeSidecars?: boolean;
+  pathPrefix?: string;
+  pathContains?: string;
 }
 
 function parseAliasesJson(raw: string | null | undefined): string[] {

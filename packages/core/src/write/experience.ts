@@ -25,6 +25,14 @@ export function resolveExperienceMergeOp(pack: { merge_op?: Record<string, strin
   return "append";
 }
 
+/** P11.5：entity link-facts 读 pack.merge_op.entity（缺省 patch；未知串 → append）。 */
+export function resolveEntityMergeOp(pack: { merge_op?: Record<string, string> }): MergeOp {
+  const raw = pack.merge_op?.entity ?? "patch";
+  if (raw === "immutable" || raw === "append" || raw === "patch") return raw;
+  console.warn(`[P11.5] unknown merge_op.entity "${raw}", treating as append`);
+  return "append";
+}
+
 /** 校验并写入 experience md（经 WriteQueue，路径 experiences/）。 */
 export async function writeExperience(
   repoRoot: string,

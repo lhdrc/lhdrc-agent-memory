@@ -25,6 +25,8 @@ export async function queryCommand(argv: string[]): Promise<number> {
     { name: "mode", type: "string" },
     { name: "json", type: "boolean" },
     { name: "explain", type: "boolean" },
+    { name: "scope-first", type: "boolean" },
+    { name: "no-scope-first", type: "boolean" },
   ]);
   const text = o._.join(" ").trim();
   if (!text) {
@@ -50,6 +52,9 @@ export async function queryCommand(argv: string[]): Promise<number> {
   }
   const embedder =
     cfg.embedding.provider !== "off" ? createEmbeddingProvider(cfg.embedding) : null;
+  let scopeFirst: boolean | undefined;
+  if (o["no-scope-first"]) scopeFirst = false;
+  else if (o["scope-first"]) scopeFirst = true;
   let intentLexicon: Record<string, string[]> | null = null;
   try {
     const pack = await loadPack(cfg.schema_pack);
@@ -74,6 +79,7 @@ export async function queryCommand(argv: string[]): Promise<number> {
       explain: Boolean(o.explain),
       search: cfg.search,
       skipCache: Boolean(o.explain),
+      scopeFirst,
     });
     const hits = ctx.auth.allowedSources.includes("*")
       ? rawHits

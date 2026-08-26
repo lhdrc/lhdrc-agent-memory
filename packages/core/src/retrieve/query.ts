@@ -17,6 +17,9 @@ export interface QueryOptions {
   excludeSchemaTypes?: string[];
   /** P8.2：排除 *.overview.md / *.abstract.md 侧车 */
   excludeSidecars?: boolean;
+  /** P11.1 搜前路径收缩 */
+  pathPrefix?: string;
+  pathContains?: string;
 }
 
 export interface QueryHit {

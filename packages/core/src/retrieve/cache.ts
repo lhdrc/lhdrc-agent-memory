@@ -16,13 +16,11 @@ export interface SearchKnobs {
   /** P8.2 */
   excludeSchemaTypes?: string[];
   excludeSidecars?: boolean;
-  /** 融合权重指纹 */
-  weightsKey: string;
-  limit: number;
-  /** 实际语义臂是否参与融合（与 semanticWanted 区分） */
-  semanticAvailable: boolean;
   /** P5.3 检索增强开关指纹 */
   advKey?: string;
+  /** P11.1 */
+  pathPrefix?: string;
+  pathContains?: string;
 }
 
 export function knobsHash(knobs: SearchKnobs): string {
@@ -39,6 +37,8 @@ export function knobsHash(knobs: SearchKnobs): string {
       limit: knobs.limit,
       semanticAvailable: knobs.semanticAvailable,
       advKey: knobs.advKey ?? "",
+      pathPrefix: knobs.pathPrefix ?? "",
+      pathContains: knobs.pathContains ?? "",
     }),
   );
 }

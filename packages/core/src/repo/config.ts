@@ -160,10 +160,17 @@ function parseSearchConfig(data: Record<string, any>): SearchConfig {
       enabled: hot.enabled !== false,
       half_life_days: Number(hot.half_life_days ?? DEFAULT_SEARCH_CONFIG.hotness.half_life_days) || 30,
       alpha: Number.isFinite(alpha) ? alpha : 0.15,
+      freq: hot.freq !== false,
     },
     directory_prefilter: search.directory_prefilter === true,
     entity_boost: search.entity_boost !== false,
     alias_hop: search.alias_hop !== false,
+    scope_first: search.scope_first === true,
+    scope_expand_min_hits: Number(search.scope_expand_min_hits ?? DEFAULT_SEARCH_CONFIG.scope_expand_min_hits) || 3,
+    scope_expand_max_score:
+      Number(search.scope_expand_max_score ?? DEFAULT_SEARCH_CONFIG.scope_expand_max_score) || 0.2,
+    stale_demote: search.stale_demote === true,
+    stale_demote_factor: Number(search.stale_demote_factor ?? DEFAULT_SEARCH_CONFIG.stale_demote_factor) || 0.85,
   };
 }
 
