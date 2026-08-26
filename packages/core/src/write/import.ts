@@ -7,6 +7,7 @@ import type { SchemaPack } from "../schema/loadPack.ts";
 import { mkdirp } from "../util/fs.ts";
 import type { FileMutationExecutor } from "./executor.ts";
 import { WriteValidator } from "./validator.ts";
+import { recordL0Create } from "./l0-audit.ts";
 
 export interface ImportOptions {
   brainId: string;
@@ -74,7 +75,8 @@ export async function importNode(
     }
     await mkdirp(dirname(abs));
     await writeFile(abs, serializeFrontmatter(n.frontmatter, n.body), "utf8");
-    return [n.path];
+    const extra = await recordL0Create(repoRoot, opts.brainId, n.path, opts.createdBy);
+    return [n.path, ...extra];
   }, `import ${n.pathFromBrain}`);
   return n.path;
 }

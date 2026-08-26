@@ -65,6 +65,7 @@ export { readDirtyState, addDirtyPaths, removeDirtyPaths, clearDirtyState, write
 export type { DirtyState } from "./write/dirty.ts";
 export { WriteValidator, todayUtc, sanitizeFactSupersedes } from "./write/validator.ts";
 export { captureNode, captureWrite, buildMarkdownBody } from "./write/capture.ts";
+export { recordL0Create } from "./write/l0-audit.ts";
 export type { CaptureOptions } from "./write/capture.ts";
 export { ingestJsonl, ingestRecordToCapture } from "./ingest/run.ts";
 export { parseJsonl } from "./ingest/jsonl.ts";
@@ -159,6 +160,10 @@ export { refineSource, mapDistillDecision, heuristicAbstract, maybeLazyDistillAf
 export type { RefineSourceOptions, RefineResult } from "./distill/refine.ts";
 export { mergeExperienceFields } from "./write/experience.ts";
 export { appendMemoryDiff, listMemoryDiffs, findMemoryDiff, memoryDiffRel } from "./distill/memory-diff.ts";
+export { listContradictions, resolveContradiction, loadReviews } from "./contradiction/review.ts";
+export type { ContradictionListItem, ContradictionKeep, ContradictionReview } from "./contradiction/review.ts";
+export { parseCrossFileFindings, pairIdOf } from "./contradiction/parse.ts";
+export type { CrossFileFinding } from "./contradiction/parse.ts";
 export type { MemoryDiffEntry, MemoryDiffOp } from "./distill/memory-diff.ts";
 export { revertMemoryDiff, revertUnsupportedMessage } from "./distill/revert.ts";
 export type { RevertResult } from "./distill/revert.ts";
@@ -183,7 +188,7 @@ export {
 
 export { openPglite, openIndex, ensureSchema, clearBrainIndex } from "./index/engine.ts";
 export type { IndexConnection, SqlClient, IndexEngineId } from "./index/engine.ts";
-export { syncPage, syncEntity, syncAll, chunkText } from "./index/sync.ts";
+export { syncPage, syncEntity, syncAll, chunkText, indexBodyText } from "./index/sync.ts";
 export { semanticContentHash, pickSemanticFrontmatter } from "./index/content-hash.ts";
 export type { SyncOptions } from "./index/sync.ts";
 export { rebuildIndex } from "./index/rebuild.ts";

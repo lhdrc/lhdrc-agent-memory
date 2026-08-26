@@ -51,6 +51,7 @@ type CreateNodeRequest = {
 | `facts[].value` | 可选；须为有限数；有 value 必须有 metric | `field=facts` |
 | `facts[].unit` / `facts[].period` | 可选字符串 | — |
 | `facts[].supersedes` | 可选；字符串 trim 后 1–500；非字符串或超长则**丢该键**，不整单失败 | — |
+| `facts[].status` | 可选；`active`（缺省）\| `archived` \| `superseded`（P11.6 人审失效） | — |
 | `links[].to` | 非空相对/逻辑 path | `field=links` |
 | `links[].type` | ∈ pack 或核心允许集合（见下） | `field=links.type` |
 

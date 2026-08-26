@@ -5,6 +5,7 @@ import { mkdirp } from "../util/fs.ts";
 import { monthDir } from "../entity/registry.ts";
 
 export type MemoryDiffOp =
+  | "create"
   | "experience_create"
   | "experience_merge"
   | "experience_supersede"

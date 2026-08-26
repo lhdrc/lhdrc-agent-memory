@@ -11,6 +11,7 @@ import type { FileMutationExecutor } from "./executor.ts";
 import { directGitExecutor } from "./executor.ts";
 import { WriteValidator } from "./validator.ts";
 import { applyIronLaw } from "./iron-law.ts";
+import { recordL0Create } from "./l0-audit.ts";
 import type { CreateNodeRequest, Fact, Link } from "./types.ts";
 
 export interface CaptureOptions {
@@ -164,7 +165,8 @@ export async function captureNode(
   await queue.execute(
     async () => {
       written = await captureWrite(repoRoot, pack, { ...opts, queue });
-      return [written];
+      const extra = await recordL0Create(repoRoot, opts.brainId, written, opts.createdBy);
+      return [written, ...extra];
     },
     `capture ${opts.schemaType} ${opts.title}`,
   );

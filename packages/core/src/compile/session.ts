@@ -11,6 +11,7 @@ import { loadRepoConfig, type RepoConfig } from "../repo/config.ts";
 import type { SchemaPack } from "../schema/loadPack.ts";
 import type { FileMutationExecutor } from "../write/executor.ts";
 import { captureWrite, buildMarkdownBody, type CaptureOptions } from "../write/capture.ts";
+import { recordL0Create } from "../write/l0-audit.ts";
 import { checkDedupe } from "../write/dedupe.ts";
 import { todayUtc, sanitizeFactSupersedes } from "../write/validator.ts";
 import type { Fact, Link } from "../write/types.ts";
@@ -501,6 +502,7 @@ export async function compileSession(opts: CompileSessionOpts): Promise<CompileR
         item.status = "written";
         item.path = path;
         written.push(path);
+        written.push(...(await recordL0Create(opts.repoRoot, opts.brainId, path, opts.createdBy)));
         await writeExtracted(opts.repoRoot, opts.brainId, sessionId!, checkpoint!);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);

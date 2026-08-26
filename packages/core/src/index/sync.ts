@@ -51,6 +51,25 @@ export const PAGE_COLS = [
   "body_ngrams",
 ];
 
+const HIDDEN_FACT = new Set(["archived", "superseded"]);
+
+/** P11.6：索引用正文去掉 superseded fact 字面量，并附上仍有效的 facts。磁盘文件不动。 */
+export function indexBodyText(body: string, data: Record<string, unknown>): string {
+  const facts = Array.isArray(data.facts) ? (data.facts as Array<{ text?: unknown; status?: unknown }>) : [];
+  let text = body;
+  const active: string[] = [];
+  for (const f of facts) {
+    const t = String(f.text ?? "").trim();
+    if (!t) continue;
+    if (HIDDEN_FACT.has(String(f.status ?? "active"))) {
+      if (text.includes(t)) text = text.split(t).join("");
+    } else {
+      active.push(t);
+    }
+  }
+  return [text.trim(), ...active].filter(Boolean).join("\n\n");
+}
+
 /** 按段落优先分块，单块 ≤ maxLen。 */
 export function chunkText(text: string, maxLen = 800): string[] {
   const paras = text.split(/\n{2,}/);
@@ -120,7 +139,8 @@ export async function syncPage(
   const aliasesJson = JSON.stringify(Array.isArray(data.aliases) ? data.aliases : []);
   const frontmatterJson = JSON.stringify(data);
   const titleNgrams = bigrams(title);
-  const bodyNgrams = bigrams(body);
+  const indexBody = indexBodyText(body, data);
+  const bodyNgrams = bigrams(indexBody);
 
   await db.exec("BEGIN");
   try {
@@ -142,10 +162,10 @@ export async function syncPage(
          fts_body = EXCLUDED.fts_body,
          title_ngrams = EXCLUDED.title_ngrams,
          body_ngrams = EXCLUDED.body_ngrams`,
-      [relPath, brainId, sourceId, schemaType, title, status, aliasesJson, frontmatterJson, body, hash, updatedAt, title, body, titleNgrams, bodyNgrams],
+      [relPath, brainId, sourceId, schemaType, title, status, aliasesJson, frontmatterJson, indexBody, hash, updatedAt, title, indexBody, titleNgrams, bodyNgrams],
     );
     await db.query(`DELETE FROM chunks WHERE path = $1`, [relPath]);
-    const chunks = chunkText(body);
+    const chunks = chunkText(indexBody);
     for (let i = 0; i < chunks.length; i++) {
       await db.query(`INSERT INTO chunks (id, path, chunk_index, text) VALUES ($1, $2, $3, $4)`, [
         `${relPath}#${i}`,

@@ -9,14 +9,15 @@
 > **九期不立这些 Spec。** 下期开工仍先改 Spec/08。本表只收「明确下期做」；后续对话追加，禁止只停在聊天里。  
 > **2026-08-20**：#8 / #17-B / #22+#32 已落地 [`specs/十期/`](specs/十期/)（P10.2–P10.4 **done**）。**#9 本期不做**。#17 **锁 B**（禁止 C）。  
 > **2026-08-21**：#44–#48 收成 [`specs/十一期/`](specs/十一期/)（范围选择 / hotness freq / 变更可写 / 旧事实降权 / 实体槽位）。**不**含 #9 / #17-C / #20+#37 / #29 / #34 / LongMemEval。  
-> **2026-08-23**：#49 冲突人工审阅 + 失效软删。**未实现**。修订 P11.4：未审不自动降权。
+> **2026-08-23**：#49 冲突人工审阅 + 失效软删。**P11.6 done**。修订 P11.4：未审不自动降权。  
+> **2026-08-26**：#20+#37 L0 审计 **P11.7 done**。#49 **P11.6 done**。
 
 | # | 锁定做法 |
 |---|---|
 | 8 | 图谱规则密度对齐。扩动词 + pack `extra_verbs`、邻接种子门控、STOPWORD/ReDoS、关系查询夹具。不做 `link_kind` / 批量 jsonb 写入 / page-type→默认边。**Spec [`P10.2`](specs/十期/P10.2-graph-verbs.md)** |
 | 9 | postgres 真 `vector` + HNSW。**2026-08-20 用户：本期不做。** 不进 P10.2–P10.4 DoD |
 | 17 | **B**：跨文件 cosine → 只写 `contradictions.md`；同文件启发式保留；不改 hybrid；无 LLM 三分类；`local` 哈希档跳过跨文件 cosine。**Spec [`P10.3`](specs/十期/P10.3-contradictions.md)**。C 另开 Spec |
-| 20+37 | **C**：L0 capture 同一写事务内 `memory_diff` `op: create` + 事件账本 `node_created`。`changes` 能审计 L0；ledger 仍 jsonl（#16 不做表）。 |
+| 20+37 | **C**：L0 capture 同一写事务内 `memory_diff` `op: create` + 事件账本 `node_created`。`changes` 能审计 L0；ledger 仍 jsonl（#16 不做表）。**Spec [`P11.7`](specs/十一期/P11.7-l0-audit.md) done** |
 | 22+32 | observer 补 latency + evidence 分布；`--explain` 补 `query_plan` / `searched_directories` / 分母级 `score_details`。同一套 query log。**Spec [`P10.4`](specs/十期/P10.4-query-observe.md)** |
 | 29 | 敏感字段 mask。范围未锁（A 不做 / B 仅拒绝落盘 / C 拒绝或打码）。**下期开工前必须再问一次**，禁止默认按 08 打码开工。 |
 | 35 | 公开 bench LongMemEval_S / HaluMem。范围未锁。**下期开工前必须再问一次**（是否上 adapter、是否进 CI、和 `eval:mini` 的关系），禁止默认按 reports/10 P0 全量开工。 |
@@ -26,7 +27,7 @@
 | 46 | 写入 duplicate≠update：prefetch 旧值必须再写新 item；余弦近但宾语不同不得跳过。L0 仍 ADD-only。**Spec [`P11.3`](specs/十一期/P11.3-update-write.md)** |
 | 47 | 旧事实让位：`contradictions.md` 较旧侧检索降权，不删 L0。**被 #49 修订**：未审不对 hybrid 自动降权。**Spec [`P11.4`](specs/十一期/P11.4-stale-demote.md)** |
 | 48 | 实体槽位 `merge_op=patch`：同一主语当前值写实体 facts；`note: patch` 仍不驱动 L0。**Spec [`P11.5`](specs/十一期/P11.5-entity-slot.md)** |
-| 49 | 冲突标记 → **人工审阅**决定真相 → 失效侧 **fact 级软删**（`archived`/`superseded`，走 forget，不 rm）。未审 keep_both 可检索。无 LLM 终审。先改 P11.4。 |
+| 49 | 冲突标记 → **人工审阅**决定真相 → 失效侧 **fact 级软删**（`archived`/`superseded`，走 forget，不 rm）。未审 keep_both 可检索。无 LLM 终审。先改 P11.4。**Spec [`P11.6`](specs/十一期/P11.6-contradiction-review.md) done** |
 
 ## 九期（2026-08-16 会话锁定）
 
@@ -50,7 +51,7 @@
 
 ## 十一期（2026-08-21 会话锁定）
 
-> **进度 2026-08-26**：P11.1–P11.5 **done**。#49 人审 + fact 级软删仍未实现（P11.4 默认 `stale_demote: false`）。
+> **进度 2026-08-26**：P11.1–P11.7 **done**（含 #49 人审、#20+#37 L0 审计；P11.4 默认 `stale_demote: false`）。
 
 | # | 锁定做法 | Spec |
 |---|---|---|
@@ -59,7 +60,8 @@
 | 46 | 写入 duplicate≠update | [P11.3](specs/十一期/P11.3-update-write.md) |
 | 47 | 矛盾对较旧侧降权 | [P11.4](specs/十一期/P11.4-stale-demote.md)（#49 修订：未审不降权） |
 | 48 | 实体槽位 patch，不改 L0 note | [P11.5](specs/十一期/P11.5-entity-slot.md) |
-| 49 | 人工裁决冲突 + 失效软删 | 修订 P11.4；尚未开独立 Spec |
+| 49 | 人工裁决冲突 + 失效软删 | [P11.6](specs/十一期/P11.6-contradiction-review.md) |
+| 20+37 | L0 capture 审计 | [P11.7](specs/十一期/P11.7-l0-audit.md) |
 
 ## 优先级总览
 
@@ -84,7 +86,7 @@
 | 17 | 矛盾分类（cosine + LLM 三分类） | 08 §8.3 | **P10.3 done（B）**；C 不做 |
 | 18 | compiled_truth / synopsis + 2.0x | 08 §5.2 | **不做**（经验页即理解层；不建实体百科、不 ×2） |
 | 19 | skill 状态机 + onSkillOutcome | 08 §9.1 / §13 | **做 B**：outcome 回写；不自动 active（前端可展示） |
-| 20 | memory_diff 未覆盖 L0 capture | 08 §6.0 | **下期 C**（与 #37 同事务） |
+| 20 | memory_diff 未覆盖 L0 capture | 08 §6.0 | **P11.7 done** |
 | 21 | RRF 量纲对齐 + hotness 乘法 + per-arm floor | 08 §7.1 / §7.2 | **做**：`rrf*(k+1)`，**不做 sigmoid**；hotness 改乘法，**α 待定**（现 0.45 加法不合理） |
 | 22 | observer 缺 latency / evidence 分布 | 08 §7.7 | **P10.4 done**（与 #32 同一 Spec） |
 | 23 | MCP / REST / `memory serve` | 08 D7 / §12 / §15 | **不做** |
@@ -101,7 +103,7 @@
 | 34 | 开源治理面（llms.txt / examples / CONTRIBUTING / `memory upgrade`） | 08 §15 | **下期**（upgrade 依赖重开 #36；见文首） |
 | 35 | 公开 bench：LongMemEval_S / HaluMem | 08 §15；[`reports/10`](reports/10-公开记忆Benchmark调研.md) | **下期**（开工前再问） |
 | 36 | `@lhdrc/core` npm publish | P4.2 A | **不做**（下期若做 #34 upgrade 须先重开此项） |
-| 37 | 事件账本缺 `node_created` | 08 §4.5；与 #20 同根 | **下期 C**（与 #20 同事务） |
+| 37 | 事件账本缺 `node_created` | 08 §4.5；与 #20 同根 | **P11.7 done** |
 | 38 | df-app skill → mcphub 同步 | 08 §9.3 | **不做** |
 | 39 | Idle TTL / token 守护进程 | 六期 README 裁掉 | **明确不做** |
 | 40 | 多模态记忆 | 08 §1 非目标 | **明确不做** |
@@ -111,9 +113,9 @@
 | 44 | hotness 仅文件 mtime 衰减 | OpenViking `freq×recency`；P9.3 α=0.15 | **P11.2 done** |
 | 45 | 意图只调融合权重，不改搜索空间 | OpenViking 选目录；TODO #6 禁无回退级联 | **P11.1 done** |
 | 46 | 更新被 prefetch/余弦去重吞掉 | HaluMem Update Omission；D17 ADD-only | **P11.3 done** |
-| 47 | contradictions.md 不接检索 | P10.3 留「过期降权另开 Spec」 | **P11.4 done**（默认关；#49 人审未做） |
+| 47 | contradictions.md 不接检索 | P10.3 留「过期降权另开 Spec」 | **P11.4 done**（默认关） |
 | 48 | pack `note: patch` 死配置；实体 facts 只 append | OV 字段 merge_op；#42 已裁 L0 updateNode | **P11.5 done** |
-| 49 | 冲突无人审、失效不软删 | 现网只写 contradictions.md；forget 未接线 | **未实现**；修订 P11.4 |
+| 49 | 冲突无人审、失效不软删 | 现网只写 contradictions.md；forget 未接线 | **P11.6 done** |
 
 #1–#7 为八期评审痕迹。#8–#22 为先前 08/面试审计。#23–#43 为 2026-08-16 补全。#44–#48 为 2026-08-21 会话追加（十一期）。#49 为 2026-08-23 会话追加。裁剪见八期 README §0。下列正文 **与 Spec 冲突时以 Spec 为准**。
 
@@ -362,11 +364,11 @@ session-start        → 打开 inbox session（或惰性）
 
 **设计**："memory_diff 覆盖 **L0–L3 全部变更类**"（D17 冲突裁决节）。
 
-**现状**：`appendMemoryDiff` 只在 distill/refine（experience_*）、enrich（facts/skip 审计）、crystallize 写；**L0 热路径 capture 本身不写 memory_diff**（L0 变更只在 events ledger 有 capture 事件？——需确认并补）。
+**现状（2026-08-26）**：L0 `captureNode` / compile `captureWrite` / `importNode` 同写事务 append `memory_diff op:create` + ledger `node_created`。`memory changes` 可见。`revert create` 仍 unsupported。
 
 **目标**：capture 落盘后在单写事务内 append `op: create`（或 node_created，`reports/12` 已指出事件账本缺 node_created——同根问题）；保证 `changes` 命令能审计 L0 写入。
 
-**2026-08-16 锁定：下期做 C。** 与 #37 同一写事务：`memory_diff op:create` + `node_created`。不另建 ledger 表。
+**2026-08-16 锁定：下期做 C。2026-08-26：P11.7 done。** 与 #37 同一写事务：`memory_diff op:create` + `node_created`。不另建 ledger 表。**Spec [`P11.7`](specs/十一期/P11.7-l0-audit.md)**。
 
 ---
 
@@ -548,9 +550,9 @@ AGENTS / 08 决策建议主推 TS/Bun。不实现 Java、不并行维护两套�
 
 **设计**：capture/update 进不可变事件流。
 
-**现状**：无 `node_created` 事件类型（代码库零命中）。L0 写入可观测性依赖 #20 memory_diff。与 #16 文件形状（`ledger.jsonl` vs `{slug}.jsonl`）分开记。
+**现状（2026-08-26）**：L0 `captureNode` / compile / `importNode` 同事务写 `memory_diff op:create` + ledger `node_created`。`revert create` 仍 unsupported（D17）。
 
-**2026-08-16 锁定：下期做 C。** 与 #20 捆绑，见上。
+**2026-08-16 锁定：下期做 C。2026-08-26：P11.7 done。** 与 #20 捆绑。**Spec [`P11.7`](specs/十一期/P11.7-l0-audit.md)**。
 
 ---
 
@@ -670,9 +672,9 @@ AGENTS / 08 决策建议主推 TS/Bun。不实现 Java、不并行维护两套�
 
 ## 49. 冲突人工审阅 + 失效软删（2026-08-23 会话）
 
-**现状（已核实）**：dream 第 4 段只覆盖写 `contradictions.md`。无 `pending` 状态、无 `memory contradiction resolve`、无裁决后 fact 级 `archived`。`forget` 是整页软删，未接到矛盾对。检索不读 contradictions（P10.3）。P11.4 规格仍是「未审自动降权」，**代码未做**。
+**现状（2026-08-26）**：`memory contradiction list|resolve`；keep a/b 将失效侧 `facts[i].status=superseded`；sidecar `contradictions-reviews.jsonl` 抗 dream 覆盖；索引去掉 superseded 字面量。P11.4 默认仍关。
 
-**2026-08-23 锁定：做。未实现。**
+**2026-08-23 锁定：做。2026-08-26：P11.6 done。**
 
 ```
 dream 标记 → 每对 status=pending
@@ -683,7 +685,9 @@ dream 标记 → 每对 status=pending
 
 - 优先 fact 级，禁止因一条过期 fact 归档整篇 note。  
 - 不 patch 旧 md 正文。  
-- 开工先 **修订 P11.4**（未审不降权；裁决后才让检索看不见旧侧），再写 CLI。
+- P11.4 默认关；裁决写入 sidecar `contradictions-reviews.jsonl`。
+
+**Spec [`P11.6`](specs/十一期/P11.6-contradiction-review.md)**。
 
 **明确不做**：#17-C LLM 三分类当终审；dream 自动判谁过期；物理 `--purge`。
 
@@ -693,7 +697,8 @@ dream 标记 → 每对 status=pending
 
 - **本次重审（2026-08-16）**：#23–#43 补 08 里「有章节、无 Spec 主人」的项；已落地（混合检索骨架、graph signals、search_cache、分层 sidecar、DSH 闭环等）不重复列。  
 - **2026-08-21**：#44–#48 追加，收成十一期 P11.1–P11.5。  
-- **2026-08-23**：#49 追加（冲突人工审阅 + 失效软删；修订 P11.4）。
+- **2026-08-23**：#49 追加（冲突人工审阅 + 失效软删；修订 P11.4）。  
+- **2026-08-26**：#49 → P11.6 done；#20+#37 → P11.7 done。
 - **先前审计**：#8–#22；#8 含 §7.5 NER 类型链接，不另开号。
 - **明确不做 / 后置** 仍占行，避免再被当成「AI 漏拆」。
 - 推进任一项：先改对应 Spec/08，再改代码。

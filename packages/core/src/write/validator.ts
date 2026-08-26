@@ -47,6 +47,9 @@ function sanitizeFacts(facts: CreateNodeRequest["facts"]): Fact[] {
     if (f.unit !== undefined) next.unit = f.unit;
     if (f.period !== undefined) next.period = f.period;
     if (supersedes) next.supersedes = supersedes;
+    if (f.status === "archived" || f.status === "superseded" || f.status === "active") {
+      next.status = f.status;
+    }
     out.push(next);
   }
   return out;

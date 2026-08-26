@@ -28,6 +28,7 @@ import { rememberCommand } from "./commands/remember.ts";
 import { inboxCommand } from "./commands/inbox.ts";
 import { jobCommand } from "./commands/job.ts";
 import { trendCommand } from "./commands/trend.ts";
+import { contradictionCommand } from "./commands/contradiction.ts";
 
 const HELP = `df-memory CLI
 
@@ -55,6 +56,7 @@ const HELP = `df-memory CLI
   memory tree [path] [--depth N]
   memory forget <path> [--by <id>] [--purge --confirm]
   memory events <list|append>
+  memory contradiction <list|resolve>
   memory entity <create|list|resolve|merge|link-facts>
   memory agent <register|list>
   memory rebuild-index
@@ -101,6 +103,7 @@ const COMMANDS: Record<string, Command> = {
   trend: trendCommand,
   layers: layersCommand,
   events: eventsCommand,
+  contradiction: contradictionCommand,
   ingest: ingestCommand,
   remember: rememberCommand,
   inbox: inboxCommand,

@@ -3,7 +3,7 @@
 > **前提**：十期 **P10.2–P10.4 done**。P10.1 LoCoMo / P10.5 HaluMem 发数仍属十期，**不进本期 DoD**。P5.6 hermetic 门禁不改口径。  
 > **来源**：[`TODO.md`](../../TODO.md) #44–#48（2026-08-21 会话）。OpenViking 选目录 / freq×recency；HaluMem Update 0/8 + topk=20 miss；P10.3 留「过期降权另开 Spec」。  
 > **原则**：不破坏 D1/D14/**D17**/D18；与 08 冲突时先改本目录 + 08 ADR 再改代码。意图分类仍零 LLM。  
-> **明确不做（本期）**：postgres HNSW（#9）；#17-C LLM 三分类；通用 `updateNode` 改 `sources/`；无回退的目录级联（#6）；LLM 意图分析 / HierarchicalRetriever 递归下钻；compiled_truth ×2（#18）；query LLM 扩写（#31）；MCP；npm publish；#20+#37 L0 memory_diff；#29 mask；LongMemEval 全量。
+> **明确不做（本期）**：postgres HNSW（#9）；#17-C LLM 三分类；通用 `updateNode` 改 `sources/`；无回退的目录级联（#6）；LLM 意图分析 / HierarchicalRetriever 递归下钻；compiled_truth ×2（#18）；query LLM 扩写（#31）；MCP；npm publish；#29 mask；LongMemEval 全量。
 
 ## 0. 对 TODO 的拆分（已锁定）
 
@@ -12,9 +12,10 @@
 | **#45 范围选择** | 意图只调权 → 噪声占满 top-k。必须带 fallback。 | **P11.1** |
 | **#44 hotness freq** | 现网只有 mtime；OV 是访问次数 × 衰减。α=0.15 乘法不改。 | **P11.2** |
 | **#46 duplicate≠update** | prefetch「已有」+ 余弦去重吞掉新值。L0 仍只增。 | **P11.3** |
-| **#47 旧事实降权** | P10.3 文件已有，检索不认。**#49**：未审不自动降权，人审后 fact 软删。 | **P11.4**（须修订） |
-| **#49 人审 + 软删** | 标记已有；裁决 CLI / fact 级 archived **未实现**。 | 修订 P11.4 |
+| **#47 旧事实降权** | P10.3 文件已有，检索不认。**#49**：未审不自动降权，人审后 fact 软删。 | **P11.4**（默认关） |
+| **#49 人审 + 软删** | 标记已有；裁决 CLI / fact 级 `superseded`。 | **P11.6** |
 | **#48 实体槽位** | 当前值投影放实体 facts patch；note 不 patch。 | **P11.5** |
+| **#20+#37 L0 审计** | capture 同事务 `memory_diff create` + `node_created`。 | **P11.7** |
 
 ### 0.1 必须遵守的裁剪
 
@@ -32,7 +33,9 @@ query（scope_first） → 先按意图搜一块目录；不够再全仓；expla
 think                → 经验题先搜 experiences/，不再先全仓再分桶
 query 多次后         → 常被命中的 path 相对上浮（无计数时序不变）
 「搬去旧金山」       → 新 L0 必须落下，不能被旧「住纽约」余弦跳过
-dream 过的矛盾对     → 较旧那篇仍可召回，但排在较新之后
+dream 过的矛盾对     → 较旧那篇仍可召回（默认不自动降权）
+人审 keep a|b        → 失效 fact superseded，索引去掉字面量，正文不动
+capture / compile    → memory_diff create + ledger node_created
 人的当前职位/住址    → 写在实体 facts 上可 patch；sources/ 仍是历史
 ```
 
@@ -45,8 +48,10 @@ dream 过的矛盾对     → 较旧那篇仍可召回，但排在较新之后
 | 3 | P11.2 hotness freq | [`P11.2-hotness-freq.md`](P11.2-hotness-freq.md) | P9.3、P10.4 | 终榜 path 计数 × 衰减 |
 | 4 | P11.4 旧事实降权 | [`P11.4-stale-demote.md`](P11.4-stale-demote.md) | P10.3、P9.3 | contradictions 较旧侧乘子 |
 | 5 | P11.5 实体槽位 | [`P11.5-entity-slot.md`](P11.5-entity-slot.md) | P5.4、P9.9 | 实体 facts patch |
+| 6 | P11.6 人审软删 | [`P11.6-contradiction-review.md`](P11.6-contradiction-review.md) | P10.3、P11.4 | 裁决后 fact superseded |
+| 7 | P11.7 L0 审计 | [`P11.7-l0-audit.md`](P11.7-l0-audit.md) | P2.2、P5.4 | capture 写 create + node_created |
 
-P11.1 与 P11.2 可并行（都在 hybrid 尾段，测例勿互相绑死默认）。P11.4 依赖 dream 已能写出跨文件行。P11.3 不依赖检索项。
+P11.1 与 P11.2 可并行（都在 hybrid 尾段，测例勿互相绑死默认）。P11.4 依赖 dream 已能写出跨文件行。P11.3 不依赖检索项。P11.6 不改 P11.4 默认关。
 
 ## 2.1 进度
 
@@ -57,12 +62,15 @@ P11.1 与 P11.2 可并行（都在 hybrid 尾段，测例勿互相绑死默认�
 | P11.3 变更可写 | **done** |
 | P11.4 旧事实降权 | **done** |
 | P11.5 实体槽位 | **done** |
+| P11.6 人审 + fact 软删 | **done** |
+| P11.7 L0 capture 审计 | **done** |
 
 ## 3. 仓库边界
 
 | 改动 | 仓库 |
 |---|---|
-| intent→path、hotness、dedupe、contradiction 乘子、entity facts | 本仓 `packages/core` + CLI |
+| intent→path、hotness、dedupe、contradiction 乘子、entity facts、L0 审计 | 本仓 `packages/core` + CLI |
+| 矛盾人审 CLI | `memory contradiction list|resolve`；sidecar `contradictions-reviews.jsonl` |
 | 提取合同文案 | 本仓 `packages/core/resources/session-extract-v1.md` |
 | query log / counter | `.dfmemory/logs/` |
 | DSH 插件 | **默认不改行为**；新 explain 字段忽略即可。`scope_first` 由仓 `memory.yml` 决定 |
@@ -77,4 +85,4 @@ P11.1 与 P11.2 可并行（都在 hybrid 尾段，测例勿互相绑死默认�
 
 ## 十一期完成标志
 
-P11.1–P11.5 DoD 勾选。**不含** HaluMem/LoCoMo 全量发数、不含 #17-C、不含 L0 覆盖写。
+P11.1–P11.7 DoD 勾选。**不含** HaluMem/LoCoMo 全量发数、不含 #17-C、不含 L0 覆盖写。

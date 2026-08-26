@@ -16,6 +16,8 @@ export interface Fact {
   period?: string;
   /** P11.3：被本条取代的旧 fact 文本或仓内相对 path；≤500 */
   supersedes?: string;
+  /** P11.6：人审失效；缺省视为 active */
+  status?: "active" | "archived" | "superseded";
 }
 
 export type NodeStatus = "active" | "archived" | "stale";
