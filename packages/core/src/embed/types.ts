@@ -14,6 +14,8 @@ export interface EmbeddingConfig {
   dims?: number;
   openai_api_key_env: string;
   onnx_model_path?: string;
+  /** P12.1：openai-compatible 网关；缺省 https://api.openai.com */
+  base_url?: string;
 }
 
 export type TokenmaxRerank = "off" | "local" | "model";

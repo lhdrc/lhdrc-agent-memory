@@ -64,7 +64,7 @@ export async function queryCommand(argv: string[]): Promise<number> {
   }
   const conn = await openPglite(ctx.repoRoot);
   try {
-    const { hits: rawHits, explain } = await hybridQueryDetailed(conn.db, {
+    const { hits: rawHits, explain, degradation } = await hybridQueryDetailed(conn.db, {
       brainId: ctx.brainId,
       query: text,
       limit: o.limit !== undefined ? parseInt(String(o.limit), 10) || 10 : 10,
@@ -92,8 +92,15 @@ export async function queryCommand(argv: string[]): Promise<number> {
           }
         });
     if (o.explain || o.json) {
-      const payload: Record<string, unknown> = { query: text, mode, results: hits };
+      const payload: Record<string, unknown> = {
+        ok: true,
+        result: { query: text, mode, results: hits, ...(explain ? { explain } : {}) },
+        query: text,
+        mode,
+        results: hits,
+      };
       if (explain) payload.explain = explain;
+      if (degradation?.length) payload.degradation = degradation;
       console.log(JSON.stringify(payload));
     } else {
       hits.forEach((h, i) => {

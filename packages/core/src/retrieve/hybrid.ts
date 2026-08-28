@@ -18,6 +18,12 @@ import { annotateHits } from "./annotate.ts";
 import { applyStaleDemote, loadCrossFilePairs, type StaleDemoteExplain } from "./stale.ts";
 import { recordQueryStat, type QueryEvidenceCounts } from "../observer/stats.ts";
 import { bumpHitCounts, readHitCounts } from "../observer/hit-counts.ts";
+import {
+  degradation,
+  mergeDegradations,
+  type MemoryDegradation,
+} from "./envelope.ts";
+import { MemoryError, ErrorCodes } from "../errors.ts";
 
 export interface HybridQueryOptions extends QueryOptions {
   mode?: SearchMode;
@@ -93,6 +99,8 @@ export interface QueryExplain {
 export interface HybridQueryResult {
   hits: QueryHit[];
   explain?: QueryExplain;
+  /** P12.2：不依赖 --explain；给宿主 agent 的降级列表 */
+  degradation?: MemoryDegradation[];
 }
 
 function embeddingMetaMismatch(
@@ -237,21 +245,43 @@ async function runScopedHybrid(
   const base = { ...opts, scopePass: true, skipCache: true, omitQueryStat: true };
   if (route.kind === "off") {
     const inner = await hybridQueryDetailed(db, base);
-    return finalizeHybridResult(opts, q, inner.hits, withScopePlan(inner.explain, intent, route, "none"), t0);
+    return finalizeHybridResult(
+      opts,
+      q,
+      inner.hits,
+      withScopePlan(inner.explain, intent, route, "none"),
+      t0,
+      inner.degradation,
+    );
   }
   let expand = false;
   let narrowHits: QueryHit[] = [];
   let narrowExplain: QueryExplain | undefined;
+  let narrowDeg: MemoryDegradation[] | undefined;
   try {
     const narrow = await hybridQueryDetailed(db, { ...base, ...routeToPathFilters(route), explain: true });
     narrowHits = narrow.hits;
     narrowExplain = narrow.explain;
+    narrowDeg = narrow.degradation;
     expand = needsScopeExpand(narrowHits, opts.limit ?? 10, search);
-  } catch {
+  } catch (e) {
     expand = true;
+    narrowDeg = [
+      degradation("scope_expand_error", e instanceof Error ? e.message : String(e), {
+        code: e instanceof MemoryError ? e.code : ErrorCodes.INTERNAL,
+        arm: "keyword",
+      }),
+    ];
   }
   if (!expand) {
-    return finalizeHybridResult(opts, q, narrowHits, withScopePlan(narrowExplain, intent, route, "none"), t0);
+    return finalizeHybridResult(
+      opts,
+      q,
+      narrowHits,
+      withScopePlan(narrowExplain, intent, route, "none"),
+      t0,
+      narrowDeg,
+    );
   }
   const global = await hybridQueryDetailed(db, {
     ...base,
@@ -259,7 +289,14 @@ async function runScopedHybrid(
     pathContains: undefined,
     explain: opts.explain || Boolean(narrowExplain),
   });
-  return finalizeHybridResult(opts, q, global.hits, withScopePlan(global.explain, intent, route, "global"), t0);
+  return finalizeHybridResult(
+    opts,
+    q,
+    global.hits,
+    withScopePlan(global.explain, intent, route, "global"),
+    t0,
+    mergeDegradations(narrowDeg, global.degradation),
+  );
 }
 
 function buildQueryPlan(opts: {
@@ -318,6 +355,7 @@ async function finalizeHybridResult(
   hits: QueryHit[],
   explain: QueryExplain | undefined,
   t0: number,
+  degradationList?: MemoryDegradation[],
 ): Promise<HybridQueryResult> {
   const annotated = await withAnnotations(opts, hits);
   if (opts.repoRoot && !opts.omitQueryStat) {
@@ -336,7 +374,12 @@ async function finalizeHybridResult(
       evidence: countEvidenceFromHits(annotated),
     }).catch(() => {});
   }
-  return { hits: annotated, explain };
+  const degradation = mergeDegradations(degradationList);
+  return {
+    hits: annotated,
+    explain,
+    ...(degradation.length ? { degradation } : {}),
+  };
 }
 
 interface EntityBoostPack {
@@ -478,12 +521,29 @@ export async function hybridQueryDetailed(
   let semanticHits: RankedHit[] = [];
   let semanticAvailable = false;
   let queryVec: number[] | undefined;
+  const deg: MemoryDegradation[] = [];
+
+  if (embedder?.fallbackFrom) {
+    deg.push(
+      degradation(
+        "semantic_hash_fallback",
+        `embedding.provider=${embedder.fallbackFrom} 无 key/权重，语义臂使用本地哈希`,
+        { arm: "semantic" },
+      ),
+    );
+  }
 
   if (semanticWanted && embedder) {
     const stale =
       opts.repoRoot != null &&
       embeddingMetaMismatch(await readEmbeddingMeta(opts.repoRoot), embedder);
-    if (!stale) {
+    if (stale) {
+      deg.push(
+        degradation("embedding_meta_mismatch", "索引 embedding-meta 与当前 provider/dims 不一致，跳过语义臂", {
+          arm: "semantic",
+        }),
+      );
+    } else {
       try {
         const [qv] = await embedder.embed([q]);
         queryVec = qv;
@@ -499,6 +559,7 @@ export async function hybridQueryDetailed(
             excludeSidecars: opts.excludeSidecars,
             pathPrefix: opts.pathPrefix,
             pathContains: opts.pathContains,
+            repoRoot: opts.repoRoot,
           });
           semanticAvailable = true;
           for (const h of semanticHits) {
@@ -508,10 +569,16 @@ export async function hybridQueryDetailed(
             }
           }
         }
-      } catch {
+      } catch (e) {
         semanticHits = [];
         semanticAvailable = false;
         queryVec = undefined;
+        deg.push(
+          degradation("semantic_embed_failed", e instanceof Error ? e.message : String(e), {
+            code: e instanceof MemoryError ? e.code : ErrorCodes.LLM,
+            arm: "semantic",
+          }),
+        );
       }
     }
   }
@@ -538,9 +605,15 @@ export async function hybridQueryDetailed(
         meta.set(h.path, { snippet: h.snippet, title: h.title, evidence: h.evidence });
       }
     }
-  } catch {
+  } catch (e) {
     graphHits = [];
     graphMode = "empty";
+    deg.push(
+      degradation("graph_arm_error", e instanceof Error ? e.message : String(e), {
+        code: e instanceof MemoryError ? e.code : ErrorCodes.INDEX,
+        arm: "graph",
+      }),
+    );
   }
 
   const knobs = buildKnobs(opts, intent, mode, limit, semanticAvailable, search);
@@ -581,7 +654,7 @@ export async function hybridQueryDetailed(
             score_details: cachedHits.map((h) => ({ path: h.path, final: h.score })),
           }
         : undefined;
-      return finalizeHybridResult(opts, q, cachedHits, cacheExplain, t0);
+      return finalizeHybridResult(opts, q, cachedHits, cacheExplain, t0, deg);
     }
   }
 
@@ -801,5 +874,5 @@ export async function hybridQueryDetailed(
       }
     : undefined;
 
-  return finalizeHybridResult(opts, q, hits, explain, t0);
+  return finalizeHybridResult(opts, q, hits, explain, t0, deg);
 }

@@ -5,6 +5,7 @@ import { openIndex, ensureSchema } from "./engine.ts";
 import { syncPage, syncEntity } from "./sync.ts";
 import { readIndexMeta, writeIndexMeta } from "./meta.ts";
 import { invalidateSearchCache } from "../retrieve/cache.ts";
+import { invalidateEmbeddingCache } from "../retrieve/embed-cache.ts";
 
 async function resolveSyncOptions(repoRoot: string) {
   const cfg = await loadRepoConfig(repoRoot);
@@ -31,6 +32,7 @@ export const pgliteIndexHooks: IndexSyncHooks = {
         }
       }
       await invalidateSearchCache(conn.db);
+      invalidateEmbeddingCache(repoRoot);
       const meta = await readIndexMeta(repoRoot);
       const count = await conn.db.query<{ n: string }>(`SELECT COUNT(*) AS n FROM pages`);
       await writeIndexMeta(repoRoot, {
