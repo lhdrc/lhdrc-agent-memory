@@ -12,7 +12,7 @@
 > **2026-08-23**：#49 冲突人工审阅 + 失效软删。**P11.6 done**。修订 P11.4：未审不自动降权。  
 > **2026-08-26**：#20+#37 L0 审计 **P11.7 done**。#49 **P11.6 done**。  
 > **2026-08-27**：GroupMemBench Technology 全量（3 万 md / ~6 万 chunk / Qwen 4096 维）证明 JS 全表余弦不够用。用户要求 **main 收嵌入热路径（#50）**，并重开 **#9 postgres** `vector` **+ HNSW**。PGLite 默认档仍 BYTEA，不假装有 pgvector。  
-> **2026-08-28**：#50 **P12.1 done**（`[specs/十二期/P12.1-embed-hotpath.md](specs/十二期/P12.1-embed-hotpath.md)`）。失败/降级账本 + 配置 CLI 方案同期落盘。**#9 仍未编码**。
+> **2026-08-28**：#50 **P12.1 done**。P12.2 宿主信封 + P12.3 `memory config` **done**。失败/降级账本同期落盘。**#9 仍未编码**。
 
 
 | #     | 锁定做法                                                                                                                                                                                     |

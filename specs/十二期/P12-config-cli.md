@@ -2,8 +2,8 @@
 
 | 字段 | 值 |
 |---|---|
-| ID | P12-config（草案，**本期不编码**） |
-| 状态 | proposal |
+| ID | P12-config（方案；编码见 [`P12.3-config-cli.md`](P12.3-config-cli.md)） |
+| 状态 | superseded by P12.3 |
 | 依赖 | `memory.yml` / P6.1 / P9.2 / [`failure-degrade-audit.md`](failure-degrade-audit.md) F-06–F-08、F-12 |
 | 对应 | 用户：「配置水平太差；要能看/改配置；哪里启用 LLM；需要 key 的地方要提示」 |
 
@@ -213,4 +213,4 @@ embedding.provider=openai 但未检测到 OPENAI_API_KEY
 3. `set` 白名单  
 4. （可选）remember 预检 warning  
 
-本期 **停在本文**。编码前把本文升为 `P12.2-config-cli.md` 并勾 DoD。
+编码见 [`P12.3-config-cli.md`](P12.3-config-cli.md)。

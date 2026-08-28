@@ -17,7 +17,13 @@ export { DEFAULT_LLM_CONFIG } from "./types.ts";
 export { NoopLLMProvider } from "./noop.ts";
 export { OpenAILLMProvider } from "./openai.ts";
 export { EnvMockLLMProvider, isEnvMockCompleteEnabled } from "./mock.ts";
-export { createLLMProvider, isDistillEnabled, isCompileEnabled } from "./factory.ts";
+export {
+  createLLMProvider,
+  isDistillEnabled,
+  isCompileEnabled,
+  hasLlmApiKey,
+  assertRememberCompileReady,
+} from "./factory.ts";
 export type { CreateLLMOptions } from "./factory.ts";
 export {
   loadDistillJudgePrompt,

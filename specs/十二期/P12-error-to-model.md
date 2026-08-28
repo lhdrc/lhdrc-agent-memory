@@ -3,7 +3,7 @@
 | 字段 | 值 |
 |---|---|
 | ID | P12-error-to-model |
-| 状态 | locked（原则；**未编码**） |
+| 状态 | locked（原则）；编码见 [`P12.2-error-envelope.md`](P12.2-error-envelope.md) |
 | 来源 | 2026-08-28：信封给**使用记忆的 agent**；不是记忆系统里做抽取/compile 的那个模型 |
 | 对照 | [`failure-degrade-audit.md`](failure-degrade-audit.md)；P8.1 §4.7；P9.2 |
 

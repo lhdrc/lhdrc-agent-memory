@@ -4,10 +4,12 @@ import {
   MemoryError,
   ErrorCodes,
   loadPack,
+  loadRepoConfig,
   compileSession,
   appendSessionTurns,
   acceptRememberJob,
   getJobRunner,
+  assertRememberCompileReady,
   type CompileResult,
 } from "@lhdrc/core";
 import { parseArgs } from "../args.ts";
@@ -23,7 +25,7 @@ const HELP = `memory remember --body "…" | --body-file <path> | stdin
 
 将会话原文编译为短记忆（须 LLM complete，或 --no-extract 当一条 note）。
 默认异步入队，stdout 为 accepted + task_id；--wait 写完再返回 kept/path。
-无 llm.provider/key 且未 --no-extract → 任务 failed E_DISABLED（不写 L0）。
+无 llm.provider/key 且未 --no-extract → 入队前 E_DISABLED（不写 L0，不入队）。
 
   --body / --body-file / stdin  原文（单条 user turn）
   --wait                        同步：写完再返回（验收/口令用）
@@ -36,19 +38,18 @@ const HELP = `memory remember --body "…" | --body-file <path> | stdin
 
 export function formatCompileOutput(result: CompileResult, json: boolean, dryRun: boolean): void {
   if (json) {
-    console.log(
-      JSON.stringify({
-        session_id: result.session_id ?? null,
-        kept: result.kept,
-        dropped: result.dropped,
-        unresolved: result.unresolved,
-        errors: result.errors,
-        skipped_reason: result.skipped_reason,
-        truncated: result.truncated,
-        distill: result.distill,
-        entities_created: result.entities_created,
-      }),
-    );
+    const body = {
+      session_id: result.session_id ?? null,
+      kept: result.kept,
+      dropped: result.dropped,
+      unresolved: result.unresolved,
+      errors: result.errors,
+      skipped_reason: result.skipped_reason,
+      truncated: result.truncated,
+      distill: result.distill,
+      entities_created: result.entities_created,
+    };
+    console.log(JSON.stringify({ ok: result.errors.length === 0, result: body, ...body }));
     return;
   }
   for (const k of result.kept) {
@@ -100,6 +101,10 @@ export async function rememberCommand(argv: string[]): Promise<number> {
   const ctx = await loadContext(Boolean(o.json));
   const pack = await loadPack();
   const queue = await createQueue(ctx.repoRoot);
+  const repoCfg = await loadRepoConfig(ctx.repoRoot);
+  if (!o.buffer) {
+    assertRememberCompileReady(repoCfg.llm, Boolean(o["no-extract"]));
+  }
 
   if (o.buffer) {
     const appended = await appendSessionTurns({
@@ -157,7 +162,8 @@ export async function rememberCommand(argv: string[]): Promise<number> {
 
   if (!o.wait) {
     if (o.json) {
-      console.log(JSON.stringify({ accepted: true, task_id: job.task_id, status: "pending" }));
+      const body = { accepted: true, task_id: job.task_id, status: "pending" };
+      console.log(JSON.stringify({ ok: true, result: body, ...body }));
     } else {
       console.log(`accepted=true task_id=${job.task_id}`);
     }
@@ -183,20 +189,19 @@ export async function rememberCommand(argv: string[]): Promise<number> {
     entities_created: output.entities_created as string[] | undefined,
   };
   if (o.json) {
-    console.log(
-      JSON.stringify({
-        session_id: result.session_id ?? null,
-        kept: result.kept,
-        dropped: result.dropped,
-        unresolved: result.unresolved,
-        errors: result.errors,
-        skipped_reason: result.skipped_reason,
-        distill: result.distill,
-        entities_created: result.entities_created,
-        task_id: done.task_id,
-        status: "done",
-      }),
-    );
+    const body = {
+      session_id: result.session_id ?? null,
+      kept: result.kept,
+      dropped: result.dropped,
+      unresolved: result.unresolved,
+      errors: result.errors,
+      skipped_reason: result.skipped_reason,
+      distill: result.distill,
+      entities_created: result.entities_created,
+      task_id: done.task_id,
+      status: "done",
+    };
+    console.log(JSON.stringify({ ok: result.errors.length === 0, result: body, ...body }));
   } else {
     formatCompileOutput(result, false, false);
   }

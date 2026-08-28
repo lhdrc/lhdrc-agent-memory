@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { initMemoryRepo, type GitInitPolicy } from "@lhdrc/core";
+import { initMemoryRepo, loadRepoConfig, initMissingKeyHint, type GitInitPolicy } from "@lhdrc/core";
 import { parseArgs } from "../args.ts";
 
 function parseGitInitPolicy(raw: string | undefined): GitInitPolicy | undefined {
@@ -28,5 +28,11 @@ export async function initCommand(argv: string[]): Promise<number> {
     git,
   });
   console.log(`initialized memory repo at ${resolve(abs)}`);
+  try {
+    const hint = initMissingKeyHint(await loadRepoConfig(abs));
+    if (hint) console.error(hint);
+  } catch {
+    /* init 刚写完；提示失败不挡成功 */
+  }
   return 0;
 }

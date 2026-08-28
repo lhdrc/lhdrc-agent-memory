@@ -6,6 +6,10 @@ export type { InitOptions, GitInitPolicy } from "./repo/init.ts";
 export { findRepoRoot, loadRepoConfig, resolveEnvDefaults } from "./repo/config.ts";
 export type { RepoConfig, WriteConfig, LayersConfig, CompileConfig, RecallConfig, DistillConfig, TrendConfig, IronLawConfig } from "./repo/config.ts";
 export { DEFAULT_COMPILE_CONFIG, DEFAULT_RECALL_CONFIG, DEFAULT_DISTILL_CONFIG, DEFAULT_TREND_CONFIG, DEFAULT_IRON_LAW_CONFIG } from "./repo/config.ts";
+export { buildConfigRows, buildDoctorReport, formatConfigRows, formatDoctorReport, initMissingKeyHint } from "./repo/config-view.ts";
+export type { ConfigRow, DoctorReport, DoctorIssue, ConfigReady } from "./repo/config-view.ts";
+export { setRepoConfigKey, parseSetAssignment, CONFIG_SET_WHITELIST } from "./repo/config-set.ts";
+export type { SetRepoConfigResult } from "./repo/config-set.ts";
 export { loadBrainConfig, resolveSourceId, createBrain, listBrains, hasSharedSkillsMount } from "./repo/brain.ts";
 export { resolveSourceIdFull } from "./repo/source-resolve.ts";
 export type { ResolveSourceIdFullInput } from "./repo/source-resolve.ts";
@@ -117,6 +121,8 @@ export {
   createLLMProvider,
   isDistillEnabled,
   isCompileEnabled,
+  hasLlmApiKey,
+  assertRememberCompileReady,
   NoopLLMProvider,
   OpenAILLMProvider,
   EnvMockLLMProvider,
@@ -202,6 +208,18 @@ export { semanticArm, isSemanticScoreSql } from "./retrieve/semantic.ts";
 export type { SemanticArmOptions } from "./retrieve/semantic.ts";
 export { invalidateEmbeddingCache } from "./retrieve/embed-cache.ts";
 export { hybridQuery, hybridQueryDetailed } from "./retrieve/hybrid.ts";
+export {
+  envelopeOk,
+  envelopeFail,
+  degradation,
+  mergeDegradations,
+} from "./retrieve/envelope.ts";
+export type {
+  MemoryToolEnvelope,
+  MemoryDegradation,
+  MemoryToolError,
+  MemoryDegradationArm,
+} from "./retrieve/envelope.ts";
 export { annotateHits, inferSchemaTypeFromPath } from "./retrieve/annotate.ts";
 export type { AnnotatedHit } from "./retrieve/annotate.ts";
 export { thinkQuery } from "./retrieve/think.ts";
