@@ -59,7 +59,7 @@ const HELP = `df-memory CLI
   memory contradiction <list|resolve>
   memory entity <create|list|resolve|merge|link-facts>
   memory agent <register|list>
-  memory rebuild-index
+  memory rebuild-index [--embeddings] [--pending-embeddings]
   memory schema use <packId>
   memory sync --commit
   memory refine [--path <rel>] [--json]

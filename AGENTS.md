@@ -5,7 +5,7 @@
 ## 项目是什么
 
 **df-memory**：开源、单机、本地部署的记忆模块——「agent 的 git + 知识库」。  
-当前交付焦点：**十一期 P11.1–P11.7 done**（[`specs/十一期/`](specs/十一期/)：范围选择 / hotness freq / 变更可写 / 旧事实降权 / 实体槽位 / 人审软删 / L0 审计）。十期 **P10.2–P10.4 done**（图谱密度 / 矛盾 B / 检索可观测；**#9 HNSW 不做**；P10.1 / P10.5 发数 in_progress）。九期 **P9.1–P9.9 done**。八期 **P8.1–P8.5 done**（P81-17 真机 `next` 当步生效 2026-08-17 关账）。七期 **P7.1–P7.5 done**。四期：**P4.2 A** 已接线（未 npm publish）；**B 档迁 P8.1（done）**；**P4.1 MCP/REST 不做**。**P6.5 Cursor 模板不做**。
+当前交付焦点：**十二期 P12.1 done**（[`specs/十二期/`](specs/十二期/)：嵌入热路径 #50；失败/降级审计与配置 CLI **方案**已落盘）。十一期 **P11.1–P11.7 done**。十期 **P10.2–P10.4 done**（**#9 HNSW 重开、未编码**；P10.1 / P10.5 发数 in_progress）。九期 **P9.1–P9.9 done**。八期 **P8.1–P8.5 done**（P81-17 真机 `next` 当步生效 2026-08-17 关账）。七期 **P7.1–P7.5 done**。四期：**P4.2 A** 已接线（未 npm publish）；**B 档迁 P8.1（done）**；**P4.1 MCP/REST 不做**。**P6.5 Cursor 模板不做**。
 
 > 口号里的「git」指版本化知识仓体验；**实现上热路径以 md 文件为权威**，git 为可选批量账本（08 **D1/D18**）。
 
@@ -14,7 +14,7 @@
 | 优先级 | 路径 | 用途 |
 |---|---|---|
 | 1 | [`specs/mvp/`](specs/mvp/) | **实现规格**——按此编码与验收 |
-| 2 | [`specs/二期/`](specs/二期/) · [`三期/`](specs/三期/) · [`五期/`](specs/五期/) · [`六期/`](specs/六期/) · [`七期/`](specs/七期/) · [`八期/`](specs/八期/) · [`九期/`](specs/九期/) · [`十期/`](specs/十期/) · [`十一期/`](specs/十一期/) · [`四期/`](specs/四期/) | 二–七期主线已做；**八期 P8.1–P8.5 done（2026-08-17 真机关账）**；**九期 P9.1–P9.9 done**；**十期 P10.2–P10.4 done（#9 不做）**；**十一期 P11.1–P11.7 done**；P6.5 Cursor 模板不做；P4.2 A 已接线；P4.1 MCP **不做** |
+| 2 | [`specs/二期/`](specs/二期/) · [`三期/`](specs/三期/) · [`五期/`](specs/五期/) · [`六期/`](specs/六期/) · [`七期/`](specs/七期/) · [`八期/`](specs/八期/) · [`九期/`](specs/九期/) · [`十期/`](specs/十期/) · [`十一期/`](specs/十一期/) · [`十二期/`](specs/十二期/) · [`四期/`](specs/四期/) | 二–七期主线已做；**八期 P8.1–P8.5 done（2026-08-17 真机关账）**；**九期 P9.1–P9.9 done**；**十期 P10.2–P10.4 done**；**十一期 P11.1–P11.7 done**；**十二期 P12.1 done**（#50；#9 未做）；P6.5 Cursor 模板不做；P4.2 A 已接线；P4.1 MCP **不做** |
 | 3 | [`reports/08-开源记忆模块设计方案.md`](reports/08-开源记忆模块设计方案.md) | 架构与 ADR；与 Spec 冲突时 **先改 Spec/ADR 再改代码** |
 | 4 | [`reports/01`](reports/01-gbrain-调研报告.md)–[`05`](reports/05-四项目对比总结.md) | 调研背景，不直接当接口规格 |
 
@@ -73,10 +73,11 @@
 
 **未做 backlog：**
 
-> **十一期 P11.1–P11.7 done。** 十期 P10.2–P10.4 done。#9 HNSW 不做。其余裁剪见 [`TODO.md`](TODO.md) 文首表。
+> **十二期 P12.1 done（#50）。** 十一期 P11.1–P11.7 done。十期 P10.2–P10.4 done。**#9 HNSW 重开、未编码。** 其余裁剪见 [`TODO.md`](TODO.md) 文首表。
 
 | 优先级 | 项 | 说明 |
 |---|---|---|
+| — | **十二期** | **P12.1 done**（#50 嵌入热路径）。配置 CLI / 降级修复见 [`specs/十二期/`](specs/十二期/) 方案与审计，**未编码**。 |
 | — | **十一期** | **P11.1–P11.7 done**（测例 P111–P117 绿）。 |
 | — | **评测分支** | `eval/groupmem-orgmem`：GroupMemBench + OrgMemBench adapter + [`evals/GROUPMEM_ORGMEM.md`](evals/GROUPMEM_ORGMEM.md)；**不**跑全量官方 judge。 |
 | — | **十期** | **P10.2–P10.4 done**；P10.1 / P10.5 发数 in_progress。 |
@@ -89,7 +90,7 @@
 
 回归：`bun test packages/core/tests/`；隔离：`bun run test:isolation`；迷你评测：`bun run eval:mini`；蒸馏：`bun run eval:distill`；摘要：`bun run eval:report`。
 
-1. 改行为前先读 / 更新对应 Spec（[`00-conventions.md`](specs/mvp/00-conventions.md) §8、M1/M2/M3、[`二期/`](specs/二期/)、[`三期/`](specs/三期/)、[`五期/`](specs/五期/)、[`六期/`](specs/六期/)、[`七期/`](specs/七期/)、[`八期/`](specs/八期/)、[`九期/`](specs/九期/)、[`十期/`](specs/十期/)、[`十一期/`](specs/十一期/)、[`四期/`](specs/四期/)）  
+1. 改行为前先读 / 更新对应 Spec（[`00-conventions.md`](specs/mvp/00-conventions.md) §8、M1/M2/M3、[`二期/`](specs/二期/)、[`三期/`](specs/三期/)、[`五期/`](specs/五期/)、[`六期/`](specs/六期/)、[`七期/`](specs/七期/)、[`八期/`](specs/八期/)、[`九期/`](specs/九期/)、[`十期/`](specs/十期/)、[`十一期/`](specs/十一期/)、[`十二期/`](specs/十二期/)、[`四期/`](specs/四期/)）  
 2. 写入校验以 [`WRITE_FORMAT.md`](specs/mvp/WRITE_FORMAT.md) 为准（含 experience §9、skill §10）  
 3. **五–九期主线已完成**。会话摄入必须 `complete()`（无 Key → `E_DISABLED`）。**P6.5 Cursor 模板不做。** **P4.1 MCP 不做。**  
    原文先归档 `.dfmemory/inbox/`。人手 `capture` 仍可零 LLM。**capture / remember / ingest session 默认入队**；立刻可 query 用 `--wait`，或 `memory job status <task_id>`。  
@@ -107,7 +108,7 @@
 - skill 不混默认 `memory_query`（P8.3）；不从会话直接抽 `SKILL.md`。  
 - 懒蒸默认 5→3 **不改**（仓配置即可）。  
 
-分期速查：二期 = P2.1a+P2.2（**done**）；三期 = P3.1–P3.3（**done**）；**五期 = P5.1–P5.8（done）**；**六期 = P6.1–P6.4 + 查询门控 + P6.6（done；Cursor 模板不做）**；**七期 = P7.1–P7.5（done）**；**八期 = P8.1–P8.5 done（2026-08-17 真机关账）**；**九期 = P9.1–P9.9 done**；**十期 = P10.2–P10.4 done（#9 HNSW 不做）**；**十一期 = P11.1–P11.7 done**；四期 = **P4.2 A in_progress / B 迁 P8.1（done）**；P4.1 MCP **不做**。
+分期速查：二期 = P2.1a+P2.2（**done**）；三期 = P3.1–P3.3（**done**）；**五期 = P5.1–P5.8（done）**；**六期 = P6.1–P6.4 + 查询门控 + P6.6（done；Cursor 模板不做）**；**七期 = P7.1–P7.5（done）**；**八期 = P8.1–P8.5 done（2026-08-17 真机关账）**；**九期 = P9.1–P9.9 done**；**十期 = P10.2–P10.4 done**；**十一期 = P11.1–P11.7 done**；**十二期 = P12.1 done（#9 未做）**；四期 = **P4.2 A in_progress / B 迁 P8.1（done）**；P4.1 MCP **不做**。
 
 ## 技术栈（已锁定）
 

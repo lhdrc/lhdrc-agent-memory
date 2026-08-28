@@ -48,6 +48,7 @@ embedding:
   dims: 1536
   openai_api_key_env: OPENAI_API_KEY
   onnx_model_path: ""
+  base_url: https://api.openai.com
 search:
   mode: balanced
   tokenmax:

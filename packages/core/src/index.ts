@@ -191,15 +191,16 @@ export type { IndexConnection, SqlClient, IndexEngineId } from "./index/engine.t
 export { syncPage, syncEntity, syncAll, chunkText, indexBodyText } from "./index/sync.ts";
 export { semanticContentHash, pickSemanticFrontmatter } from "./index/content-hash.ts";
 export type { SyncOptions } from "./index/sync.ts";
-export { rebuildIndex } from "./index/rebuild.ts";
+export { rebuildIndex, embedPendingChunks } from "./index/rebuild.ts";
 export type { RebuildIndexOptions } from "./index/rebuild.ts";
 export { pgliteIndexHooks } from "./index/hooks.ts";
 export { readIndexMeta, writeIndexMeta, metaPath, readEmbeddingMeta, writeEmbeddingMeta, embeddingMetaPath } from "./index/meta.ts";
 export type { IndexMeta, EmbeddingMeta } from "./index/meta.ts";
 export { bm25Query, makeSnippet, appendPageFilters, assertExclusiveSchemaFilters } from "./retrieve/query.ts";
 export type { QueryOptions, QueryHit, PageFilterOptions } from "./retrieve/query.ts";
-export { semanticArm } from "./retrieve/semantic.ts";
+export { semanticArm, isSemanticScoreSql } from "./retrieve/semantic.ts";
 export type { SemanticArmOptions } from "./retrieve/semantic.ts";
+export { invalidateEmbeddingCache } from "./retrieve/embed-cache.ts";
 export { hybridQuery, hybridQueryDetailed } from "./retrieve/hybrid.ts";
 export { annotateHits, inferSchemaTypeFromPath } from "./retrieve/annotate.ts";
 export type { AnnotatedHit } from "./retrieve/annotate.ts";
@@ -331,6 +332,10 @@ export {
   cosineSimilarity,
   float32ToBytes,
   bytesToFloat32,
+  bytesToFloat32View,
+  toFloat32,
+  fetchEmbedWithRetry,
+  isRetryableEmbedHttpStatus,
   NoopEmbedding,
   LocalHashEmbedding,
   OnnxLocalEmbedding,

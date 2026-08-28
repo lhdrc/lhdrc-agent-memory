@@ -499,6 +499,7 @@ export async function hybridQueryDetailed(
             excludeSidecars: opts.excludeSidecars,
             pathPrefix: opts.pathPrefix,
             pathContains: opts.pathContains,
+            repoRoot: opts.repoRoot,
           });
           semanticAvailable = true;
           for (const h of semanticHits) {

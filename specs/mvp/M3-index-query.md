@@ -207,8 +207,10 @@ MVP `evidence` 可简化为固定含 `keyword`；命中标题加 `title`，命�
 ## 8. rebuild-index
 
 ```
-memory rebuild-index [--force]
+memory rebuild-index [--force] [--embeddings] [--pending-embeddings]
 ```
+
+`--pending-embeddings`（**P12.1**）：只填 `chunks.embedding IS NULL`，不清 pages。与 `--embeddings` 互斥。详见 [`十二期/P12.1-embed-hotpath.md`](../十二期/P12.1-embed-hotpath.md)。
 
 步骤：
 
