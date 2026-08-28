@@ -14,7 +14,7 @@ async function main(): Promise<void> {
     const wantJson = argv.includes("--json");
     if (e instanceof MemoryError) {
       const msg = wantJson
-        ? JSON.stringify({ error: { code: e.code, message: e.message, details: e.details } })
+        ? JSON.stringify({ ok: false, error: { code: e.code, message: e.message, details: e.details } })
         : `[${e.code}] ${e.message}`;
       console.error(msg);
       process.exit(isUserError(e.code) ? 2 : 1);

@@ -29,6 +29,7 @@ import { inboxCommand } from "./commands/inbox.ts";
 import { jobCommand } from "./commands/job.ts";
 import { trendCommand } from "./commands/trend.ts";
 import { contradictionCommand } from "./commands/contradiction.ts";
+import { configCommand } from "./commands/config.ts";
 
 const HELP = `df-memory CLI
 
@@ -41,6 +42,7 @@ const HELP = `df-memory CLI
   memory ingest --list-adapters
   memory ingest --adapter generic-jsonl|df-app|session --input <file> [--wait] [--json] [--continue-on-error] [--dry-run] [--retry <id>]
   memory remember --body "…" [--wait] [--dry-run] [--json] [--extract|--no-extract]
+  memory config list|get|set|doctor [--json]
   memory job status <task_id> [--json]
   memory inbox list [--json] [--status pending|failed|done]
   memory inbox retry <sessionId> [--json] [--dry-run]
@@ -59,7 +61,7 @@ const HELP = `df-memory CLI
   memory contradiction <list|resolve>
   memory entity <create|list|resolve|merge|link-facts>
   memory agent <register|list>
-  memory rebuild-index
+  memory rebuild-index [--embeddings] [--pending-embeddings]
   memory schema use <packId>
   memory sync --commit
   memory refine [--path <rel>] [--json]
@@ -75,6 +77,7 @@ const HELP = `df-memory CLI
   本地 CLI 无 token 视为 trusted local（owner）；远程面无 token → E_AUTH。
   --agent 只能读写已登记 source（与 token 求交）；无 --agent 时 trusted local 行为不变。
   query --mode tokenmax：启发式扩写（llm=off 可演示）；--explain 含 queries/rerank/hotness/entity_boosts。
+  config doctor：检查 key / 门闩，不联网；缺 key 退出 2。
   forget --purge：物理删除，必须 --confirm；不可默认、不可自动化；需 owner。
 `;
 
@@ -104,6 +107,7 @@ const COMMANDS: Record<string, Command> = {
   layers: layersCommand,
   events: eventsCommand,
   contradiction: contradictionCommand,
+  config: configCommand,
   ingest: ingestCommand,
   remember: rememberCommand,
   inbox: inboxCommand,

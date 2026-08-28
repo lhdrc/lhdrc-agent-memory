@@ -141,6 +141,7 @@ export async function syncPage(
   const titleNgrams = bigrams(title);
   const indexBody = indexBodyText(body, data);
   const bodyNgrams = bigrams(indexBody);
+  const chunks = chunkText(indexBody);
 
   await db.exec("BEGIN");
   try {
@@ -165,7 +166,6 @@ export async function syncPage(
       [relPath, brainId, sourceId, schemaType, title, status, aliasesJson, frontmatterJson, indexBody, hash, updatedAt, title, indexBody, titleNgrams, bodyNgrams],
     );
     await db.query(`DELETE FROM chunks WHERE path = $1`, [relPath]);
-    const chunks = chunkText(indexBody);
     for (let i = 0; i < chunks.length; i++) {
       await db.query(`INSERT INTO chunks (id, path, chunk_index, text) VALUES ($1, $2, $3, $4)`, [
         `${relPath}#${i}`,
@@ -174,23 +174,39 @@ export async function syncPage(
         chunks[i]!,
       ]);
     }
-    if (opts?.embedder && opts.embedder.id !== "off" && chunks.length > 0) {
+    await syncLinksForPage(db, relPath, body, data, brainId, verbPatterns);
+    await db.exec("COMMIT");
+  } catch (e) {
+    await db.exec("ROLLBACK");
+    throw new MemoryError(ErrorCodes.INDEX, `同步 page 失败 ${relPath}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  // P12.1：向量与 page 分事务；embed 失败留下 embedding NULL，可供 --pending-embeddings 续跑。
+  if (opts?.embedder && opts.embedder.id !== "off" && chunks.length > 0) {
+    try {
       const vectors = await opts.embedder.embed(chunks);
-      for (let i = 0; i < chunks.length; i++) {
-        const bytes = float32ToBytes(vectors[i]!);
-        await db.query(`UPDATE chunks SET embedding = $1 WHERE id = $2`, [bytes, `${relPath}#${i}`]);
+      await db.exec("BEGIN");
+      try {
+        for (let i = 0; i < chunks.length; i++) {
+          const bytes = float32ToBytes(vectors[i]!);
+          await db.query(`UPDATE chunks SET embedding = $1 WHERE id = $2`, [bytes, `${relPath}#${i}`]);
+        }
+        await db.exec("COMMIT");
+      } catch (e) {
+        await db.exec("ROLLBACK");
+        throw e;
       }
       await writeEmbeddingMeta(repoRoot, {
         provider: opts.embedder.id,
         dims: opts.embedder.dims,
         model: opts.embeddingModel ?? opts.embedder.id,
       });
+    } catch (e) {
+      throw new MemoryError(
+        ErrorCodes.INDEX,
+        `同步 page 嵌入失败 ${relPath}: ${e instanceof Error ? e.message : String(e)}`,
+      );
     }
-    await syncLinksForPage(db, relPath, body, data, brainId, verbPatterns);
-    await db.exec("COMMIT");
-  } catch (e) {
-    await db.exec("ROLLBACK");
-    throw new MemoryError(ErrorCodes.INDEX, `同步 page 失败 ${relPath}: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
 
