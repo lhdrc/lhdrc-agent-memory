@@ -7,7 +7,7 @@ export type StalePair = { a: string; b: string };
 
 export type StaleDemoteExplain = { path: string; pair: string; factor: number };
 
-const CROSS_RE = /- duplicate cosine=\S+\s+`([^`]+)`[\s\S]*?`([^`]+)`/g;
+const CROSS_RE = /- (?:duplicate|contradiction supersede) cosine=\S+\s+`([^`]+)`[\s\S]*?`([^`]+)`/g;
 
 export function parseCrossFilePairs(md: string): StalePair[] {
   const heading = md.search(/^##\s+cross-file\s*$/m);

@@ -175,7 +175,7 @@ export { revertMemoryDiff, revertUnsupportedMessage } from "./distill/revert.ts"
 export type { RevertResult } from "./distill/revert.ts";
 
 export { readNode, parseMemoryLayer } from "./node/read.ts";
-export type { ReadResult, MemoryLayer } from "./node/read.ts";
+export type { ReadResult, ReadResultWithHistory, MemoryLayer } from "./node/read.ts";
 export { listTree, renderTree } from "./node/tree.ts";
 export type { TreeNode } from "./node/tree.ts";
 export { resolveNodeRelPath } from "./node/paths.ts";
@@ -428,3 +428,16 @@ export type {
   RunCaptureOpts,
   JobAbortToken,
 } from "./jobs/runner.ts";
+
+export {
+  buildHistoryRef,
+  historyIndexRel,
+  historyIndexAbs,
+  appendHistoryEntries,
+  readHistoryEntries,
+  findHistoryEntriesForPath,
+  findHistoryEntriesForSession,
+  readHistoryTurns,
+  historySliceForPath,
+} from "./history/index.ts";
+export type { HistoryIndexEntry, HistoryProvenance } from "./history/index.ts";

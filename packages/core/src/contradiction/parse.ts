@@ -9,7 +9,7 @@ export interface CrossFileFinding {
 }
 
 const LINE_RE =
-  /- duplicate cosine=(\S+)\s+`([^`]+)`\s+facts\[(\d+)\]\s*↔\s*`([^`]+)`\s+facts\[(\d+)\]/g;
+  /- (?:duplicate|contradiction supersede) cosine=(\S+)\s+`([^`]+)`\s+facts\[(\d+)\]\s*(?:↔|→)\s*`([^`]+)`\s+facts\[(\d+)\]/g;
 
 export function pairIdOf(f: CrossFileFinding): string {
   const key = `${f.pathA.replace(/\\/g, "/")}#${f.factIndexA}|${f.pathB.replace(/\\/g, "/")}#${f.factIndexB}`;

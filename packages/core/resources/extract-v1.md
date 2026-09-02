@@ -22,6 +22,8 @@ Return **only** a JSON object (no markdown fence if possible):
 
 - Prefer list items and `##` headings as fact candidates. Skip headings `摘要` / `正文`.
 - Do not rewrite or summarize the source; copy the fact wording closely.
+- Preserve original wording before compress; keep names/numbers; no invent.
+- preserve original wording before compress; keep names/numbers; no invent
 - Drop empty, duplicate, or uncertain items.
 - No facts → `{ "facts": [] }`.
 - Do not invent paths, `[[wikilink]]`, `@slug`, or YAML.

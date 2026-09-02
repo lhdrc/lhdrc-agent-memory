@@ -15,3 +15,5 @@ evals/debug-halumem-retrieval.ts
 test4humancli/
 reports/test-run-latest.txt
 *.tgz
+Memory 优化.md
+evals/*
