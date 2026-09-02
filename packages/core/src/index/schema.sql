@@ -58,3 +58,9 @@ CREATE TABLE IF NOT EXISTS search_cache (
   response_json TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+
+-- P13.1 GIN 物化：BM25 文章级加速，表达式索引（幂等）
+CREATE INDEX IF NOT EXISTS pages_fts_title_gin ON pages USING gin (to_tsvector('simple', coalesce(fts_title,'')));
+CREATE INDEX IF NOT EXISTS pages_fts_body_gin ON pages USING gin (to_tsvector('simple', coalesce(fts_body,'')));
+CREATE INDEX IF NOT EXISTS pages_title_ngrams_gin ON pages USING gin (to_tsvector('simple', coalesce(title_ngrams,'')));
+CREATE INDEX IF NOT EXISTS pages_body_ngrams_gin ON pages USING gin (to_tsvector('simple', coalesce(body_ngrams,'')));

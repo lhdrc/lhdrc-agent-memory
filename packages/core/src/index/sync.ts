@@ -7,6 +7,7 @@ import { parseFrontmatter } from "../frontmatter.ts";
 import { fileToEntity } from "../entity/files.ts";
 import { semanticContentHash } from "./content-hash.ts";
 import { bigrams } from "../retrieve/ngrams.ts";
+import { cleanForIndex } from "../retrieve/clean.ts";
 import { resolveBrainRoot } from "../repo/layout.ts";
 import type { EmbeddingProvider } from "../embed/types.ts";
 import { float32ToBytes } from "../embed/cosine.ts";
@@ -138,9 +139,14 @@ export async function syncPage(
   const updatedAt = new Date().toISOString();
   const aliasesJson = JSON.stringify(Array.isArray(data.aliases) ? data.aliases : []);
   const frontmatterJson = JSON.stringify(data);
-  const titleNgrams = bigrams(title);
+  const cleanTitle = cleanForIndex(title, "bm25");
   const indexBody = indexBodyText(body, data);
-  const bodyNgrams = bigrams(indexBody);
+  const cleanBody = cleanForIndex(indexBody, "bm25");
+  const titleNgrams = bigrams(cleanTitle);
+  const bodyNgrams = bigrams(cleanBody);
+  // fts_* 存清洗后文本（供 GIN 物化）
+  const ftsTitle = cleanTitle;
+  const ftsBody = cleanBody;
   const chunks = chunkText(indexBody);
 
   await db.exec("BEGIN");
@@ -163,7 +169,7 @@ export async function syncPage(
          fts_body = EXCLUDED.fts_body,
          title_ngrams = EXCLUDED.title_ngrams,
          body_ngrams = EXCLUDED.body_ngrams`,
-      [relPath, brainId, sourceId, schemaType, title, status, aliasesJson, frontmatterJson, indexBody, hash, updatedAt, title, indexBody, titleNgrams, bodyNgrams],
+       [relPath, brainId, sourceId, schemaType, title, status, aliasesJson, frontmatterJson, indexBody, hash, updatedAt, ftsTitle, ftsBody, titleNgrams, bodyNgrams],
     );
     await db.query(`DELETE FROM chunks WHERE path = $1`, [relPath]);
     for (let i = 0; i < chunks.length; i++) {
