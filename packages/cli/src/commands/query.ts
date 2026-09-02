@@ -13,6 +13,11 @@ import {
 import { parseArgs } from "../args.ts";
 import { loadContext } from "../context.ts";
 
+/**
+ * Decision boundary — translated from Codex ext/memories/templates/memories/read_path.md:17
+ * Skip ONLY self-contained — Use by default when mentions workspace / needs prior context.
+ * See also retrieve/query-triggers.ts shouldQueryMemory gate.
+ */
 const VALID_MODES = new Set<string>(["conservative", "balanced", "tokenmax"]);
 
 export async function queryCommand(argv: string[]): Promise<number> {

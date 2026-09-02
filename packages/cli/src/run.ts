@@ -75,12 +75,13 @@ const HELP = `df-memory CLI
   memory history read --session <id> [--turn N] [--json]
 
 说明:
-  单仓多 brain 时 git 历史对同仓可见，非密码学隔离。
-  本地 CLI 无 token 视为 trusted local（owner）；远程面无 token → E_AUTH。
-  --agent 只能读写已登记 source（与 token 求交）；无 --agent 时 trusted local 行为不变。
-  query --mode tokenmax：启发式扩写（llm=off 可演示）；--explain 含 queries/rerank/hotness/entity_boosts。
-  config doctor：检查 key / 门闩，不联网；缺 key 退出 2。
-  forget --purge：物理删除，必须 --confirm；不可默认、不可自动化；需 owner。
+   单仓多 brain 时 git 历史对同仓可见，非密码学隔离。
+   本地 CLI 无 token 视为 trusted local（owner）；远程面无 token → E_AUTH。
+   --agent 只能读写已登记 source（与 token 求交）；无 --agent 时 trusted local 行为不变。
+   query --mode tokenmax：启发式扩写（llm=off 可演示）；--explain 含 queries/rerank/hotness/entity_boosts。
+   query 门控 (read_path.md:17 Decision boundary): Skip ONLY self-contained; Use by default when mentions workspace / needs prior context.
+   config doctor：检查 key / 门闩，不联网；缺 key 退出 2。
+   forget --purge：物理删除，必须 --confirm；不可默认、不可自动化；需 owner。
 `;
 
 type Command = (argv: string[]) => Promise<number>;

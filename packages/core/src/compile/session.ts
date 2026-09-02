@@ -7,7 +7,7 @@ import type { Entity } from "../entity/types.ts";
 import { createLLMProvider, isCompileEnabled } from "../llm/factory.ts";
 import type { LLMProvider } from "../llm/types.ts";
 import { wouldExceedCap } from "../cost/logger.ts";
-import { loadRepoConfig, type RepoConfig } from "../repo/config.ts";
+import { loadRepoConfig, type RepoConfig, DEFAULT_COMPILE_CONFIG } from "../repo/config.ts";
 import type { SchemaPack } from "../schema/loadPack.ts";
 import type { FileMutationExecutor } from "../write/executor.ts";
 import { captureWrite, buildMarkdownBody, type CaptureOptions } from "../write/capture.ts";
@@ -47,6 +47,30 @@ import {
 
 const PROMPT_PATH = join(packageRootFrom(import.meta.url), "resources/session-extract-v1.md");
 const ALLOWED_TYPES = new Set(["decision", "lesson", "note"]);
+
+// Codex write/src/prompts.rs:110 — 70% of context_window for rollout turns, replaces fixed 16000 chars
+function modelContextWindow(model: string): number {
+  const m = (model ?? "").toLowerCase();
+  if (m.includes("128k")) return 128_000;
+  if (m.includes("32k")) return 32_000;
+  if (m.includes("16k")) return 16_000;
+  if (m.includes("8k")) return 8_000;
+  if (m.includes("gpt-4")) return 128_000;
+  if (m.includes("claude")) return 200_000;
+  if (m.includes("qwen")) return 32_000;
+  return 32_000;
+}
+
+export function effectiveMaxInputChars(cfg: RepoConfig): number {
+  // 70% of context_window (tokens) → chars ≈ tokens * 4 * 0.7 ; per prompts.rs:110
+  const tokens = modelContextWindow(cfg.llm.model);
+  const seventyPercentChars = Math.floor(tokens * 0.7 * 4); // context_window*70%
+  // If user explicitly configured a different max_input_chars, respect it but cap at 70% window
+  if (cfg.compile.max_input_chars !== DEFAULT_COMPILE_CONFIG.max_input_chars) {
+    return Math.min(cfg.compile.max_input_chars, seventyPercentChars);
+  }
+  return seventyPercentChars;
+}
 
 export type CompileDroppedReason = "duplicate" | "noise" | "empty";
 
@@ -207,7 +231,9 @@ export async function compileSession(opts: CompileSessionOpts): Promise<CompileR
 
   const cfg = await loadRepoConfig(opts.repoRoot);
   const stripped = hasTurns ? stripTurnsContext(opts.turns!) : [];
-  const truncatedPrep = hasTurns ? truncateTurns(stripped, cfg.compile.max_input_chars) : { turns: stripped, truncated: false };
+  // 70% window: context_window*70% (prompts.rs:110) replaces fixed 16000 chars
+  const maxInputChars = effectiveMaxInputChars(cfg);
+  const truncatedPrep = hasTurns ? truncateTurns(stripped, maxInputChars) : { turns: stripped, truncated: false };
 
   let sessionId = opts.sessionId;
   let turns: Turn[] = truncatedPrep.turns;
@@ -225,7 +251,7 @@ export async function compileSession(opts: CompileSessionOpts): Promise<CompileR
     sessionId = archived.sessionId;
     const loaded = await loadSession(opts.repoRoot, opts.brainId, sessionId);
     turns = stripTurnsContext(loaded.turns);
-    const t2 = truncateTurns(turns, cfg.compile.max_input_chars);
+    const t2 = truncateTurns(turns, maxInputChars);
     turns = t2.turns;
     truncated = t2.truncated;
   }
@@ -242,7 +268,7 @@ export async function compileSession(opts: CompileSessionOpts): Promise<CompileR
       };
     }
     turns = stripTurnsContext(loaded.turns);
-    const t2 = truncateTurns(turns, cfg.compile.max_input_chars);
+    const t2 = truncateTurns(turns, maxInputChars);
     turns = t2.turns;
     truncated = t2.truncated;
   }

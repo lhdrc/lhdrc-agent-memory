@@ -9,5 +9,8 @@ You may wrap the whole answer in one markdown fence; the system will unwrap it.
 
 - One short paragraph, same language as the body.
 - Keep concrete names, decisions, and numbers.
+- Preserve original wording before compress; keep names/numbers; no invent.
+- preserve original wording before compress; keep names/numbers; no invent
 - Do not invent facts that are not in the body.
+- Prefer original wording over vague summary.
 - Empty body → empty output.
