@@ -133,11 +133,11 @@
 | 48  | pack `note: patch` 死配置；实体 facts 只 append                        | OV 字段 merge_op；#42 已裁 L0 updateNode                  | **P11.5 done**`十二`                                                  |
 | 49  | 冲突无人审、失效不软删                                                     | 现网只写 contradictions.md；forget 未接线                    | **P11.6 done**                                                      |
 | 50    | 语义臂 O(n) 拉全文 + 无续跑/重试                                           | GroupMemBench 6 万×4096 维首问分钟级                        | **P12.1 done**；ANN 见 #9                                             |
-| 51    | BM25 文章级倒排：清洗/物化/GIN + 长度归一 + 短语 | `pages` 全表 `ts_rank`、`fts_* TEXT`无GIN、bigram跨词噪音、长文无归一 | **规划中（2026-09-02）**；见正文 ## 51；不改 chunk/语义臂，文章级返回 |
-| 52    | 图谱边类型建≡检索闭环：补 `decided/produced_by/belongs_to/invested_in/advises` 检索模板 | `links` 10种已建（`P10.2`），检索仅 `mentions/works_on/references/works_at/founded` 5种走 `relational` | **规划中（2026-09-02）**；见正文 ## 52；不动 `KNOWN_LINK_TYPES`，只补 `TEMPLATES` |
-| 53    | History 底层 + note 正排：保全量对话，不直检 history，note 侧车 `provenance→messages.jsonl` 按需回跳 | `inbox/sessions/*/messages.jsonl` 已存但 `note` 无 `provenance`/`source_turns` 落盘，`validator` 不写 | **规划中（2026-09-02）**；见正文 ## 53；检索仍只走 `pages/chunks` |
-| 54    | Prompt/模板参照 Codex 重构：补 NO-OP 门控 + 高信号4桶 + Outcome 分流，`abstract/overview` 弱 prompt 加强 | `session-extract-v1.md 142行`扁平无门控，`abstract/ overview 8行`无字面保留/偏好分栏 | **规划中（2026-09-02）**；见正文 ## 54；`read` 不照搬 `read_path.md`，只搬门控文案 |
-| 55    | 真矛盾标记（非 `duplicate` 相似）：借 `gbrain facts/classify.ts` 实体桶+`0.95/0.92`+LLM 三分类，`值不同`二筛，人审托底 | 现 `P10.3` 全量500条`cosine≥0.95→duplicate`、无实体桶、无`supersede`、`local` 跳过，无 `值冲突` | **规划中（2026-09-02）**；见正文 ## 55；对标 `gbrain/src/core/facts/classify.ts:3` |
+| 51    | BM25 文章级倒排：清洗/物化/GIN + 长度归一 + 短语 | `pages` 全表 `ts_rank`、`fts_* TEXT`无GIN、bigram跨词噪音、长文无归一 | **done（2026-09-02 P131-01–04）**；`p131` 4/4；`GIN`+`cleanForIndex`+`power归一`+`phraseto` |
+| 52    | 图谱边类型建≡检索闭环：补 `decided/produced_by/belongs_to/invested_in/advises` 检索模板 | `links` 10种已建（`P10.2`），检索仅 `mentions/works_on/references/works_at/founded` 5种走 `relational` | **done（2026-09-02 P132-01–03）**；10模板 `decided/produced/belongs/invested/advises` |
+| 53    | History 底层 + note 正排：保全量对话，不直检 history，note 侧车 `provenance→messages.jsonl` 按需回跳 | `inbox/sessions/*/messages.jsonl` 已存但 `note` 无 `provenance`/`source_turns` 落盘，`validator` 不写 | **done（2026-09-02 P133-01–03）**；`history_index.jsonl`+`read --with-history` |
+| 54    | Prompt/模板参照 Codex 重构：补 NO-OP 门控 + 高信号4桶 + Outcome 分流，`abstract/overview` 弱 prompt 加强 | `session-extract-v1.md 142行`扁平无门控，`abstract/ overview 8行`无字面保留/偏好分栏 | **done（2026-09-02 P134-01–03）**；`Will future agent`+4桶+`preserve wording` |
+| 55    | 真矛盾标记（非 `duplicate` 相似）：借 `gbrain facts/classify.ts` 实体桶+`0.95/0.92`+LLM 三分类，`值不同`二筛，人审托底 | 现 `P10.3` 全量500条`cosine≥0.95→duplicate`、无实体桶、无`supersede`、`local` 跳过，无 `值冲突` | **done（2026-09-02 P135-01–03）**；实体桶k=5+值冲突+灰区LLM，`supersede` 人审 `*0` |
 
 
 
