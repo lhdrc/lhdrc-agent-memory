@@ -6,6 +6,8 @@ bun run evals/run.ts fetch --adapter <id> --allow-net
 
 仓内评测默认无网。公开全量需 fetch --allow-net。
 已支持 adapter: locomo, groupmembench, orgmembench。
+--adapter 默认流水线: ingest(有 Key 则 compileSession) → dream(3,4) → hybrid query。
+  DF_EVAL_INGEST=capture 强制不调 LLM；DF_EVAL_FULL=0 可关闭 dream。
 `;
 
 export interface EvalArgv {

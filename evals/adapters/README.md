@@ -34,7 +34,7 @@ bun run evals/run.ts --adapter groupmembench --fixture
 bun run evals/run.ts fetch --adapter groupmembench --allow-net
 ```
 
-操作手册：[`../GROUPMEM_ORGMEM.md`](../GROUPMEM_ORGMEM.md)。**不要**把官方 gpt-5 judge 全量当本仓 CI。
+操作手册：[`../GROUPMEM_ORGMEM.md`](../GROUPMEM_ORGMEM.md)。默认流水线 ingest→dream→query；**不要**把官方 gpt-5 judge 全量当本仓 CI。
 
 ## orgmembench
 

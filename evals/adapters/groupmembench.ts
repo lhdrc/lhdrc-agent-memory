@@ -31,11 +31,12 @@ function formatMessage(m: GmbMessage): string {
   return `${when}${who}: ${body}`;
 }
 
-function ingestFromChannels(channels: Record<string, unknown>): string[] {
+function ingestFromChannels(channels: Record<string, unknown>, maxIngest = 0): string[] {
   const texts: string[] = [];
   for (const [channel, raw] of Object.entries(channels)) {
     if (!Array.isArray(raw)) continue;
     for (const item of raw) {
+      if (maxIngest > 0 && texts.length >= maxIngest) return texts;
       const m = item as GmbMessage;
       const line = formatMessage(m);
       if (!line.trim() || line.endsWith(":")) continue;
@@ -43,6 +44,11 @@ function ingestFromChannels(channels: Record<string, unknown>): string[] {
     }
   }
   return texts;
+}
+
+function maxIngestFromEnv(): number {
+  const n = Number.parseInt(process.env.DF_EVAL_MAX_INGEST ?? "0", 10);
+  return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
 function parseQuestions(rows: unknown[], ingestTexts: string[]): EvalCase[] {
@@ -68,6 +74,7 @@ const MISSING =
 export const groupmembenchAdapter: EvalAdapter = {
   id: "groupmembench",
   async load(opts: AdapterLoadOptions): Promise<EvalCase[]> {
+    const maxIngest = maxIngestFromEnv();
     if (opts.fixture) {
       const channelsPath = join(opts.fixtureDir, "channels.json");
       const questionsPath = join(opts.fixtureDir, "questions.jsonl");
@@ -75,7 +82,7 @@ export const groupmembenchAdapter: EvalAdapter = {
         throw new Error(`缺少 groupmembench fixture（${opts.fixtureDir}）。使用 --fixture 或 fetch --allow-net`);
       }
       const channels = JSON.parse(await readFile(channelsPath, "utf8")) as Record<string, unknown>;
-      const ingestTexts = ingestFromChannels(channels);
+      const ingestTexts = ingestFromChannels(channels, maxIngest);
       const rows = parseJsonl(await readFile(questionsPath, "utf8"));
       return parseQuestions(rows, ingestTexts);
     }
@@ -86,8 +93,13 @@ export const groupmembenchAdapter: EvalAdapter = {
     if (!existsSync(channelsPath) || !existsSync(questionsPath)) {
       throw new Error(MISSING);
     }
+    // 全量 channels.json 约 50MB；有 MAX_INGEST 时仍须 JSON.parse，但格式化消息会提前停。
+    if (maxIngest > 0) {
+      console.error(`[groupmembench] loading ${domain}/channels.json (cap ingest=${maxIngest})…`);
+    }
     const channels = JSON.parse(await readFile(channelsPath, "utf8")) as Record<string, unknown>;
-    const ingestTexts = ingestFromChannels(channels);
+    const ingestTexts = ingestFromChannels(channels, maxIngest);
+    console.error(`[groupmembench] ingest texts=${ingestTexts.length}; questions=${qtype}`);
     const rows = parseJsonl(await readFile(questionsPath, "utf8"));
     return parseQuestions(rows, ingestTexts);
   },

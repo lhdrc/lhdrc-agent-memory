@@ -7,21 +7,12 @@ import {
   judgeDistillWithComplete,
   refineExperienceWithComplete,
 } from "./distill-complete.ts";
-import {
-  DEFAULT_LLM_CONFIG,
-  type CompleteRequest,
-  type CompleteResult,
-  type DistillDecision,
-  type ExperienceContext,
-  type ExperienceResult,
-  type ExtractFact,
-  type FactExtractMeta,
-  type LLMConfig,
-  type LLMProvider,
-} from "./types.ts";
+import { DEFAULT_LLM_CONFIG, type CompleteRequest, type CompleteResult, type DistillDecision, type ExperienceContext, type ExperienceResult, type ExtractFact, type FactExtractMeta, type LLMConfig, type LLMProvider } from "./types.ts";
+import { openaiCompatUrl } from "../util/openai-compat-url.ts";
 
-const COMPLETE_TIMEOUT_MS = 60_000;
-const MAX_TOKENS = 4096;
+const COMPLETE_TIMEOUT_MS = 120_000;
+/** 推理模型（如 hy3-free）会先占 reasoning_content，需留足 completion 额度。 */
+const MAX_TOKENS = 8192;
 
 export interface OpenAILLMOptions {
   repoRoot?: string;
@@ -30,9 +21,41 @@ export interface OpenAILLMOptions {
 }
 
 interface ChatCompletionsResponse {
-  choices?: Array<{ message?: { content?: string } }>;
+  choices?: Array<{
+    message?: {
+      content?: string | null;
+      reasoning_content?: string | null;
+      reasoning?: string | null;
+    };
+  }>;
   usage?: { prompt_tokens?: number; completion_tokens?: number };
   model?: string;
+}
+
+function pickMessageText(msg?: {
+  content?: string | null;
+  reasoning_content?: string | null;
+  reasoning?: string | null;
+} | null): string {
+  if (!msg) return "";
+  const content = typeof msg.content === "string" ? msg.content.trim() : "";
+  if (content) return content;
+  const reasoning =
+    (typeof msg.reasoning_content === "string" ? msg.reasoning_content : "") ||
+    (typeof msg.reasoning === "string" ? msg.reasoning : "");
+  return reasoning.trim();
+}
+
+/** OpenCode Go / 部分推理模型：顶层 reasoning_effort（勿同时传 thinking）。 */
+function reasoningEffortBody(): Record<string, string> {
+  const raw =
+    process.env.DF_MEMORY_REASONING_EFFORT?.trim() ||
+    process.env.DF_EVAL_LLM_REASONING_EFFORT?.trim() ||
+    "";
+  const effort = raw.toLowerCase();
+  if (!effort) return {};
+  if (!["minimal", "low", "medium", "high", "max"].includes(effort)) return {};
+  return { reasoning_effort: effort };
 }
 
 export class OpenAILLMProvider implements LLMProvider {
@@ -85,8 +108,7 @@ export class OpenAILLMProvider implements LLMProvider {
     }
 
     const apiKey = this.resolveApiKey();
-    const base = (this.cfg.base_url || DEFAULT_LLM_CONFIG.base_url).replace(/\/+$/, "");
-    const url = `${base}/v1/chat/completions`;
+    const url = openaiCompatUrl(this.cfg.base_url || DEFAULT_LLM_CONFIG.base_url, "chat/completions");
     const messages: Array<{ role: "system" | "user"; content: string }> = [];
     if (req.system) messages.push({ role: "system", content: req.system });
     messages.push({ role: "user", content: req.prompt });
@@ -105,6 +127,7 @@ export class OpenAILLMProvider implements LLMProvider {
           temperature: 0,
           max_tokens: MAX_TOKENS,
           messages,
+          ...reasoningEffortBody(),
         }),
         signal: AbortSignal.timeout(COMPLETE_TIMEOUT_MS),
       });
@@ -127,7 +150,7 @@ export class OpenAILLMProvider implements LLMProvider {
       throw new MemoryError(ErrorCodes.LLM, `OpenAI complete 响应不是 JSON: ${e instanceof Error ? e.message : String(e)}`);
     }
 
-    const text = json.choices?.[0]?.message?.content?.trim() ?? "";
+    const text = pickMessageText(json.choices?.[0]?.message);
     if (!json.choices?.length || !text) {
       throw new MemoryError(ErrorCodes.LLM, "OpenAI complete 返回空 choices");
     }

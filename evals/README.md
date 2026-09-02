@@ -1,6 +1,7 @@
 # evals — df-memory 评测（P5.6）
 
-Hermetic 评测：默认无网。公开全量仅 `fetch --allow-net`。
+Hermetic 评测：默认无网。公开全量仅 `fetch --allow-net`。  
+评测临时仓在检测到 `OPENCODE_API_KEY` 时会把 LLM 指到 [OpenCode Go](https://opencode.ai/docs/go/)（详见 [`GROUPMEM_ORGMEM.md`](GROUPMEM_ORGMEM.md) §5）。Go 无 embeddings。
 
 ## 如何跑
 
@@ -26,7 +27,8 @@ memory eval --adapter groupmembench --fixture
 memory eval --adapter orgmembench --fixture
 ```
 
-GroupMemBench / OrgMemBench 启动步骤见 [`GROUPMEM_ORGMEM.md`](GROUPMEM_ORGMEM.md)。全量评测不要当 CI。
+GroupMemBench / OrgMemBench 启动步骤见 [`GROUPMEM_ORGMEM.md`](GROUPMEM_ORGMEM.md)。  
+`--adapter` 默认 **ingest → dream(蒸馏+矛盾) → query**（可用 `DF_EVAL_FULL=0` 退回仅检索）。全量评测不要当 CI。
 
 检索门禁：`bun run evals/run.ts --mini --wipe-index` 应非 0（清空索引且不 rebuild）。
 

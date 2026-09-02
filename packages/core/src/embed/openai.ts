@@ -1,6 +1,7 @@
 import { MemoryError, ErrorCodes } from "../errors.ts";
 import type { EmbeddingConfig, EmbeddingProvider } from "./types.ts";
 import { fetchEmbedWithRetry, type EmbedFetch } from "./retry.ts";
+import { openaiCompatUrl } from "../util/openai-compat-url.ts";
 
 const DEFAULT_MODEL = "text-embedding-3-small";
 const DEFAULT_DIMS = 1536;
@@ -48,7 +49,7 @@ export class OpenAIEmbedding implements EmbeddingProvider {
   async embed(texts: string[]): Promise<number[][]> {
     if (texts.length === 0) return [];
     const apiKey = this.resolveApiKey();
-    const url = `${this.baseUrl}/v1/embeddings`;
+    const url = openaiCompatUrl(this.baseUrl, "embeddings");
     const init: RequestInit = {
       method: "POST",
       headers: {
