@@ -126,8 +126,6 @@ bun run eval:distill
 bun run eval:report
 ```
 
-十三期 **P13.1-5 done**（`p131 4/4`、`p132 3/3`、`p133 3/3`、`p134 3/3`、`p135 3/3`），十二期 `P12.1-3 done`，`#9 HNSW` 未编码。详见 [`AGENTS.md`](AGENTS.md) 与 [`TODO.md`](TODO.md)。
-
 ## 贡献
 
 欢迎 Issue / 想法 / PR。
