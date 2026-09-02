@@ -43,6 +43,7 @@ export type ExtractedCheckpointItem = {
   body: string;
   facts?: Array<{ text: string; attributed_to?: string }>;
   mentions?: string[];
+  source_turns?: number[];
   status: "pending" | "written";
   path?: string;
 };

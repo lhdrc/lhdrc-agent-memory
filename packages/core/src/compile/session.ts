@@ -31,6 +31,7 @@ import {
 import { linkifyBody } from "./linkify.ts";
 import { prefetchExistingMemories } from "./prefetch.ts";
 import { maybeLazyDistillAfterCompile } from "../distill/refine.ts";
+import { buildHistoryRef, historyIndexRel, appendHistoryEntries, type HistoryIndexEntry } from "../history/index.ts";
 import {
   checkSourceTurns,
   formatCompileUserPrompt,
@@ -389,12 +390,18 @@ export async function compileSession(opts: CompileSessionOpts): Promise<CompileR
       }
 
       seenExact.push(normalizeDedupeText(title, linked.body));
+      let effectiveTurns = srcTurns.turns;
+      if (!effectiveTurns || effectiveTurns.length === 0) {
+        const total = numberedTurnCount(turns);
+        if (total > 0) effectiveTurns = Array.from({ length: total }, (_, i) => i + 1);
+      }
       checkpointItems.push({
         type,
         title,
         body,
         facts: Array.isArray(raw.facts) ? (raw.facts as ExtractedCheckpointItem["facts"]) : undefined,
         mentions,
+        source_turns: effectiveTurns,
         status: "pending",
         path: undefined,
       });
@@ -479,6 +486,7 @@ export async function compileSession(opts: CompileSessionOpts): Promise<CompileR
     await writeExtracted(opts.repoRoot, opts.brainId, sessionId!, checkpoint!);
 
     const entities = await loadEntities(opts.repoRoot, opts.brainId, opts.queue);
+    const historyEntries: HistoryIndexEntry[] = [];
     for (const item of checkpoint!.items) {
       if (item.status === "written" && item.path) {
         written.push(item.path);
@@ -488,6 +496,14 @@ export async function compileSession(opts: CompileSessionOpts): Promise<CompileR
       const links: Link[] = lf.links.map((l) => ({ to: l.to, type: l.type, source: "mention" }));
       linksByTitle.set(item.title, lf.links.map((l) => ({ to: l.to })));
       try {
+        const provTurns = item.source_turns;
+        let provenance: CaptureOptions["provenance"] | undefined;
+        let histRef: string | undefined;
+        if (provTurns && provTurns.length > 0 && sessionId) {
+          const sorted = [...provTurns].sort((a, b) => a - b);
+          histRef = buildHistoryRef(sessionId!, sorted);
+          provenance = { session_id: sessionId!, turns: sorted, history_ref: histRef };
+        }
         const path = await writeFn(opts.repoRoot, opts.pack, {
           brainId: opts.brainId,
           sourceId: opts.sourceId,
@@ -498,16 +514,34 @@ export async function compileSession(opts: CompileSessionOpts): Promise<CompileR
           links,
           createdBy: opts.createdBy,
           disambiguate: true,
+          ...(provenance ? { provenance } : {}),
         } satisfies CaptureOptions);
         item.status = "written";
         item.path = path;
         written.push(path);
         written.push(...(await recordL0Create(opts.repoRoot, opts.brainId, path, opts.createdBy)));
+        if (provTurns && provTurns.length > 0 && histRef) {
+          const sorted = [...provTurns].sort((a, b) => a - b);
+          historyEntries.push({
+            md_path: path,
+            session_id: sessionId!,
+            turn_index: sorted,
+            history_ref: histRef,
+          });
+        }
         await writeExtracted(opts.repoRoot, opts.brainId, sessionId!, checkpoint!);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         const code = e instanceof MemoryError ? e.code : ErrorCodes.INTERNAL;
         result.errors.push({ message: msg, code });
+      }
+    }
+    if (historyEntries.length > 0) {
+      try {
+        await appendHistoryEntries(opts.repoRoot, opts.brainId, historyEntries);
+        written.push(historyIndexRel(opts.brainId));
+      } catch {
+        /* fail-open：history 侧车不影响主流程 */
       }
     }
     return written;

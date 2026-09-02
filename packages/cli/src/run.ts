@@ -30,6 +30,7 @@ import { jobCommand } from "./commands/job.ts";
 import { trendCommand } from "./commands/trend.ts";
 import { contradictionCommand } from "./commands/contradiction.ts";
 import { configCommand } from "./commands/config.ts";
+import { historyCommand } from "./commands/history.ts";
 
 const HELP = `df-memory CLI
 
@@ -71,6 +72,7 @@ const HELP = `df-memory CLI
   memory dream [--fix] [--phases 1,2,3]
   memory observer [--json]
   memory trend <metric> [--threshold 0.1] [--json]
+  memory history read --session <id> [--turn N] [--json]
 
 说明:
   单仓多 brain 时 git 历史对同仓可见，非密码学隔离。
@@ -116,6 +118,7 @@ const COMMANDS: Record<string, Command> = {
   think: thinkCommand,
   eval: evalCommand,
   agent: agentCommand,
+  history: historyCommand,
 };
 
 /** 剥离全局 --brain / --token / --agent，写入环境变量供 loadContext 使用。 */
