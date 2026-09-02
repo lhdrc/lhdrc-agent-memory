@@ -1,3 +1,10 @@
+/**
+ * Decision boundary — translated from Codex ext/memories/templates/memories/read_path.md:17
+ * - Skip ONLY when self-contained (question can be answered without prior memory / workspace context)
+ * - Use by default when mentions workspace, asks to recall, or references prior decisions/files
+ *
+ * Codex read_path.md:12 — Skip ONLY self-contained / Use by default when mentions workspace
+ */
 export type RecallCommand = "think" | "find";
 
 export type QueryGateHit = {

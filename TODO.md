@@ -132,7 +132,12 @@
 | 47  | contradictions.md 不接检索                                          | P10.3 留「过期降权另开 Spec」                                 | **P11.4 done**（默认关）                                                 |
 | 48  | pack `note: patch` 死配置；实体 facts 只 append                        | OV 字段 merge_op；#42 已裁 L0 updateNode                  | **P11.5 done**`十二`                                                  |
 | 49  | 冲突无人审、失效不软删                                                     | 现网只写 contradictions.md；forget 未接线                    | **P11.6 done**                                                      |
-| 50  | 语义臂 O(n) 拉全文 + 无续跑/重试                                           | GroupMemBench 6 万×4096 维首问分钟级                        | **P12.1 done**；ANN 见 #9                                             |
+| 50    | 语义臂 O(n) 拉全文 + 无续跑/重试                                           | GroupMemBench 6 万×4096 维首问分钟级                        | **P12.1 done**；ANN 见 #9                                             |
+| 51    | BM25 文章级倒排：清洗/物化/GIN + 长度归一 + 短语 | `pages` 全表 `ts_rank`、`fts_* TEXT`无GIN、bigram跨词噪音、长文无归一 | **done（2026-09-02 P131-01–04）**；`p131` 4/4；`GIN`+`cleanForIndex`+`power归一`+`phraseto` |
+| 52    | 图谱边类型建≡检索闭环：补 `decided/produced_by/belongs_to/invested_in/advises` 检索模板 | `links` 10种已建（`P10.2`），检索仅 `mentions/works_on/references/works_at/founded` 5种走 `relational` | **done（2026-09-02 P132-01–03）**；10模板 `decided/produced/belongs/invested/advises` |
+| 53    | History 底层 + note 正排：保全量对话，不直检 history，note 侧车 `provenance→messages.jsonl` 按需回跳 | `inbox/sessions/*/messages.jsonl` 已存但 `note` 无 `provenance`/`source_turns` 落盘，`validator` 不写 | **done（2026-09-02 P133-01–03）**；`history_index.jsonl`+`read --with-history` |
+| 54    | Prompt/模板参照 Codex 重构：补 NO-OP 门控 + 高信号4桶 + Outcome 分流，`abstract/overview` 弱 prompt 加强 | `session-extract-v1.md 142行`扁平无门控，`abstract/ overview 8行`无字面保留/偏好分栏 | **done（2026-09-02 P134-01–03）**；`Will future agent`+4桶+`preserve wording` |
+| 55    | 真矛盾标记（非 `duplicate` 相似）：借 `gbrain facts/classify.ts` 实体桶+`0.95/0.92`+LLM 三分类，`值不同`二筛，人审托底 | 现 `P10.3` 全量500条`cosine≥0.95→duplicate`、无实体桶、无`supersede`、`local` 跳过，无 `值冲突` | **done（2026-09-02 P135-01–03）**；实体桶k=5+值冲突+灰区LLM，`supersede` 人审 `*0` |
 
 
 
@@ -850,6 +855,100 @@ dream 标记 → 每对 status=pending
 ---
 
 
+
+## 51. BM25 文章级倒排优化（2026-09-02 规划，文章级返回不变）
+
+**定位**：只动 `pages` 的 BM25 臂（`packages/core/src/retrieve/query.ts:59 bm25Query` / `packages/core/src/index/sync.ts:105 syncPage` / `packages/core/src/index/schema.sql:3`），`chunks` 仍仅服务语义臂 `semantic.ts:47`；返回仍为文章级 `QueryHit{path,title,score,snippet}`，不改切块/语义/图谱管线。
+
+**现状**：`fts_title/fts_body/title_ngrams/body_ngrams TEXT` + 每查 `to_tsvector('simple',…)` 实时 `ts_rank` 全表扫（无 `GIN`）；`bigrams.ts:3` 去空白后二字硬切产跨词噪音（`试策/略调`）；仅 `query.ts:75` 权重 `3.0/1.0/2.0/0.8 + position` 无长度归一；`code/diff/##` 未统一清洗，`link-extraction.ts:52 stripCodeBlocks` 仅图谱用。
+
+| 优先级 | 规划 | 落点 | 验收 |
+|---|---|---|---|
+| P0-1 | 物化倒排：`GIN(to_tsvector('simple',coalesce(fts_title,'')))` + `fts_body`，或存 `tsvector` 列增量更 | `schema.sql` + `sync.ts:145 titleNgrams/bodyNgrams` | `EXPLAIN` 走 `Bitmap Index Scan`；万级 `bm25Query` P95 < 100ms |
+| P0-2 | 统一清洗 `cleanForIndex(text)`：复用 `stripCodeBlocks` + 去 `[]()/#|>` + NFKC/lower + 空白归一，`indexBodyText` 之后再洗才写 `fts_*/bigrams` | `sync.ts:57 indexBodyText` + `query.ts` | `M3-06` 中文 + `M3-01` 回归绿；`code` 块不抬分 |
+| P1-1 | bigram 去噪：过滤跨词 bigram（频次/词典） | `ngrams.ts` | `title_ngrams` 无 `试策/略调`；`eval:mini` 精排↑ |
+| P1-2 | 长度归一：`score /= len^β` 或 BM25 `k1/b` | `query.ts:75` | 长文不再垄断 top1（`P93-02` 同款用例） |
+| P2 | 短语：`phraseto_tsquery` 或 `position` 倒排加分 | `query.ts` | `“固定 3 次”` 带空格仍命中 |
+
+**不做**：自建 posting list、切块级 BM25、`jieba` 重分词、把清洗结果写入 `content_hash`（`content-hash.ts:49` 白名单外）、把 `chunks` 拉进 BM25。
+
+**顺序**：P0-2 清洗 → P0-1 GIN → P1 → P2；先过 `bun test packages/core/tests/m3_index.test.ts` + `eval:mini` 再动下一档。拟收成 `specs/十三期/P13.1-bm25-article.md`（待排期，先记账）。
+
+## 52. 图谱边类型建≡检索闭环（2026-09-02 规划，独立于 P10.2）
+
+**问题**：`graph/link-extraction.ts:20 KNOWN_LINK_TYPES` 10种 + `DEFAULT_VERBS:35` 8正则（+ pack `extra_verbs` `index/sync.ts:25`）已能建全量 `links`（`schema.sql:43`）；但 `retrieve/graph.ts:22 TEMPLATES` 仅覆盖 `mentions/works_on/references/works_at/founded` 5种，`decided/produced_by/belongs_to/invested_in/advises` 永远走 `collectAdjacencySeeds:127` 邻接兜底，不走 `relational` 精准臂 `graphArmDetailed:267`。
+
+**目标**：建≡检索闭环，不新增 `KNOWN_LINK_TYPES`，只补检索侧。
+
+| 缺口 | 补的模板（中英各一） | 落点 |
+|---|---|---|
+| `decided` | `谁决定了(.+)` / `who decided (.+)` | `graph.ts:22 TEMPLATES` |
+| `produced_by` | `谁产出了(.+)` / `who produced (.+)` | 同上 |
+| `belongs_to` | `(.+)属于(.+)` / `(.+) belongs to (.+)` | 同上 |
+| `invested_in` | `谁投资了(.+)` / `who invested in (.+)` | 同上 |
+| `advises` | `谁是(.+)顾问` / `who advises (.+)` | 同上 |
+
+`hitsFromSeeds:161` 已支持 `type=$3` 过滤，`extra_verbs` 自动透传；`signals.ts` 暂不按 `type` 加权，保 fail-open。
+
+**不做**：新增边类型、改 `DEFAULT_VERBS`、动 `signals/prefilter/rrf`、page-type 绑定边。
+
+**验收**：`p10_graph_verbs.test.ts` 各补 1 例 `relational` 命中；`graphArmDetailed` 对 10 种 verb 均可 `mode=relational`；`eval:mini` 图臂不回退。
+
+拟收成 `specs/十三期/P13.2-graph-verb-complete.md`（待排期，先记账）。
+
+## 53. History 底层 + note 正排（2026-09-02 规划，`Memory 优化.md:11 整体优化`）
+
+**问题**：`inbox/session.ts:98 archiveSession` 已落全量 `messages.jsonl`（`Turn{role,text,at}`），但 `compile/session.ts:288` 抽 `note` 时 `session-extract-v1.md:34 source_turns` 不落 `validator.ts:162` frontmatter，`provenance` 缺失，LLM 无法按需回跳原文核验。
+
+**目标**：`history` 底层保原始不改（不进 `pages/chunks` 索引），`note` 正排指向 `history`，检索仍只走 `note/experience`。
+
+| 项 | 做法 | 落点 |
+|---|---|---|
+| 建 | 复用 `archiveSession/appendTurnsToSession` + `compile/window.ts` 滑动窗口，不新增 history 写口 | `inbox/session.ts` |
+| 指 | `note` 侧车 `history_index.jsonl` + 可选 frontmatter `provenance:{session_id, turns:[1,2], history_ref:"inbox/sessions/<id>/messages.jsonl#turn2-3"}`，存 `turn_index` 非 `byteOffset` | `write/capture.ts:86` / `validator.ts` 白名单外（不进 `content-hash.ts:20`） |
+| 读 | `memory read <path> --with-history` 或 `memory history read --session <id> --turn 2` 按需 `cat messages.jsonl`，`--explain` 透 `provenance` | `node/read.ts:24` + CLI |
+| 检 | `bm25Query/semanticArm` 永远不扫 `inbox`，`query.ts:72` 保持文章级 | `retrieve/hybrid.ts` |
+
+**不做**：把 `transcript` 整篇当 `L0`、`fts_*/bigrams` 吃 `history`、用 `byteOffset` 替代 `turn_index`、`content_hash` 吃 `provenance`。
+
+拟收成 `specs/十三期/P13.3-history-provenance.md`（待排期，先记账）。
+
+## 54. Prompt/模板参照 Codex 重构（2026-09-02 规划，`Memory 优化.md:20 优化note的prompt和模板`）
+
+**问题**：`resources/session-extract-v1.md 142行` 仅 `decision/lesson/note` 类型合同 + 少量 few-shot，无 `stage_one_system.md:28 NO-OP Gate / 48 High-signal 4桶 / 99 阅读顺序 User>Tool>Assistant / 150 Outcome triage / 304 evidence->implication`；`abstract-v1.md/overview-v1.md` 各 8 行，无字面保留与偏好分栏，摘要易丢数/名；`codex-rs/ext/memories/templates/memories/read_path.md:17` 的渐进披露（`memory_summary→MEMORY→rollout` 4-6步）不能直套 `node/read.ts:24 L0/L1/L2` CLI。
+
+| 规划 | 搬运 | 落点 |
+|---|---|---|
+| 门控 | 抄 `Will future agent act better?` 四条空转判 + `NO-OP {"items":[]}` | `session-extract-v1.md` 首部 |
+| 信号 | 4桶：稳定偏好/高杠杆捷径/任务映射/环境证据；`Preference signals` 原话保留 `when user said "<quote>" -> future default` | 同上 |
+| 分流 | `success/partial/fail/uncertain` 据 `fail` 多写 `Failures` 少写复现 | 同上 |
+| 字面 | `Wording-preservation: keep original nouns/commands` 取代泛泛总结 | `abstract/overview-v1.md` 加 `preserve original wording before compress` |
+| 读 | `read_path.md:12-16` 的 `Skip ONLY self-contained / 命中 workspace即查` 译成 `shouldQueryMemory` 门控文案与 `query --explain` 的 `query_plan`，`read` 接口不动，仅增 `--with-history` | `retrieve/query-triggers.ts` + CLI help |
+
+**不做**：全量两阶段 `raw_memories→MEMORY.md` 归并、`read` 改成 Codex `search/list/read` 三工具、按项目训专属模型。
+
+拟收成 `specs/十三期/P13.4-prompt-codex.md`（待排期，先记账）。
+
+## 55. 真矛盾标记（2026-09-02 规划，借 `gbrain/src/core/facts/classify.ts:3`）
+
+**对标**：`gbrain` Hot Memory `classifyAgainstCandidates:68` 决策树：`①实体桶 k=5 候选（`engine.findCandidateDuplicates:1885` 必带 `entity_slug`）②`top cosine≥0.95→duplicate` 快路径 `cheapThreshold` `③LLM `duplicate|supersede|independent`（`CLASSIFIER_SYSTEM:146` `<existing id>` 包 DATA）④失败回退 `≥0.92→duplicate` 否则 `independent`；`insertFact:1760` 串行锁 + `expired_at+superseded_by` 软链；抽取侧 `extract.ts:165` 已打 `kind/notability/metric/value`。
+
+**本仓差距**：`dream/runner.ts:222` `500条` 无实体桶全量 `O(n²)`，`cross-file` `local` 跳过，`P10.3` `duplicate` 即结论无 `supersede`，无 `值不同` 二筛（`dedupe.ts:40 isObjectValueConflict` 仅 `Dedup` 用）。
+
+| 规划 | 落法 | 对标 |
+|---|---|---|
+| 桶 | `倒排 fts + links + entity_registry` 按 `entity_slug` 分桶，`k=5` cap（`findCandidateDuplicates` 同参），`source_id` 隔离 | `classify.ts:3①` + `engine:1885` |
+| 快路径 | 桶内 `cosine≥0.95→duplicate`（`cheapThreshold`），`Float32` 视图，跳 LLM | `classify.ts:92` |
+| 值冲突 | `isObjectValueConflict + 否定词` 二筛：`值不同→ supersede候选`，`值同→ duplicate`，跨值 `NY=New York` 查 `alias` | 本仓 `dedupe.ts` 复用 |
+| LLM | 灰区 `0.92-0.95` 批量10对 `complete()`，`system: You decide duplicate/supersede/independent...<existing> DATA`，严格 `{"decision":...,"matched_id":...}` + 炸 fence 去噪，`refusal/timeout→0.92回退` | `classify.ts:105 chat` + `parseClassifierJson:179` |
+| 落盘 | `contradictions.md ##cross-file` 标 `contradiction supersede a->b` + 预填 `facts.supersedes`，`contradiction/review.ts:73` 人审 `keep a|b` 才 `superseded` 入索引剔除 `sync.ts:54` `*0`；`expired_at+superseded_by` 双链留审计 | `engine.insertFact:1758` + `facts superseded_by` |
+| 增量 | `dream --phases 4` 仅新 `facts` + 同桶邻居增量嵌，`local` 档走规则分支不进 LLM | `gbrain` 实体锁增量 |
+
+**不做**：全量 `O(n²)` `LLM` 每对判、`local` 强行 `0.95`、`k>5`、把 `supersede` 自动 `purge` 整篇。
+
+拟收成 `specs/十三期/P13.5-contradiction-true.md`（待排期，先记账）。
+
+---
 
 ## 备注
 

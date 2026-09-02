@@ -32,6 +32,8 @@ export interface CaptureOptions {
   disambiguate?: boolean;
   /** P9.7 Iron Law；缺省用 directGitExecutor（compile 在 queue 内直写） */
   queue?: FileMutationExecutor;
+  /** P13.3：可选 provenance，不进 content-hash */
+  provenance?: { session_id: string; turns: number[]; history_ref: string };
 }
 
 /** WRITE_FORMAT §3：正文形状 = 摘要 + 正文；若 body 已含 ## 摘要 则不重复包裹。 */
@@ -129,6 +131,9 @@ export async function captureWrite(
       seen.add(key);
     }
     n.frontmatter.links = existingLinks;
+    if (opts.provenance) {
+      n.frontmatter.provenance = opts.provenance;
+    }
     const body = buildMarkdownBody(linked.body);
     const abs = join(repoRoot, n.path);
     if (existsSync(abs)) {

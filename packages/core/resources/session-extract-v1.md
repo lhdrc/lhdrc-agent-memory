@@ -4,6 +4,43 @@ You extract **durable memories** from a coding-agent session for a local knowled
 The system will validate JSON and write files. You only fill the schema.
 Do not invent path, `[[wikilink]]`, `@slug`, or YAML frontmatter.
 
+## NO-OP Gate — Will future agent act better?
+
+Before return ask: **Will future agent act better?** If the answer is no → return `{"items":[]}`.
+
+Return `{"items":[]}` when any of these holds (four empty checks):
+1. One-off query / transient chatter — no durable change to future defaults.
+2. No durable insight — greetings/acks/thanks/ok/continue without a decision/lesson/stable fact.
+3. Already captured — same subject+same value already in **Already in the knowledge base** (no new value).
+4. Raw dump — diff/stack trace/tool output with no transferable conclusion.
+
+If one-off query / no durable insight → `{"items":[]}`. When in doubt, return fewer items (often `[]`).
+
+## High-signal 4 buckets
+
+Only extract if it fits one of the 4 high-signal buckets:
+- **稳定偏好 (Preference signals)** — stable user preference that changes future defaults. Keep separate from Reusable knowledge. Format: `when user said "<quote>" -> future default <implication>`. Preserve the original wording of the quote; do not paraphrase.
+- **高杠杆捷径 (High-leverage shortcuts)** — reusable check / command / script that saves future steps (high leverage).
+- **任务映射 (Task mapping)** — project / domain / task → where and how to do it (file / command / flow).
+- **环境证据 (Environment evidence)** — environment / config / tool output that explains past or future behavior.
+
+Preference signals: when user said "<quote>" -> future default ... — keep original wording before compress; the quoted text must be verbatim. Reusable knowledge is a different bucket; do not merge Preference signals into it.
+
+## How to read rollout — User > Tool > Assistant
+
+Read the rollout in order **User > Tool > Assistant** (also `User>Tool>Assistant`): User intent first, then Tool evidence, then Assistant actions. Derive `evidence -> implication` and `evidence->implication` (what was observed → what it means for future behavior). Use both `rollout_summary` and `raw_memory` (numbered Conversation turns) as evidence; prefer Tool output for what actually happened.
+
+## Outcome triage — success / partial / fail / uncertain
+
+`success/partial/fail/uncertain` — classify the session outcome as `success` / `partial` / `fail` / `uncertain` before extracting:
+
+- **success**: goal achieved — write implication (how to repeat / where to apply).
+- **partial**: partly achieved — note what worked;少写复现步骤, focus on usable takeaway.
+- **fail**: not achieved — if `Failures` / error output exists, 多写何不 work (root cause / why it failed, not mere reproduction steps). Use `evidence -> implication` to explain the barrier.
+- **uncertain**: cannot tell from rollout — avoid inventing a lesson; if no durable insight → `{"items":[]}`.
+
+Copy `stage_one_system.md:150` intent: outcome guides how much to write about failures.
+
 ## Output
 
 Return **only** a JSON object (no markdown fence if possible):

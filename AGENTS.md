@@ -5,7 +5,7 @@
 ## 项目是什么
 
 **df-memory**：开源、单机、本地部署的记忆模块——「agent 的 git + 知识库」。  
-当前交付焦点：**十二期 P12.1–P12.3 done**（[`specs/十二期/`](specs/十二期/)：嵌入热路径 #50；宿主 agent 信封；`memory config`）。十一期 **P11.1–P11.7 done**。十期 **P10.2–P10.4 done**（**#9 HNSW 重开、未编码**；P10.1 / P10.5 发数 in_progress）。九期 **P9.1–P9.9 done**。八期 **P8.1–P8.5 done**（P81-17 真机 `next` 当步生效 2026-08-17 关账）。七期 **P7.1–P7.5 done**。四期：**P4.2 A** 已接线（未 npm publish）；**B 档迁 P8.1（done）**；**P4.1 MCP/REST 不做**。**P6.5 Cursor 模板不做**。
+当前交付焦点：**十三期 P13.1–P13.5 done**（[`specs/十三期/`](specs/十三期/)：BM25 GIN+清洗；图10边闭环；History正排；Prompt Codex；真矛盾）。十二期 **P12.1–P12.3 done**。十一期 **P11.1–P11.7 done**。十期 **P10.2–P10.4 done**（**#9 HNSW 重开、未编码**）。九期 **P9.1–P9.9 done**。八期 **P8.1–P8.5 done**。七期 **P7.1–P7.5 done**。四期：**P4.2 A** 已接线（未 npm publish）；**B 档迁 P8.1（done）**；**P4.1 MCP/REST 不做**。**P6.5 Cursor 模板不做**。
 
 > 口号里的「git」指版本化知识仓体验；**实现上热路径以 md 文件为权威**，git 为可选批量账本（08 **D1/D18**）。
 
@@ -14,7 +14,7 @@
 | 优先级 | 路径 | 用途 |
 |---|---|---|
 | 1 | [`specs/mvp/`](specs/mvp/) | **实现规格**——按此编码与验收 |
-| 2 | [`specs/二期/`](specs/二期/) · [`三期/`](specs/三期/) · [`五期/`](specs/五期/) · [`六期/`](specs/六期/) · [`七期/`](specs/七期/) · [`八期/`](specs/八期/) · [`九期/`](specs/九期/) · [`十期/`](specs/十期/) · [`十一期/`](specs/十一期/) · [`十二期/`](specs/十二期/) · [`四期/`](specs/四期/) | 二–七期主线已做；**八期 P8.1–P8.5 done（2026-08-17 真机关账）**；**九期 P9.1–P9.9 done**；**十期 P10.2–P10.4 done**；**十一期 P11.1–P11.7 done**；**十二期 P12.1–P12.3 done**（#50；信封；config CLI；#9 未做）；P6.5 Cursor 模板不做；P4.2 A 已接线；P4.1 MCP **不做** |
+| 2 | [`specs/二期/`](specs/二期/) · [`三期/`](specs/三期/) · [`五期/`](specs/五期/) · [`六期/`](specs/六期/) · [`七期/`](specs/七期/) · [`八期/`](specs/八期/) · [`九期/`](specs/九期/) · [`十期/`](specs/十期/) · [`十一期/`](specs/十一期/) · [`十二期/`](specs/十二期/) · [`十三期/`](specs/十三期/) · [`四期/`](specs/四期/) | 二–七期主线已做；**八期 P8.1–P8.5 done**；**九期 P9.1–P9.9 done**；**十期 P10.2–P10.4 done**；**十一期 P11.1–P11.7 done**；**十二期 P12.1–P12.3 done**（#50）；**十三期 P13.1–P13.5 done**（#51-55）；P6.5 Cursor 模板不做；P4.2 A 已接线；P4.1 MCP **不做** |
 | 3 | [`reports/08-开源记忆模块设计方案.md`](reports/08-开源记忆模块设计方案.md) | 架构与 ADR；与 Spec 冲突时 **先改 Spec/ADR 再改代码** |
 | 4 | [`reports/01`](reports/01-gbrain-调研报告.md)–[`05`](reports/05-四项目对比总结.md) | 调研背景，不直接当接口规格 |
 
@@ -73,13 +73,19 @@
 | **P12.1** | 嵌入热路径：瘦 SELECT / Float32 / pending / 5xx 重试 | **done**（#50） |
 | **P12.2** | 宿主 agent `--json` 信封；query 降级可见；remember 入队前 E_DISABLED | **done**（P122-01–05） |
 | **P12.3** | `memory config list\|get\|set\|doctor` | **done**（P12C-01–07；不写密钥） |
+| **P13.1** | BM25 GIN+清洗；长度归一+短语 | **done**（P131-01–04） |
+| **P13.2** | 图 10边闭环（补 5 动词模板） | **done**（P132-01–03） |
+| **P13.3** | History 正排（侧车 provenance） | **done**（P133-01–03） |
+| **P13.4** | Prompt Codex（NO-OP+4桶+字面保留） | **done**（P134-01–03） |
+| **P13.5** | 真矛盾（实体桶k=5+值冲突+灰区LLM） | **done**（P135-01–03） |
 
 **未做 backlog：**
 
-> **十二期 P12.1–P12.3 done（#50 / 信封 / config）。** 十一期 P11.1–P11.7 done。十期 P10.2–P10.4 done。**#9 HNSW 重开、未编码。** 其余裁剪见 [`TODO.md`](TODO.md) 文首表。
+> **十三期 P13.1–P13.5 done（#51-55）。** **#9 HNSW 重开、未编码。** 其余裁剪见 [`TODO.md`](TODO.md) 文首表。
 
 | 优先级 | 项 | 说明 |
 |---|---|---|
+| — | **十三期** | **P13.1–P13.5 done**（#51-55）。#9 未编码。 |
 | — | **十二期** | **P12.1–P12.3 done**（#50 嵌入热路径；P12.2 宿主信封；P12.3 `memory config`）。#9 未编码。 |
 | — | **十一期** | **P11.1–P11.7 done**（测例 P111–P117 绿）。 |
 | — | **评测分支** | `eval/groupmem-orgmem`：GroupMemBench + OrgMemBench adapter + [`evals/GROUPMEM_ORGMEM.md`](evals/GROUPMEM_ORGMEM.md)；**不**跑全量官方 judge。 |
@@ -111,7 +117,7 @@
 - skill 不混默认 `memory_query`（P8.3）；不从会话直接抽 `SKILL.md`。  
 - 懒蒸默认 5→3 **不改**（仓配置即可）。  
 
-分期速查：二期 = P2.1a+P2.2（**done**）；三期 = P3.1–P3.3（**done**）；**五期 = P5.1–P5.8（done）**；**六期 = P6.1–P6.4 + 查询门控 + P6.6（done；Cursor 模板不做）**；**七期 = P7.1–P7.5（done）**；**八期 = P8.1–P8.5 done（2026-08-17 真机关账）**；**九期 = P9.1–P9.9 done**；**十期 = P10.2–P10.4 done**；**十一期 = P11.1–P11.7 done**；**十二期 = P12.1–P12.3 done（#9 未做）**；四期 = **P4.2 A in_progress / B 迁 P8.1（done）**；P4.1 MCP **不做**。
+分期速查：二期 = P2.1a+P2.2（**done**）；三期 = P3.1–P3.3（**done**）；**五期 = P5.1–P5.8（done）**；**六期 = P6.1–P6.4 + 查询门控 + P6.6（done；Cursor 模板不做）**；**七期 = P7.1–P7.5（done）**；**八期 = P8.1–P8.5 done**；**九期 = P9.1–P9.9 done**；**十期 = P10.2–P10.4 done**；**十一期 = P11.1–P11.7 done**；**十二期 = P12.1–P12.3 done**；**十三期 = P13.1–P13.5 done**；四期 = **P4.2 A in_progress / B 迁 P8.1（done）**；P4.1 MCP **不做**。
 
 ## 技术栈（已锁定）
 

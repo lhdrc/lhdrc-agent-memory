@@ -73,13 +73,17 @@ export async function bm25Query(db: SqlClient, opts: QueryOptions): Promise<Quer
 SELECT * FROM (
   SELECT path, title,
     (
-      3.0 * ts_rank(to_tsvector('simple', coalesce(fts_title,'')), plainto_tsquery('simple', $1))
-    + 1.0 * ts_rank(to_tsvector('simple', coalesce(fts_body,'')), plainto_tsquery('simple', $1))
-    + 2.0 * ts_rank(to_tsvector('simple', coalesce(title_ngrams,'')), plainto_tsquery('simple', $2))
-    + 0.8 * ts_rank(to_tsvector('simple', coalesce(body_ngrams,'')), plainto_tsquery('simple', $2))
-    + CASE WHEN position(lower($3) in lower(coalesce(title,''))) > 0 THEN 2.5 ELSE 0 END
-    + CASE WHEN position(lower($3) in lower(path)) > 0 THEN 1.5 ELSE 0 END
-    + CASE WHEN position(lower($3) in lower(coalesce(aliases_json,''))) > 0 THEN 3.0 ELSE 0 END
+      (
+        3.0 * ts_rank(to_tsvector('simple', coalesce(fts_title,'')), plainto_tsquery('simple', $1))
+        + 1.5 * ts_rank(to_tsvector('simple', coalesce(fts_title,'')), phraseto_tsquery('simple', $1))
+        + 1.0 * ts_rank(to_tsvector('simple', coalesce(fts_body,'')), plainto_tsquery('simple', $1))
+        + 0.5 * ts_rank(to_tsvector('simple', coalesce(fts_body,'')), phraseto_tsquery('simple', $1))
+        + 2.0 * ts_rank(to_tsvector('simple', coalesce(title_ngrams,'')), plainto_tsquery('simple', $2))
+        + 0.8 * ts_rank(to_tsvector('simple', coalesce(body_ngrams,'')), plainto_tsquery('simple', $2))
+        + CASE WHEN position(lower($3) in lower(coalesce(title,''))) > 0 THEN 2.5 ELSE 0 END
+        + CASE WHEN position(lower($3) in lower(path)) > 0 THEN 1.5 ELSE 0 END
+        + CASE WHEN position(lower($3) in lower(coalesce(aliases_json,''))) > 0 THEN 3.0 ELSE 0 END
+      ) / power(length(coalesce(body_text,'')) + 1, 0.3)
     ) AS score,
     body_text,
     frontmatter_json,

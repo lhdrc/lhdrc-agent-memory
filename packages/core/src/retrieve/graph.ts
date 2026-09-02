@@ -28,6 +28,16 @@ const TEMPLATES: Array<{ re: RegExp; seedGroup: number; verb?: string }> = [
   { re: /^提到了?\s*(.+)$/u, seedGroup: 1, verb: "mentions" },
   { re: /^who\s+works\s+at\s+(.+)$/iu, seedGroup: 1, verb: "works_at" },
   { re: /^who\s+founded\s+(.+)$/iu, seedGroup: 1, verb: "founded" },
+  { re: /^谁决定了\s*(.+)$/u, seedGroup: 1, verb: "decided" },
+  { re: /^who\s+decided\s+(.+)$/iu, seedGroup: 1, verb: "decided" },
+  { re: /^谁产出了\s*(.+)$/u, seedGroup: 1, verb: "produced_by" },
+  { re: /^who\s+produced\s+(.+)$/iu, seedGroup: 1, verb: "produced_by" },
+  { re: /^(.+)\s*属于\s*(.+)$/u, seedGroup: 2, verb: "belongs_to" },
+  { re: /^(.+)\s+belongs\s+to\s+(.+)$/iu, seedGroup: 2, verb: "belongs_to" },
+  { re: /^谁投资了\s*(.+)$/u, seedGroup: 1, verb: "invested_in" },
+  { re: /^who\s+invested\s+in\s+(.+)$/iu, seedGroup: 1, verb: "invested_in" },
+  { re: /^谁是\s*(.+)\s*顾问$/u, seedGroup: 1, verb: "advises" },
+  { re: /^who\s+advises\s+(.+)$/iu, seedGroup: 1, verb: "advises" },
 ];
 
 const STOPWORDS = new Set([
