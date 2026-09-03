@@ -219,15 +219,18 @@ orgmembench run --system df-memory --tier small --execute
 | `DF_EVAL_WORKSPACE_RESET` | `1` 清空持久仓+checkpoint；默认 `0` 续跑 | `0` |
 | `DF_EVAL_STOP_AFTER` | `ingest` 只摄入 | 空 |
 | `DF_EVAL_SEMANTIC` | `1`：query 挂真 embedding 语义臂；默认关（夹具 hermetic） | `0` |
+| `DF_EVAL_ANSWER` | `auto` / `1` / `0`：两阶段作答（检索片段→读原文/history→LLM 作答） | `auto`（有 key 则开） |
+| `DF_EVAL_JUDGE` | `rule` 子串 / `llm` 同模型 YES/NO 语义判定 | `rule` |
 | `OPENCODE_API_KEY` | 评测 LLM 走 [OpenCode Zen](https://opencode.ai/docs/zen/)（`auto` 时检测到即改 `llm.base_url`） | 空 = 仍 `llm.provider=off` |
 | `OPENCODE_GO_API_KEY` | 同上，备选 env 名 | — |
 | `DF_EVAL_LLM` | `auto` / `opencode-go` / `off` / `openai` | `auto` |
-| `DF_EVAL_LLM_MODEL` | chat 模型 id | `hy3-free` |
-| `DF_EVAL_LLM_BASE_URL` | 覆盖根 URL | `https://opencode.ai/zen`（Go 套餐改 `/zen/go` + `hy3`） |
+| `DF_EVAL_LLM_MODEL` | chat 模型 id（摄入/作答/判定统一） | `muse-spark-1.3-contributor-free` |
+| `DF_EVAL_LLM_BASE_URL` | 覆盖根 URL（muse-spark 自动走 `/v1/responses`） | `https://opencode.ai/zen` |
+| `DF_EVAL_LLM_REASONING_EFFORT` | Responses 推理强度 | `minimal` |
 | `SILICONFLOW_API_KEY` / `DF_EVAL_API_BASE` | 评测临时仓 embedding 改写（语义臂 + 跨文件矛盾） | 空 = init 默认 openai/`OPENAI_API_KEY` |
 | `DF_EVAL_EMBED_MODEL` / `DF_EVAL_EMBED_DIMS` | 覆盖 embedding model/dims | — |
 
-**不要**把 token 写进 `memory.yml`。Go **没有** embeddings；语义臂与跨文件矛盾继续 `OPENAI_API_KEY` 或 SiliconFlow。
+**不要**把 token 写进 `memory.yml`。Zen Responses（muse-spark）**没有** embeddings；语义臂与跨文件矛盾继续 `OPENAI_API_KEY` 或 SiliconFlow。
 
 仓库根 `.env`（gitignore）填 `OPENCODE_API_KEY=` 即可，`bun run` 会自动加载。模板见 [`.env.example`](../.env.example)。
 
@@ -242,8 +245,10 @@ bun run evals/run.ts --adapter groupmembench --fixture
 
 1. **蒸馏（dream 第 3 段）**：设 `OPENCODE_API_KEY`（或 mock）且 `llm.provider≠off` 时才会 `refineSource` 写 experience；否则 metrics 里 `distill.skipped=true`。
 2. **矛盾（dream 第 4 段）**：同文件启发式看 facts；跨文件 cosine 需要真 embedding（非 local 哈希 fallback）。夹具 note 若无 facts，矛盾计数常为 0——属预期。
-3. **本仓会话提取 / compile**：设 `OPENCODE_API_KEY` 后，评测仓会把 `llm.provider=openai`、`base_url=https://opencode.ai/zen`、`openai_api_key_env=OPENCODE_API_KEY`。模型默认 `hy3-free`。`DF_EVAL_LLM=off` 可关掉这层改写。
-4. **GroupMemBench 官方** QA agent + judge 默认仍是 gpt-5；若要用 Go，需在上游 Python `.env` 里改 OpenAI-compatible base。
-5. **OrgMemBench 官方** answerer + rubric judge（见上游 config）。
+3. **本仓会话提取 / compile（摄入模型）**：设 `OPENCODE_API_KEY` 后，评测仓会把 `llm.provider=openai`、`base_url=https://opencode.ai/zen`、`openai_api_key_env=OPENCODE_API_KEY`。模型默认 `muse-spark-1.3-contributor-free`（Responses API）。`DF_EVAL_LLM=off` 可关掉这层改写。
+4. **两阶段作答（回答模型）**：`DF_EVAL_ANSWER=auto`（默认）有 key 时先 `hybrid/think` 检索片段，再 `readNode(withHistory)` 读原文 + `history_index` 回跳 + 图邻接上下文，最后同一 muse-spark 作答；无 key 回退规则 `goldHit`。`metrics.answer_mode` 标记 `llm/rule`。
+5. **判定（评测模型）**：默认 `DF_EVAL_JUDGE=rule` 子串；`llm` 时同一 muse-spark 做 YES/NO 语义判定（规则命中会兜底，避免过严）。
+6. **GroupMemBench 官方** QA agent + judge 默认仍是 gpt-5；若要用 Zen，需在上游 Python `.env` 里改 OpenAI-compatible base。
+7. **OrgMemBench 官方** answerer + rubric judge（见上游 config）。
 
 P11 单元测试没有活模型依赖；不必为十一期测例配 Key。

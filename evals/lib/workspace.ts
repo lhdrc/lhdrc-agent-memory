@@ -22,9 +22,9 @@ export interface EvalWorkspace {
   dispose(): Promise<void>;
 }
 
-/** OpenCode Go chat 网关。免费档可用 Zen：`https://opencode.ai/zen` + `hy3-free`。 */
-export const OPENCODE_GO_BASE_URL = "https://opencode.ai/zen/go";
-export const OPENCODE_GO_DEFAULT_MODEL = "hy3";
+/** OpenCode Zen chat 网关。muse-spark 走 Responses API（`.../v1/responses`），见 `llm/openai.ts`。 */
+export const OPENCODE_GO_BASE_URL = "https://opencode.ai/zen";
+export const OPENCODE_GO_DEFAULT_MODEL = "muse-spark-1.3-contributor-free";
 
 function openCodeGoKeyEnv(): string | null {
   if (process.env.OPENCODE_API_KEY?.trim()) return "OPENCODE_API_KEY";

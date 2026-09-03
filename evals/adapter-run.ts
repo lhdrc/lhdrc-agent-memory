@@ -11,6 +11,7 @@ import {
   appendSessionTurns,
   endSession,
   assertRememberCompileReady,
+  createLLMProvider,
   type QueryHit,
   type EmbeddingProvider,
   type DreamPhaseResult,
@@ -28,7 +29,8 @@ import {
   evalIngestMode,
   evalQueryKind,
   evalStopAfter,
-  scoreCases,
+  hasEvalLlmKey,
+  scoreCasesWithAnswer,
 } from "./lib/pipeline.ts";
 import {
   loadOrInitManifest,
@@ -359,6 +361,22 @@ export async function runAdapter(opts: {
     })();
     const queryEmbedder: EmbeddingProvider | undefined = semanticOn ? realEmbed : undefined;
     const dreamEmbedder: EmbeddingProvider | undefined = realEmbed;
+    // 回答/判定模型：与摄入同一 muse-spark（Responses API），无 key 时回退规则评分。
+    const answerComplete = (() => {
+      if (!hasEvalLlmKey()) return undefined;
+      if (cfg.llm.provider === "off") return undefined;
+      try {
+        const llm = createLLMProvider(cfg.llm, { repoRoot: ws.repoRoot });
+        return (req: { prompt: string; system?: string; purpose: "other" }) => llm.complete(req);
+      } catch {
+        return undefined;
+      }
+    })();
+    if (answerComplete) {
+      console.error(`[eval] answer LLM ${cfg.llm.model} via ${cfg.llm.base_url}`);
+    } else {
+      console.error("[eval] answer LLM unavailable → rule goldHit fallback");
+    }
 
     let baseline:
       | {
@@ -376,17 +394,19 @@ export async function runAdapter(opts: {
         await syncAll(conn.db, ws.repoRoot, "default");
         if (baselineOn) {
           console.error("[eval] baseline query …");
-          baseline = await scoreCases({
+          baseline = await scoreCasesWithAnswer({
             adapter,
             cases,
             repoRoot: ws.repoRoot,
+            brainId: "default",
             retrieve: makeRetrieve(conn.db, {
               queryKind,
               repoRoot: ws.repoRoot,
               embedder: queryEmbedder,
             }),
+            complete: answerComplete,
           });
-          console.error(`[eval] baseline accuracy=${baseline.accuracy}`);
+          console.error(`[eval] baseline accuracy=${baseline.accuracy} mode=${baseline.answerMode}`);
         }
       } finally {
         await conn.close();
@@ -419,15 +439,17 @@ export async function runAdapter(opts: {
       // hooks 已增量索引；再 syncAll 做内容未变短接 / 补漏。
       await syncAll(conn.db, ws.repoRoot, "default");
       console.error("[eval] final query …");
-      const final = await scoreCases({
+      const final = await scoreCasesWithAnswer({
         adapter,
         cases,
         repoRoot: ws.repoRoot,
+        brainId: "default",
         retrieve: makeRetrieve(conn.db, {
           queryKind,
           repoRoot: ws.repoRoot,
           embedder: queryEmbedder,
         }),
+        complete: answerComplete,
       });
       const ok = final.accuracy >= 1;
       const metrics: Record<string, unknown> = {
@@ -444,6 +466,9 @@ export async function runAdapter(opts: {
           : {}),
         layers: final.layers,
         semantic: Boolean(queryEmbedder),
+        answer_mode: final.answerMode,
+        judge: final.judge,
+        llm_model: answerComplete ? cfg.llm.model : undefined,
         retrieval: {
           final: { hits: final.hits, accuracy: final.accuracy },
           ...(baseline

@@ -8,7 +8,7 @@ import {
   refineExperienceWithComplete,
 } from "./distill-complete.ts";
 import { DEFAULT_LLM_CONFIG, type CompleteRequest, type CompleteResult, type DistillDecision, type ExperienceContext, type ExperienceResult, type ExtractFact, type FactExtractMeta, type LLMConfig, type LLMProvider } from "./types.ts";
-import { openaiCompatUrl } from "../util/openai-compat-url.ts";
+import { openaiCompatUrl, zenResponsesUrl } from "../util/openai-compat-url.ts";
 
 const COMPLETE_TIMEOUT_MS = 120_000;
 /** 推理模型（如 hy3-free）会先占 reasoning_content，需留足 completion 额度。 */
@@ -30,6 +30,27 @@ interface ChatCompletionsResponse {
   }>;
   usage?: { prompt_tokens?: number; completion_tokens?: number };
   model?: string;
+}
+
+interface ResponsesApiContent {
+  type?: string;
+  text?: string;
+}
+
+interface ResponsesApiOutput {
+  type?: string;
+  status?: string;
+  role?: string;
+  content?: ResponsesApiContent[];
+}
+
+interface ResponsesApiResponse {
+  status?: string;
+  model?: string;
+  output?: ResponsesApiOutput[];
+  output_text?: string;
+  usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
+  error?: unknown;
 }
 
 function pickMessageText(msg?: {
@@ -56,6 +77,37 @@ function reasoningEffortBody(): Record<string, string> {
   if (!effort) return {};
   if (!["minimal", "low", "medium", "high", "max"].includes(effort)) return {};
   return { reasoning_effort: effort };
+}
+
+/** Responses API 用 reasoning 对象；muse-spark 在 high 下易把 token 花在推理上，默认 minimal。 */
+function responsesReasoningBody(): { reasoning: { effort: string } } {
+  const raw =
+    process.env.DF_MEMORY_REASONING_EFFORT?.trim() ||
+    process.env.DF_EVAL_LLM_REASONING_EFFORT?.trim() ||
+    "minimal";
+  const effort = raw.toLowerCase();
+  const allowed = ["minimal", "low", "medium", "high", "max"];
+  return { reasoning: { effort: allowed.includes(effort) ? effort : "minimal" } };
+}
+
+/** muse-spark 系列走 Zen Responses API（chat/completions 会 401/500）。 */
+function usesResponsesApi(model: string): boolean {
+  return /muse-spark/i.test(model);
+}
+
+function pickResponsesText(json: ResponsesApiResponse): string {
+  if (typeof json.output_text === "string" && json.output_text.trim()) return json.output_text.trim();
+  const out = Array.isArray(json.output) ? json.output : [];
+  const parts: string[] = [];
+  for (const item of out) {
+    if (item?.type !== "message") continue;
+    for (const c of item.content ?? []) {
+      if (c?.type === "output_text" && typeof c.text === "string" && c.text.trim()) {
+        parts.push(c.text);
+      }
+    }
+  }
+  return parts.join("").trim();
 }
 
 export class OpenAILLMProvider implements LLMProvider {
@@ -108,12 +160,16 @@ export class OpenAILLMProvider implements LLMProvider {
     }
 
     const apiKey = this.resolveApiKey();
+    const model = this.cfg.model || DEFAULT_LLM_CONFIG.model;
+    const doFetch = this.opts.fetch ?? globalThis.fetch;
+    if (usesResponsesApi(model)) {
+      return this.completeViaResponses(req, { apiKey, model, doFetch, repoRoot, cost });
+    }
     const url = openaiCompatUrl(this.cfg.base_url || DEFAULT_LLM_CONFIG.base_url, "chat/completions");
     const messages: Array<{ role: "system" | "user"; content: string }> = [];
     if (req.system) messages.push({ role: "system", content: req.system });
     messages.push({ role: "user", content: req.prompt });
 
-    const doFetch = this.opts.fetch ?? globalThis.fetch;
     let res: Response;
     try {
       res = await doFetch(url, {
@@ -171,6 +227,72 @@ export class OpenAILLMProvider implements LLMProvider {
       });
     }
 
+    return { text, usage };
+  }
+
+  /** Zen Responses API（muse-spark 等）：`POST /v1/responses` + `{model, instructions?, input}`。 */
+  private async completeViaResponses(
+    req: CompleteRequest,
+    ctx: {
+      apiKey: string;
+      model: string;
+      doFetch: (input: string | URL, init?: RequestInit) => Promise<Response>;
+      repoRoot?: string;
+      cost?: import("../cost/logger.ts").CostConfig;
+    },
+  ): Promise<CompleteResult> {
+    const url = zenResponsesUrl(this.cfg.base_url || "https://opencode.ai/zen");
+    let res: Response;
+    try {
+      res = await ctx.doFetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${ctx.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: ctx.model,
+          ...(req.system ? { instructions: req.system } : {}),
+          input: req.prompt,
+          max_output_tokens: MAX_TOKENS,
+          ...responsesReasoningBody(),
+        }),
+        signal: AbortSignal.timeout(COMPLETE_TIMEOUT_MS),
+      });
+    } catch (e) {
+      throw new MemoryError(ErrorCodes.LLM, `OpenAI complete 请求失败: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new MemoryError(ErrorCodes.LLM, `OpenAI complete HTTP ${res.status} ${res.statusText}`, {
+        status: res.status,
+        body: body.slice(0, 500),
+      });
+    }
+    let json: ResponsesApiResponse;
+    try {
+      json = (await res.json()) as ResponsesApiResponse;
+    } catch (e) {
+      throw new MemoryError(ErrorCodes.LLM, `OpenAI complete 响应不是 JSON: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    const text = pickResponsesText(json);
+    if (!text) {
+      throw new MemoryError(ErrorCodes.LLM, "OpenAI complete 返回空 output");
+    }
+    const usage = json.usage
+      ? {
+          prompt_tokens: Number(json.usage.input_tokens ?? 0) || 0,
+          completion_tokens: Number(json.usage.output_tokens ?? 0) || 0,
+        }
+      : undefined;
+    if (ctx.repoRoot && ctx.cost) {
+      await appendCostEntry(ctx.repoRoot, ctx.cost, {
+        kind: req.purpose === "compile" ? "compile" : req.purpose,
+        tokens_in: usage?.prompt_tokens ?? 0,
+        tokens_out: usage?.completion_tokens ?? 0,
+        model: json.model || ctx.model,
+      });
+    }
     return { text, usage };
   }
 

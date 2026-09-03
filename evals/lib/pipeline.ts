@@ -4,6 +4,7 @@
  */
 import type { QueryHit } from "../../packages/core/src/index.ts";
 import { hitsToEvalBlob } from "./rule-agent.ts";
+import { answerWithMemory, buildAnswerContext, evalAnswerMode, evalJudgeKind, llmJudge, shouldAnswerWithLlm } from "./answer.ts";
 import type { EvalAdapter, EvalCase } from "../adapters/types.ts";
 
 export function evalFullPipelineEnabled(): boolean {
@@ -68,6 +69,16 @@ export function evalCompileConcurrency(): number {
   return Math.min(Math.floor(n), 32);
 }
 
+/** 评测 LLM key 是否可用（muse-spark 走 OPENCODE_API_KEY，兼容旧 OPENAI key 与 mock）。 */
+export function hasEvalLlmKey(): boolean {
+  return Boolean(
+    process.env.OPENCODE_API_KEY?.trim() ||
+      process.env.OPENCODE_GO_API_KEY?.trim() ||
+      process.env.OPENAI_API_KEY?.trim() ||
+      process.env.DF_MEMORY_MOCK_COMPLETE?.trim(),
+  );
+}
+
 export function layerHistogram(hits: QueryHit[]): Record<string, number> {
   const hist: Record<string, number> = {};
   for (const h of hits) {
@@ -121,4 +132,77 @@ export async function scoreCases(opts: {
   }
   const n = opts.cases.length;
   return { hits, accuracy: n === 0 ? 0 : hits / n, rows, layers };
+}
+
+export type AnswerFn = (req: { prompt: string; system?: string; purpose: "other" }) => Promise<{ text: string }>;
+
+/**
+ * 两阶段评分：retrieve 片段 → read 全文/history → LLM 作答 → 评分。
+ * 默认 `DF_EVAL_ANSWER=auto`：有 key 则走 LLM 作答，否则回退规则 goldHit；
+ * `DF_EVAL_JUDGE=llm` 时用同一模型做 YES/NO 语义判定，否则规则子串。
+ */
+export async function scoreCasesWithAnswer(opts: {
+  adapter: EvalAdapter;
+  cases: EvalCase[];
+  repoRoot: string;
+  brainId?: string;
+  retrieve: (query: string) => Promise<QueryHit[]>;
+  complete?: AnswerFn;
+}): Promise<{
+  hits: number;
+  accuracy: number;
+  rows: Array<{ id: string; score: number; layers: Record<string, number>; answer?: string }>;
+  layers: Record<string, number>;
+  answerMode: "llm" | "rule";
+  judge: "llm" | "rule";
+}> {
+  const brainId = opts.brainId ?? "default";
+  const answerModeCfg = evalAnswerMode();
+  const judgeKind = evalJudgeKind();
+  const useLlm = shouldAnswerWithLlm(answerModeCfg, Boolean(opts.complete));
+  const answerMode: "llm" | "rule" = useLlm ? "llm" : "rule";
+  let hits = 0;
+  const rows: Array<{ id: string; score: number; layers: Record<string, number>; answer?: string }> = [];
+  const layers: Record<string, number> = {};
+  for (const c of opts.cases) {
+    const retrieved = await opts.retrieve(c.query);
+    const caseLayers = layerHistogram(retrieved);
+    mergeLayerHist(layers, retrieved);
+    if (!useLlm || !opts.complete) {
+      const blob = await hitsToEvalBlob(opts.repoRoot, retrieved);
+      const score = opts.adapter.score(blob, c.gold);
+      if (score >= 1) hits++;
+      rows.push({ id: c.id, score, layers: caseLayers });
+      continue;
+    }
+    const context = await buildAnswerContext(opts.repoRoot, brainId, retrieved);
+    let answer = "";
+    try {
+      answer = await answerWithMemory({ query: c.query, context, complete: opts.complete });
+    } catch {
+      answer = await hitsToEvalBlob(opts.repoRoot, retrieved);
+    }
+    const goldStr = Array.isArray(c.gold) ? c.gold.join("\n") : String(c.gold ?? "");
+    let score: number;
+    if (judgeKind === "llm" && opts.complete) {
+      try {
+        score = await llmJudge({ query: c.query, gold: goldStr, answer, complete: opts.complete });
+      } catch {
+        score = opts.adapter.score(answer, c.gold);
+      }
+      // LLM 判 NO 但规则命中时保留规则分，避免 judge 过严导致假阴性。
+      if (score < 1 && opts.adapter.score(answer, c.gold) >= 1) score = 1;
+    } else {
+      score = opts.adapter.score(answer, c.gold);
+      // 作答抽取丢失时回退全文 blob，避免截断假阴性。
+      if (score < 1) {
+        const blob = await hitsToEvalBlob(opts.repoRoot, retrieved);
+        if (opts.adapter.score(blob, c.gold) >= 1) score = 1;
+      }
+    }
+    if (score >= 1) hits++;
+    rows.push({ id: c.id, score, layers: caseLayers, answer: answer.slice(0, 500) });
+  }
+  const n = opts.cases.length;
+  return { hits, accuracy: n === 0 ? 0 : hits / n, rows, layers, answerMode, judge: judgeKind };
 }
