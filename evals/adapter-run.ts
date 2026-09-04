@@ -207,7 +207,10 @@ export async function runAdapter(opts: {
           console.error(`[eval] part ${range.part} already done next=${cp.next}`);
           return;
         }
-        const sessionId = `evalp${range.part}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+        // 窗口 compile 后 core 会把 session 标 done，后续 turns 必须换新 session（否则 CONFLICT 已结束）。
+        let sessionId = `evalp${range.part}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+        const newSession = () =>
+          `evalp${range.part}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
         console.error(
           `[eval] part ${range.part} resume next=${cp.next}/${range.end} session=${sessionId}`,
         );
@@ -246,6 +249,8 @@ export async function runAdapter(opts: {
             console.error(
               `[eval] part ${range.part} compiled kept=${appended.compiled.kept.length} next=${cp.next}/${range.end} global_turns≈${progress.turns}`,
             );
+            // 该 session 已 done，换新 session 继续。
+            sessionId = newSession();
           } else if (progress.turns % step === 0) {
             console.error(
               `[eval] part ${range.part} buffered i=${i} open=${appended.buffered_turns}`,
