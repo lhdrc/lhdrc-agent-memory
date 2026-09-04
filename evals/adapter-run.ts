@@ -18,9 +18,13 @@ import {
   type SqlClient,
 } from "../packages/core/src/index.ts";
 import { getAdapter } from "./adapters/registry.ts";
+import { retrieveLocomoStage } from "./lib/locomo-retrieve.ts";
+import { extractDiaIds, scoreLocomo, type LocomoCaseScoreInput } from "./lib/locomo-score.ts";
+import { hitsToEvalBlob } from "./lib/rule-agent.ts";
 import { fixtureDir, cacheDir } from "./lib/paths.ts";
 import { writeReceipt } from "./lib/receipt.ts";
 import { createEvalWorkspace } from "./lib/workspace.ts";
+import type { EvalAdapter, EvalCase } from "./adapters/types.ts";
 import {
   evalBaselineEnabled,
   evalCompileConcurrency,
@@ -31,6 +35,7 @@ import {
   evalStopAfter,
   hasEvalLlmKey,
   scoreCasesWithAnswer,
+  type AnswerFn,
 } from "./lib/pipeline.ts";
 import {
   loadOrInitManifest,
@@ -78,18 +83,123 @@ function summarizeDream(phases: DreamPhaseResult[]): {
   };
 }
 
+function brainFor(c: { meta?: Record<string, unknown> }): string {
+  const b = c.meta?.brain;
+  return typeof b === "string" && b.length > 0 ? b : "default";
+}
+
+async function scoreGrouped(opts: {
+  adapter: EvalAdapter;
+  cases: EvalCase[];
+  repoRoot: string;
+  retrieveFor: (brain: string) => (query: string) => Promise<QueryHit[]>;
+  complete?: AnswerFn;
+}): Promise<{
+  hits: number;
+  accuracy: number;
+  rows: Array<{ id: string; score: number; layers: Record<string, number>; answer?: string }>;
+  layers: Record<string, number>;
+  answerMode: "llm" | "rule";
+  judge: "llm" | "rule";
+}> {
+  const groups = new Map<string, EvalCase[]>();
+  for (const c of opts.cases) {
+    const b = brainFor(c);
+    if (!groups.has(b)) groups.set(b, []);
+    groups.get(b)!.push(c);
+  }
+  let hits = 0;
+  const rows: Array<{ id: string; score: number; layers: Record<string, number>; answer?: string }> = [];
+  const layers: Record<string, number> = {};
+  let answerMode: "llm" | "rule" = "rule";
+  let judge: "llm" | "rule" = "rule";
+  for (const [b, cs] of groups) {
+    const r = await scoreCasesWithAnswer({
+      adapter: opts.adapter,
+      cases: cs,
+      repoRoot: opts.repoRoot,
+      brainId: b,
+      retrieve: opts.retrieveFor(b),
+      complete: opts.complete,
+    });
+    hits += r.hits;
+    rows.push(...r.rows);
+    answerMode = r.answerMode;
+    judge = r.judge;
+    for (const [k, n] of Object.entries(r.layers)) layers[k] = (layers[k] ?? 0) + n;
+  }
+  const n = opts.cases.length;
+  return { hits, accuracy: n === 0 ? 0 : hits / n, rows, layers, answerMode, judge };
+}
+
+/** locomo 分阶段检索运行器：stage1 miss 才回跳 history / 加 experiences+skills。 */
+function makeLocomoStagedRunner(repoRoot: string) {
+  const stats: Array<{ id: string; brain: string; stages: string[]; historyExpanded: number; arms: Record<string, number>; diaIds: string[]; text: string }> = [];
+  let byId = new Map<string, EvalCase>();
+  const pending = new Map<string, string[]>();
+  return {
+    stats,
+    reset(cases: EvalCase[]) {
+      stats.length = 0;
+      byId = new Map(cases.map((c) => [c.id, c]));
+      pending.clear();
+      for (const c of cases) {
+        const k = `${brainFor(c)}\n${c.query}`;
+        if (!pending.has(k)) pending.set(k, []);
+        pending.get(k)!.push(c.id);
+      }
+    },
+    retrieveFor(db: SqlClient, embedder: EmbeddingProvider | undefined) {
+      return (b: string) => async (query: string): Promise<QueryHit[]> => {
+        const k = `${b}\n${query}`;
+        const id = pending.get(k)?.shift() ?? `${b}:${query}`;
+        const c = byId.get(id);
+        const r = await retrieveLocomoStage(
+          db,
+          { brainId: b, repoRoot, embedder },
+          query,
+          c?.gold ?? "",
+          (hits) => hitsToEvalBlob(repoRoot, hits),
+        );
+        stats.push({ id, brain: b, stages: r.stages, historyExpanded: r.historyExpanded, arms: r.arms, diaIds: extractDiaIds(r.hits), text: r.hits.map((h) => `${h.title ?? ""}\n${h.snippet ?? ""}`).join("\n") });
+        return r.hits;
+      };
+    },
+  };
+}
+
+function summarizeStaging(
+  stats: Array<{ stages: string[]; historyExpanded: number; arms: Record<string, number> }>,
+): Record<string, unknown> {
+  const histogram: Record<string, number> = {};
+  let expanded = 0;
+  const armsTotal: Record<string, number> = {};
+  for (const s of stats) {
+    const k = s.stages.join("+");
+    histogram[k] = (histogram[k] ?? 0) + 1;
+    expanded += s.historyExpanded;
+    for (const [ak, av] of Object.entries(s.arms)) armsTotal[ak] = (armsTotal[ak] ?? 0) + av;
+  }
+  return {
+    stage_histogram: histogram,
+    history_expand_rate: stats.length === 0 ? 0 : expanded / stats.length,
+    arms_total: armsTotal,
+  };
+}
+
 function makeRetrieve(
   db: SqlClient,
   opts: {
     queryKind: "hybrid" | "think";
     repoRoot: string;
+    brainId: string;
     embedder?: EmbeddingProvider;
   },
 ): (query: string) => Promise<QueryHit[]> {
   return async (query: string) => {
     if (opts.queryKind === "think") {
       const r = await thinkQuery(db, {
-        brainId: "default",
+        brainId: opts.brainId,
         query,
         limit: 10,
         repoRoot: opts.repoRoot,
@@ -105,7 +215,7 @@ function makeRetrieve(
       }));
     }
     return hybridQuery(db, {
-      brainId: "default",
+      brainId: opts.brainId,
       query,
       skipCache: true,
       limit: 10,
@@ -129,6 +239,7 @@ export async function runAdapter(opts: {
   if (cases.length === 0) {
     throw new Error(`${adapter.id} 无 case。请使用 --fixture 或 fetch --allow-net`);
   }
+  const caseBrains = [...new Set(cases.map(brainFor))];
 
   const full = evalFullPipelineEnabled();
   const baselineOn = full && evalBaselineEnabled();
@@ -136,15 +247,18 @@ export async function runAdapter(opts: {
   const dreamPhases = evalDreamPhases();
   const ingestMode = evalIngestMode();
   const stopAfter = evalStopAfter();
-  const persistDir =
-    process.env.DF_EVAL_WORKSPACE?.trim() ||
-    (stopAfter === "ingest" ? join(process.cwd(), "evals", "workspaces", adapter.id) : undefined);
-  // 默认不 reset：保留仓与分区 checkpoint，便于断点续跑。清空请显式 DF_EVAL_WORKSPACE_RESET=1
-  const resetWorkspace = (process.env.DF_EVAL_WORKSPACE_RESET ?? "0").trim().toLowerCase();
-  const doReset = resetWorkspace === "1" || resetWorkspace === "true" || resetWorkspace === "yes";
+  // 默认落盘到 evals/workspaces/<adapter> 便于复查；默认 reset 保证干净可复现。
+  // 自定义 DF_EVAL_WORKSPACE 时沿旧语义：默认续跑，DF_EVAL_WORKSPACE_RESET=1 才清空。
+  const customDir = process.env.DF_EVAL_WORKSPACE?.trim();
+  const persistDir = customDir || join(process.cwd(), "evals", "workspaces", adapter.id);
+  const resetRaw = (process.env.DF_EVAL_WORKSPACE_RESET ?? "").trim().toLowerCase();
+  const doReset = customDir
+    ? resetRaw === "1" || resetRaw === "true" || resetRaw === "yes"
+    : !(resetRaw === "0" || resetRaw === "false" || resetRaw === "no");
 
   const ws = await createEvalWorkspace({
     brain: "default",
+    extraBrains: caseBrains.filter((b) => b !== "default"),
     persistDir,
     reset: Boolean(persistDir) && doReset,
   });
@@ -161,10 +275,21 @@ export async function runAdapter(opts: {
     const ingested = new Set<string>();
     const maxIngest = Number.parseInt(process.env.DF_EVAL_MAX_INGEST ?? "0", 10);
     let ingestDone = false;
-    const planned =
-      maxIngest > 0
-        ? Math.min(maxIngest, new Set(cases.flatMap((c) => c.ingestTexts ?? [])).size)
-        : new Set(cases.flatMap((c) => c.ingestTexts ?? [])).size;
+    // brain+text 去重：同文本跨 brain 互不吞并（locomo 每会话独立 brain）。
+    const allPairs: Array<{ brain: string; text: string }> = [];
+    {
+      const seen = new Set<string>();
+      for (const c of cases) {
+        const b = brainFor(c);
+        for (const text of c.ingestTexts ?? []) {
+          const k = `${b}\n${text}`;
+          if (seen.has(k)) continue;
+          seen.add(k);
+          allPairs.push({ brain: b, text });
+        }
+      }
+    }
+    const planned = maxIngest > 0 ? Math.min(maxIngest, allPairs.length) : allPairs.length;
     const step = planned > 500 ? 100 : planned > 50 ? 25 : 5;
     let compileRuns = 0;
     let keptTotal = 0;
@@ -174,16 +299,8 @@ export async function runAdapter(opts: {
     );
 
     if (ingestMode === "compile") {
-      const texts: string[] = [];
-      for (const c of cases) {
-        for (const text of c.ingestTexts ?? []) {
-          if (ingested.has(text)) continue;
-          if (maxIngest > 0 && texts.length >= maxIngest) break;
-          ingested.add(text);
-          texts.push(text);
-        }
-        if (maxIngest > 0 && texts.length >= maxIngest) break;
-      }
+      const texts = maxIngest > 0 ? allPairs.slice(0, maxIngest) : allPairs;
+      for (const t of texts) ingested.add(`${t.brain}\n${t.text}`);
       const concurrency = evalCompileConcurrency();
       const ranges = partitionRanges(texts.length, concurrency);
       const ckReset = doReset;
@@ -208,22 +325,28 @@ export async function runAdapter(opts: {
           return;
         }
         // 窗口 compile 后 core 会把 session 标 done，后续 turns 必须换新 session（否则 CONFLICT 已结束）。
-        let sessionId = `evalp${range.part}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+        // session 按 brain 独立（同 id 跨 brain 落不同目录），用表分别跟踪。
         const newSession = () =>
           `evalp${range.part}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+        const sessionByBrain = new Map<string, string>();
         console.error(
-          `[eval] part ${range.part} resume next=${cp.next}/${range.end} session=${sessionId}`,
+          `[eval] part ${range.part} resume next=${cp.next}/${range.end}`,
         );
         for (let i = cp.next; i < range.end; i++) {
-          const text = texts[i]!;
+          const item = texts[i]!;
+          let sessionId = sessionByBrain.get(item.brain);
+          if (!sessionId) {
+            sessionId = newSession();
+            sessionByBrain.set(item.brain, sessionId);
+          }
           const appended = await appendSessionTurns({
             repoRoot: ws.repoRoot,
-            brainId: "default",
+            brainId: item.brain,
             sourceId: "default",
             createdBy: `eval:${adapter.id}:p${range.part}`,
             pack: ws.pack,
             queue: ws.queue,
-            turns: [{ role: "user", text }],
+            turns: [{ role: "user", text: item.text }],
             window: true,
             sessionId,
             bindOpen: false,
@@ -249,46 +372,48 @@ export async function runAdapter(opts: {
             console.error(
               `[eval] part ${range.part} compiled kept=${appended.compiled.kept.length} next=${cp.next}/${range.end} global_turns≈${progress.turns}`,
             );
-            // 该 session 已 done，换新 session 继续。
-            sessionId = newSession();
+            // 该 brain 的 session 已 done，换新 session 继续。
+            sessionByBrain.set(item.brain, newSession());
           } else if (progress.turns % step === 0) {
             console.error(
               `[eval] part ${range.part} buffered i=${i} open=${appended.buffered_turns}`,
             );
           }
         }
-        try {
-          const flushed = await endSession({
-            repoRoot: ws.repoRoot,
-            brainId: "default",
-            sourceId: "default",
-            createdBy: `eval:${adapter.id}:p${range.part}`,
-            pack: ws.pack,
-            queue: ws.queue,
-            sessionId,
-          });
-          cp = {
-            ...cp,
-            next: range.end,
-            compiles: cp.compiles + 1,
-            kept: cp.kept + flushed.kept.length,
-            done: true,
-            updated_at: new Date().toISOString(),
-          };
-          await savePartCheckpoint(ws.repoRoot, cp);
-          progress.compiles += 1;
-          progress.kept += flushed.kept.length;
-          console.error(
-            `[eval] part ${range.part} endSession kept=${flushed.kept.length} errors=${flushed.errors.length}`,
-          );
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          if (/没有打开中的滑动窗口|inbox session 已结束/.test(msg)) {
-            cp = { ...cp, next: range.end, done: true, updated_at: new Date().toISOString() };
+        for (const [b, sid] of sessionByBrain) {
+          try {
+            const flushed = await endSession({
+              repoRoot: ws.repoRoot,
+              brainId: b,
+              sourceId: "default",
+              createdBy: `eval:${adapter.id}:p${range.part}`,
+              pack: ws.pack,
+              queue: ws.queue,
+              sessionId: sid,
+            });
+            cp = {
+              ...cp,
+              next: range.end,
+              compiles: cp.compiles + 1,
+              kept: cp.kept + flushed.kept.length,
+              done: true,
+              updated_at: new Date().toISOString(),
+            };
             await savePartCheckpoint(ws.repoRoot, cp);
-          } else {
-            await savePartCheckpoint(ws.repoRoot, cp);
-            throw e;
+            progress.compiles += 1;
+            progress.kept += flushed.kept.length;
+            console.error(
+              `[eval] part ${range.part} brain=${b} endSession kept=${flushed.kept.length} errors=${flushed.errors.length}`,
+            );
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            if (/没有打开中的滑动窗口|inbox session 已结束/.test(msg)) {
+              cp = { ...cp, next: range.end, done: true, updated_at: new Date().toISOString() };
+              await savePartCheckpoint(ws.repoRoot, cp);
+            } else {
+              await savePartCheckpoint(ws.repoRoot, cp);
+              throw e;
+            }
           }
         }
       });
@@ -301,16 +426,18 @@ export async function runAdapter(opts: {
     } else {
       for (const c of cases) {
         if (ingestDone) break;
+        const b = brainFor(c);
         for (const text of c.ingestTexts ?? []) {
-          if (ingested.has(text)) continue;
+          const k = `${b}\n${text}`;
+          if (ingested.has(k)) continue;
           if (maxIngest > 0 && ingested.size >= maxIngest) {
             ingestDone = true;
             break;
           }
-          ingested.add(text);
+          ingested.add(k);
           const title = text.slice(0, 80);
           await captureNode(ws.repoRoot, ws.pack, ws.queue, {
-            brainId: "default",
+            brainId: b,
             sourceId: "default",
             schemaType: "note",
             title,
@@ -383,6 +510,16 @@ export async function runAdapter(opts: {
       console.error("[eval] answer LLM unavailable → rule goldHit fallback");
     }
 
+    // locomo + hybrid：分阶段检索（stage1 miss 才 history 回跳 / 加 experiences+skills）。
+    const useStaged = adapter.id === "locomo" && queryKind === "hybrid";
+    const staged = makeLocomoStagedRunner(ws.repoRoot);
+    const retrieveForConn = (db: SqlClient) => (b: string) =>
+      useStaged
+        ? staged.retrieveFor(db, queryEmbedder)(b)
+        : makeRetrieve(db, { queryKind, repoRoot: ws.repoRoot, brainId: b, embedder: queryEmbedder });
+    let stagingBaseline: Record<string, unknown> | undefined;
+    let stagingFinal: Record<string, unknown> | undefined;
+
     let baseline:
       | {
           hits: number;
@@ -396,21 +533,18 @@ export async function runAdapter(opts: {
     {
       const conn = await openPglite(ws.repoRoot);
       try {
-        await syncAll(conn.db, ws.repoRoot, "default");
+        for (const b of caseBrains) await syncAll(conn.db, ws.repoRoot, b);
         if (baselineOn) {
           console.error("[eval] baseline query …");
-          baseline = await scoreCasesWithAnswer({
+          if (useStaged) staged.reset(cases);
+          baseline = await scoreGrouped({
             adapter,
             cases,
             repoRoot: ws.repoRoot,
-            brainId: "default",
-            retrieve: makeRetrieve(conn.db, {
-              queryKind,
-              repoRoot: ws.repoRoot,
-              embedder: queryEmbedder,
-            }),
+            retrieveFor: retrieveForConn(conn.db),
             complete: answerComplete,
           });
+          if (useStaged) stagingBaseline = summarizeStaging(staged.stats);
           console.error(`[eval] baseline accuracy=${baseline.accuracy} mode=${baseline.answerMode}`);
         }
       } finally {
@@ -421,42 +555,94 @@ export async function runAdapter(opts: {
     let dreamSummary: ReturnType<typeof summarizeDream> | undefined;
     let contradictionList = 0;
     if (full) {
-      console.error(`[eval] dream phases=${dreamPhases.join(",")} …`);
-      const dream = await runDream(ws.repoRoot, {
-        brainId: "default",
-        queue: ws.queue,
-        phases: dreamPhases,
-        embedder: dreamEmbedder,
-      });
-      dreamSummary = summarizeDream(dream.phases);
-      console.error(
-        `[eval] dream done distill.written=${dreamSummary.distill.written} contra.cross=${dreamSummary.contradictions.cross_file}`,
-      );
-      try {
-        contradictionList = (await listContradictions(ws.repoRoot, "default")).length;
-      } catch {
-        contradictionList = 0;
+      let written = 0;
+      let intra = 0;
+      let crossFile = 0;
+      let truncated = false;
+      let skipped: boolean | undefined;
+      let reason: unknown;
+      const phases: Array<{
+        phase: number;
+        name: string;
+        ok: boolean;
+        skipped?: boolean;
+        reason?: string;
+        details?: Record<string, unknown>;
+        brain: string;
+      }> = [];
+      for (const b of caseBrains) {
+        console.error(`[eval] dream brain=${b} phases=${dreamPhases.join(",")} …`);
+        const dream = await runDream(ws.repoRoot, {
+          brainId: b,
+          queue: ws.queue,
+          phases: dreamPhases,
+          embedder: dreamEmbedder,
+        });
+        const s = summarizeDream(dream.phases);
+        written += Number(s.distill.written ?? 0);
+        intra += Number(s.contradictions.intra ?? 0);
+        crossFile += Number(s.contradictions.cross_file ?? 0);
+        truncated = truncated || s.contradictions.truncated === true;
+        if (skipped === undefined) {
+          skipped = Boolean(s.distill.skipped);
+          reason = s.distill.reason;
+        } else {
+          skipped = skipped && Boolean(s.distill.skipped);
+        }
+        for (const p of s.phases) phases.push({ ...p, brain: b });
+        console.error(
+          `[eval] dream brain=${b} done distill.written=${s.distill.written} contra.cross=${s.contradictions.cross_file}`,
+        );
+        try {
+          contradictionList += (await listContradictions(ws.repoRoot, b)).length;
+        } catch {
+          /* fail-open */
+        }
       }
+      dreamSummary = {
+        distill: { skipped, reason, written },
+        contradictions: { intra, cross_file: crossFile, truncated },
+        phases,
+      };
     }
 
     const conn = await openPglite(ws.repoRoot);
     try {
       // hooks 已增量索引；再 syncAll 做内容未变短接 / 补漏。
-      await syncAll(conn.db, ws.repoRoot, "default");
+      for (const b of caseBrains) await syncAll(conn.db, ws.repoRoot, b);
       console.error("[eval] final query …");
-      const final = await scoreCasesWithAnswer({
+      if (useStaged) staged.reset(cases);
+      const final = await scoreGrouped({
         adapter,
         cases,
         repoRoot: ws.repoRoot,
-        brainId: "default",
-        retrieve: makeRetrieve(conn.db, {
-          queryKind,
-          repoRoot: ws.repoRoot,
-          embedder: queryEmbedder,
-        }),
+        retrieveFor: retrieveForConn(conn.db),
         complete: answerComplete,
       });
+      if (useStaged) stagingFinal = summarizeStaging(staged.stats);
       const ok = final.accuracy >= 1;
+      // locomo 官方口径：F1 + R@5 + 分类表（adversarial 单列，accuracy_main 剔除 cat5）。
+      let locomoScore: Record<string, unknown> | undefined;
+      if (adapter.id === "locomo" && useStaged) {
+        const byRowId = new Map(final.rows.map((r) => [r.id, r]));
+        const byCaseId = new Map(cases.map((c) => [c.id, c]));
+        const items: LocomoCaseScoreInput[] = staged.stats.map((s) => {
+          const row = byRowId.get(s.id);
+          const c = byCaseId.get(s.id);
+          const answer = row?.answer?.trim();
+          return {
+            id: s.id,
+            score: row?.score ?? 0,
+            text: answer ? answer : s.text,
+            diaIds: s.diaIds,
+            gold: c?.gold ?? "",
+            evidence: Array.isArray(c?.evidence) ? (c.evidence as string[]) : [],
+            category: (c?.meta as Record<string, unknown> | undefined)?.category,
+          };
+        });
+        const sum = scoreLocomo(items);
+        locomoScore = { f1: sum.f1, r_at_5: sum.rAtK, by_category: sum.byCategory, accuracy_main: sum.accuracyMain };
+      }
       const metrics: Record<string, unknown> = {
         n: cases.length,
         hits: final.hits,
@@ -483,6 +669,9 @@ export async function runAdapter(opts: {
               }
             : {}),
         },
+        ...(stagingFinal ? { staging: stagingFinal } : {}),
+        ...(stagingBaseline ? { staging_baseline: stagingBaseline } : {}),
+        ...(locomoScore ?? {}),
       };
       if (dreamSummary) {
         metrics.distill = dreamSummary.distill;

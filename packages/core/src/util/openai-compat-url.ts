@@ -14,8 +14,6 @@ export function openaiCompatUrl(
 export function zenResponsesUrl(baseUrl: string): string {
   const b = baseUrl.replace(/\/+$/, "");
   if (/\/responses$/.test(b)) return b;
-  // Go 网关（/zen/go）不支持 muse-spark，回落到 Zen 主网关。
-  if (b.includes("opencode.ai/zen/go")) return "https://opencode.ai/zen/v1/responses";
   if (b.includes("opencode.ai/zen")) {
     const root = b.endsWith("/v1") ? b : `${b}/v1`;
     // b 可能已是 .../zen/v1/chat 之类，统一收敛到 /zen/v1/responses

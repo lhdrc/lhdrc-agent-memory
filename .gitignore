@@ -19,3 +19,4 @@ reports/test-run-latest.txt
 *.tgz
 Memory 优化.md
 evals/*
+docs/superpowers
