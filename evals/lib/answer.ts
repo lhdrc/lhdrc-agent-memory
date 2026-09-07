@@ -81,10 +81,14 @@ export async function buildAnswerContext(
   return sections.join("\n\n");
 }
 
+// 作答 prompt：对齐 LoCoMo 官方 QA_PROMPT（短语作答、尽量用原文、DATE 解相对时间），
+// 保留本仓特性：history 回跳原文 + NOT_FOUND（仅 truly-absent 时）。
 const ANSWER_SYSTEM = [
-  "You answer questions using ONLY the provided memory excerpts.",
-  "Quote original wording for names/numbers; do not invent.",
-  "If the excerpts do not contain the answer, reply exactly: NOT_FOUND.",
+  "Answer in the form of a short phrase, using exact words from the memory excerpts whenever possible.",
+  "Each excerpt carries its DATE stamp and may include history turns: use dates to resolve relative time expressions (e.g. yesterday, last Friday) and answer temporal questions with an approximate date.",
+  "Resolve relative dates step by step: (1) find the DATE stamp of the excerpt containing the event; (2) interpret the relative expression against that date with calendar arithmetic; (3) output the computed absolute date. Example: excerpt dated '8 May 2023' saying 'went yesterday' resolves to '7 May 2023'.",
+  "Quote names and numbers exactly; do not invent facts not grounded in the excerpts or their history.",
+  "If neither the excerpts nor their history contain any basis for the answer, reply exactly: NOT_FOUND.",
   "Reply in the same language as the question, concisely.",
 ].join(" ");
 

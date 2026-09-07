@@ -99,8 +99,16 @@ export function parseLocomoDetailed(data: unknown): { samples: LocomoSampleDetai
         .map(([k, v]) => ({ session: k, text: String(v) }));
       const cases: EvalCase[] = (s.qa ?? []).flatMap((qa, i) => {
         const query = String(qa.question ?? "").trim();
+        // 真全量答案非字符串：数字转串；None=adversarial不可答题，哨兵分+单列（见 accuracy_main）。
+        const rawGold = (qa as { answer?: unknown }).answer;
+        const gold = Array.isArray(rawGold)
+          ? rawGold.map((g) => String(g))
+          : rawGold == null
+            ? "__UNANSWERABLE__"
+            : String(rawGold);
+        const adversarial = rawGold == null;
         return query
-          ? [{ id: `${s.sample_id ?? `sample${si}`}-q${i}`, query, gold: qa.answer ?? "", evidence: qa.evidence, ingestTexts: [], meta: { category: qa.category, sample_id: s.sample_id, dia_ids: qa.evidence } }]
+          ? [{ id: `${s.sample_id ?? `sample${si}`}-q${i}`, query, gold, evidence: qa.evidence, ingestTexts: [], meta: { category: qa.category, sample_id: s.sample_id, dia_ids: qa.evidence, adversarial } }]
           : [];
       });
       return { sampleId: String(s.sample_id ?? `sample${si}`), turns, observations, cases };
@@ -139,8 +147,14 @@ export const locomoAdapter: EvalAdapter = {
       raw = JSON.parse(await readFile(cached, "utf8"));
     }
     const { samples } = parseLocomoDetailed(raw);
+    // DF_EVAL_LOCOMO_SAMPLE=conv-26：只跑单个会话（摄入→dream→答题闭环）。
+    const only = process.env.DF_EVAL_LOCOMO_SAMPLE?.trim();
+    const picked = only ? samples.filter((s) => s.sampleId === only) : samples;
+    if (only && picked.length === 0) {
+      throw new Error(`DF_EVAL_LOCOMO_SAMPLE=${only} 无匹配（可用: ${samples.map((s) => s.sampleId).join(",")}）`);
+    }
     const out: EvalCase[] = [];
-    for (const s of samples) {
+    for (const s of picked) {
       const brain = locomoBrainFor(s.sampleId);
       const ingestTexts = s.turns.map(formatLocomoTurn);
       for (const o of s.observations) {
