@@ -17,6 +17,7 @@ import { applyDirectoryPrefilter, type DirectoryPrefilterExplain } from "./prefi
 import { annotateHits } from "./annotate.ts";
 import { applyStaleDemote, loadCrossFilePairs, type StaleDemoteExplain } from "./stale.ts";
 import { recordQueryStat, type QueryEvidenceCounts } from "../observer/stats.ts";
+import { CHUNKER_VERSION } from "../index/chunksplit.ts";
 import { bumpHitCounts, readHitCounts } from "../observer/hit-counts.ts";
 import {
   degradation,
@@ -40,7 +41,12 @@ export interface HybridQueryOptions extends QueryOptions {
   scopePass?: boolean;
   /** 内部：窄搜不写 query log */
   omitQueryStat?: boolean;
-  /** 测试注入；throw 时 rerank=skipped */
+  /**
+   * P14.5 cross-encoder 插槽正式接口（不含权重、不调网络）
+   * - 三档：off/local/model（model 仅 tokenmax 生效，缺权重抛 E_DISABLED 降级 local → skipped）
+   * - 生产未接线时为 undefined；测试/本地可注入实现，抛错时 fail-open
+   * - 仅查询时生效，不碰索引/表
+   */
   rerankFn?: (query: string, hits: QueryHit[]) => QueryHit[] | Promise<QueryHit[]>;
 }
 
@@ -91,6 +97,8 @@ export interface QueryExplain {
     fused?: number;
     cosine?: number;
     hotness?: number;
+    /** P14.5 local rerank 贡献（沿用 score_details 思路） */
+    rerank?: number;
     final?: number;
     dropped?: "per_arm" | "fused_min" | null;
   }>;
@@ -104,11 +112,13 @@ export interface HybridQueryResult {
 }
 
 function embeddingMetaMismatch(
-  stored: { provider: string; dims: number } | null,
+  stored: { provider: string; dims: number; chunker?: string } | null,
   embedder: EmbeddingProvider,
 ): boolean {
   if (!stored) return false;
-  return stored.provider !== embedder.id || stored.dims !== embedder.dims;
+  if (stored.provider !== embedder.id || stored.dims !== embedder.dims) return true;
+  // P14.3：无 chunker 视为旧库；版本不一致提示 rebuild（存量不管，fail-open 跳语义臂）
+  return stored.chunker !== CHUNKER_VERSION;
 }
 
 function armRanks(hits: RankedHit[]): Array<{ path: string; rank: number }> {
@@ -327,6 +337,7 @@ function buildScoreDetails(
   cosineByPath: Map<string, number>,
   hotnessByPath: Map<string, number>,
   cosineStatus: "applied" | "skipped",
+  rerankByPath?: Map<string, number>,
 ): ScoreDetail[] {
   return finalHits.map((h) => {
     const f = fusedByPath.get(h.path);
@@ -345,6 +356,10 @@ function buildScoreDetails(
     }
     const hb = hotnessByPath.get(h.path);
     if (hb !== undefined) detail.hotness = hb;
+    if (rerankByPath) {
+      const rv = rerankByPath.get(h.path);
+      if (rv !== undefined) detail.rerank = rv;
+    }
     return detail;
   });
 }
@@ -796,6 +811,13 @@ export async function hybridQueryDetailed(
     } catch {
       if (wantModel) {
         try {
+          // E_DISABLED 降级：缺权重/无 Key 时回退 local
+          if (!rerankScores) {
+            rerankScores = hits.slice(0, search.tokenmax.rerank_top_n).map((h) => ({
+              path: h.path,
+              score: localRerankScore(q, h.title, h.snippet),
+            }));
+          }
           hits = localRerank(q, hits, search.tokenmax.rerank_top_n);
           rerankStatus = "local";
         } catch {
@@ -816,6 +838,8 @@ export async function hybridQueryDetailed(
   const searched_directories = dirExplain
     ? searchedDirsFromPrefilter(prefilterFused ?? fused)
     : searchedDirsFromHits(hits);
+
+  const rerankByPath = rerankScores ? new Map(rerankScores.map((s) => [s.path, s.score])) : undefined;
 
   const explain: QueryExplain | undefined = opts.explain
     ? {
@@ -870,6 +894,7 @@ export async function hybridQueryDetailed(
           cosineByPath,
           hotnessByPath,
           cosineStatus,
+          rerankByPath,
         ),
       }
     : undefined;

@@ -17,3 +17,4 @@ reports/test-run-latest.txt
 *.tgz
 Memory 优化.md
 evals/*
+docs/BM-25DECISONS.md

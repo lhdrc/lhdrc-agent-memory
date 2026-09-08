@@ -35,7 +35,17 @@ function wrapPglite(raw: PGlite): SqlClient {
 async function openPgliteEngine(repoRoot: string, dataDir: string): Promise<SqlClient> {
   let raw: PGlite;
   try {
-    raw = new PGlite(dataDir);
+    // P14.4：加载 pgvector 扩展（bundle 自带）；缺失则降级纯 PGlite，语义臂走暴力
+    let extensions: Record<string, unknown> | undefined;
+    try {
+      const mod = (await import("@electric-sql/pglite/vector")) as unknown as {
+        vector?: unknown;
+      };
+      if (mod?.vector) extensions = { vector: mod.vector };
+    } catch {
+      extensions = undefined;
+    }
+    raw = extensions ? new PGlite({ dataDir, extensions }) : new PGlite(dataDir);
     if ("waitReady" in raw && typeof (raw as { waitReady?: Promise<unknown> }).waitReady?.then === "function") {
       await (raw as { waitReady?: Promise<unknown> }).waitReady;
     }

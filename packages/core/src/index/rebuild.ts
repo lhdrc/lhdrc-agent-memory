@@ -8,6 +8,8 @@ import { syncAll, type SyncOptions } from "./sync.ts";
 import { invalidateSearchCache } from "../retrieve/cache.ts";
 import { invalidateEmbeddingCache } from "../retrieve/embed-cache.ts";
 import { writeEmbeddingMeta } from "./meta.ts";
+import { CHUNKER_VERSION } from "./chunksplit.ts";
+import { refreshCorpusStats } from "./stats.ts";
 import type { EmbeddingProvider } from "../embed/types.ts";
 import type { SqlClient } from "./sql.ts";
 
@@ -75,6 +77,12 @@ export async function rebuildIndex(
       await clearBrainIndex(conn.db, bid);
       const r = await syncAll(conn.db, repoRoot, bid, syncOpts);
       fileCount += r.fileCount;
+      // P14.2：重建后全量重算该 brain 统计（fail-open，不挡 rebuild）
+      try {
+        await refreshCorpusStats(conn.db, bid);
+      } catch {
+        /* fail-open */
+      }
     }
     const count = await conn.db.query<{ n: string }>(`SELECT COUNT(*) AS n FROM pages`);
     invalidateEmbeddingCache(repoRoot);
@@ -148,6 +156,7 @@ export async function embedPendingChunks(
       provider: embedder.id,
       dims: embedder.dims,
       model: embeddingModel ?? embedder.id,
+      chunker: CHUNKER_VERSION,
     });
   }
   return n;

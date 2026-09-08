@@ -6,7 +6,7 @@ import { stripCodeBlocks } from "../graph/link-extraction.ts";
  */
 export function cleanForIndex(text: string, mode: "bm25" | "semantic" = "bm25"): string {
   if (!text) return "";
-  let t = text.normalize("NFKC");
+  let t = text.normalize("NFKC").toLowerCase();
   // strip code blocks: bm25 用空格替（已做），semantic 保留首行注释/函数名由上层决定，这里统一用空格替
   const { text: stripped } = stripCodeBlocks(t);
   t = stripped;

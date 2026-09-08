@@ -6,8 +6,8 @@ import { MemoryError, ErrorCodes } from "../errors.ts";
 import { parseFrontmatter } from "../frontmatter.ts";
 import { fileToEntity } from "../entity/files.ts";
 import { semanticContentHash } from "./content-hash.ts";
-import { bigrams } from "../retrieve/ngrams.ts";
 import { cleanForIndex } from "../retrieve/clean.ts";
+import { tokenizeMixed } from "../retrieve/tokenize.ts";
 import { resolveBrainRoot } from "../repo/layout.ts";
 import type { EmbeddingProvider } from "../embed/types.ts";
 import { float32ToBytes } from "../embed/cosine.ts";
@@ -50,9 +50,19 @@ export const PAGE_COLS = [
   "fts_body",
   "title_ngrams",
   "body_ngrams",
+  "en_title",
+  "en_body",
+  "doc_len",
 ];
 
 const HIDDEN_FACT = new Set(["archived", "superseded"]);
+
+/** P14.2：空白分隔 token 计数（空串计 0）。 */
+export function countTokens(s: string): number {
+  const t = s.trim();
+  if (!t) return 0;
+  return t.split(/\s+/).length;
+}
 
 /** P11.6：索引用正文去掉 superseded fact 字面量，并附上仍有效的 facts。磁盘文件不动。 */
 export function indexBodyText(body: string, data: Record<string, unknown>): string {
@@ -71,36 +81,9 @@ export function indexBodyText(body: string, data: Record<string, unknown>): stri
   return [text.trim(), ...active].filter(Boolean).join("\n\n");
 }
 
-/** 按段落优先分块，单块 ≤ maxLen。 */
-export function chunkText(text: string, maxLen = 800): string[] {
-  const paras = text.split(/\n{2,}/);
-  const chunks: string[] = [];
-  let cur = "";
-  for (const p of paras) {
-    const trimmed = p.trim();
-    if (!trimmed) continue;
-    if (trimmed.length > maxLen) {
-      if (cur) {
-        chunks.push(cur);
-        cur = "";
-      }
-      let rest = trimmed;
-      while (rest.length > maxLen) {
-        chunks.push(rest.slice(0, maxLen));
-        rest = rest.slice(maxLen);
-      }
-      if (rest) chunks.push(rest);
-      continue;
-    }
-    if (cur && cur.length + trimmed.length + 2 > maxLen) {
-      chunks.push(cur);
-      cur = "";
-    }
-    cur = cur ? `${cur}\n\n${trimmed}` : trimmed;
-  }
-  if (cur) chunks.push(cur);
-  return chunks;
-}
+/** P14.3：边界回溯 + overlap + 碎尾合并 + 围栏 guard（实现见 chunksplit.ts；同签名）。 */
+import { chunkText, CHUNKER_VERSION } from "./chunksplit.ts";
+export { chunkText };
 
 /** 增量同步单个 page 文件；文件被物理删除时软删除索引行。 */
 export async function syncPage(
@@ -142,8 +125,18 @@ export async function syncPage(
   const cleanTitle = cleanForIndex(title, "bm25");
   const indexBody = indexBodyText(body, data);
   const cleanBody = cleanForIndex(indexBody, "bm25");
-  const titleNgrams = bigrams(cleanTitle);
-  const bodyNgrams = bigrams(cleanBody);
+  const titleTok = tokenizeMixed(cleanTitle);
+  const bodyTok = tokenizeMixed(cleanBody);
+  const titleNgrams = titleTok.cjkBigrams;
+  const bodyNgrams = bodyTok.cjkBigrams;
+  const enTitle = titleTok.enWords;
+  const enBody = bodyTok.enWords;
+  // P14.2：篇长 = 中文二元数 + 英文词数（标题 + 正文），半 BM25 支点归一用
+  const docLen =
+    countTokens(titleTok.cjkBigrams) +
+    countTokens(titleTok.enWords) +
+    countTokens(bodyTok.cjkBigrams) +
+    countTokens(bodyTok.enWords);
   // fts_* 存清洗后文本（供 GIN 物化）
   const ftsTitle = cleanTitle;
   const ftsBody = cleanBody;
@@ -154,22 +147,25 @@ export async function syncPage(
     await db.query(
       `INSERT INTO pages (${PAGE_COLS.join(", ")})
        VALUES (${PAGE_COLS.map((_, i) => `$${i + 1}`).join(", ")})
-       ON CONFLICT (path) DO UPDATE SET
-         brain_id = EXCLUDED.brain_id,
-         source_id = EXCLUDED.source_id,
-         schema_type = EXCLUDED.schema_type,
-         title = EXCLUDED.title,
-         status = EXCLUDED.status,
-         aliases_json = EXCLUDED.aliases_json,
-         frontmatter_json = EXCLUDED.frontmatter_json,
-         body_text = EXCLUDED.body_text,
-         content_hash = EXCLUDED.content_hash,
-         updated_at = EXCLUDED.updated_at,
-         fts_title = EXCLUDED.fts_title,
-         fts_body = EXCLUDED.fts_body,
-         title_ngrams = EXCLUDED.title_ngrams,
-         body_ngrams = EXCLUDED.body_ngrams`,
-       [relPath, brainId, sourceId, schemaType, title, status, aliasesJson, frontmatterJson, indexBody, hash, updatedAt, ftsTitle, ftsBody, titleNgrams, bodyNgrams],
+        ON CONFLICT (path) DO UPDATE SET
+          brain_id = EXCLUDED.brain_id,
+          source_id = EXCLUDED.source_id,
+          schema_type = EXCLUDED.schema_type,
+          title = EXCLUDED.title,
+          status = EXCLUDED.status,
+          aliases_json = EXCLUDED.aliases_json,
+          frontmatter_json = EXCLUDED.frontmatter_json,
+          body_text = EXCLUDED.body_text,
+          content_hash = EXCLUDED.content_hash,
+          updated_at = EXCLUDED.updated_at,
+          fts_title = EXCLUDED.fts_title,
+          fts_body = EXCLUDED.fts_body,
+          title_ngrams = EXCLUDED.title_ngrams,
+          body_ngrams = EXCLUDED.body_ngrams,
+          en_title = EXCLUDED.en_title,
+          en_body = EXCLUDED.en_body,
+          doc_len = EXCLUDED.doc_len`,
+        [relPath, brainId, sourceId, schemaType, title, status, aliasesJson, frontmatterJson, indexBody, hash, updatedAt, ftsTitle, ftsBody, titleNgrams, bodyNgrams, enTitle, enBody, docLen],
     );
     await db.query(`DELETE FROM chunks WHERE path = $1`, [relPath]);
     for (let i = 0; i < chunks.length; i++) {
@@ -202,10 +198,31 @@ export async function syncPage(
         await db.exec("ROLLBACK");
         throw e;
       }
+      // P14.4：双写 embedding_vec（HNSW 用）；失败不挡（暴力保底仍可用）
+      try {
+        const { ensureVectorIndex, vectorText } = await import("./vector-index.ts");
+        if (await ensureVectorIndex(db, opts.embedder.dims)) {
+          await db.exec("BEGIN");
+          try {
+            for (let i = 0; i < chunks.length; i++) {
+              await db.query(`UPDATE chunks SET embedding_vec = $1::vector WHERE id = $2`, [
+                vectorText(vectors[i]!),
+                `${relPath}#${i}`,
+              ]);
+            }
+            await db.exec("COMMIT");
+          } catch {
+            await db.exec("ROLLBACK");
+          }
+        }
+      } catch {
+        /* fail-open */
+      }
       await writeEmbeddingMeta(repoRoot, {
         provider: opts.embedder.id,
         dims: opts.embedder.dims,
         model: opts.embeddingModel ?? opts.embedder.id,
+        chunker: CHUNKER_VERSION,
       });
     } catch (e) {
       throw new MemoryError(
