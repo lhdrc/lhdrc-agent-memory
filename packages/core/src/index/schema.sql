@@ -38,6 +38,17 @@ ALTER TABLE pages ADD COLUMN IF NOT EXISTS fts_title TEXT;
 ALTER TABLE pages ADD COLUMN IF NOT EXISTS fts_body TEXT;
 ALTER TABLE pages ADD COLUMN IF NOT EXISTS title_ngrams TEXT;
 ALTER TABLE pages ADD COLUMN IF NOT EXISTS body_ngrams TEXT;
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS en_title TEXT;
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS en_body TEXT;
+-- P14.2：篇长（中文二元数 + 英文词数），半 BM25 支点归一用
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS doc_len INTEGER;
+-- P14.2：全库统计按 brain 分行（n/avgdl），批量刷、读旧值可用
+CREATE TABLE IF NOT EXISTS corpus_stats (
+  brain_id TEXT PRIMARY KEY,
+  n INTEGER NOT NULL DEFAULT 0,
+  avgdl REAL NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL
+);
 
 -- P3.1：零 LLM 建图 + 查询缓存
 CREATE TABLE IF NOT EXISTS links (
@@ -64,3 +75,5 @@ CREATE INDEX IF NOT EXISTS pages_fts_title_gin ON pages USING gin (to_tsvector('
 CREATE INDEX IF NOT EXISTS pages_fts_body_gin ON pages USING gin (to_tsvector('simple', coalesce(fts_body,'')));
 CREATE INDEX IF NOT EXISTS pages_title_ngrams_gin ON pages USING gin (to_tsvector('simple', coalesce(title_ngrams,'')));
 CREATE INDEX IF NOT EXISTS pages_body_ngrams_gin ON pages USING gin (to_tsvector('simple', coalesce(body_ngrams,'')));
+CREATE INDEX IF NOT EXISTS pages_en_title_gin ON pages USING gin (to_tsvector('english', coalesce(en_title,'')));
+CREATE INDEX IF NOT EXISTS pages_en_body_gin ON pages USING gin (to_tsvector('english', coalesce(en_body,'')));
