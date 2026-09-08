@@ -570,6 +570,21 @@ export async function compileSession(opts: CompileSessionOpts): Promise<CompileR
         /* fail-open：history 侧车不影响主流程 */
       }
     }
+    // P14.2：一批 note 写完顺手重算 corpus_stats（fail-open，读旧值可用）
+    if (written.length > 0) {
+      try {
+        const { openIndex } = await import("../index/engine.ts");
+        const { refreshCorpusStats } = await import("../index/stats.ts");
+        const conn = await openIndex(opts.repoRoot);
+        try {
+          await refreshCorpusStats(conn.db, opts.brainId);
+        } finally {
+          await conn.close();
+        }
+      } catch {
+        /* fail-open：统计不影响主流程 */
+      }
+    }
     return written;
   }, `compile session ${sessionId}`);
 

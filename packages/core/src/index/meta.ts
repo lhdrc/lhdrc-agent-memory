@@ -36,6 +36,8 @@ export interface EmbeddingMeta {
   provider: string;
   dims: number;
   model: string;
+  /** P14.3：切分版本；缺失视为旧库 → mismatch，提示 rebuild */
+  chunker?: string;
 }
 
 export function embeddingMetaPath(repoRoot: string): string {
